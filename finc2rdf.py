@@ -372,8 +372,12 @@ def getoAC(record, prop):
 
 
 def getAtID(record, prop):
-    if record.get(prop):
-        return baseuri+record[prop]
+    try:
+        if record.get(prop):
+            return baseuri+record[prop]
+    except Exception as e:
+        with open("errors.txt", 'a') as f:
+            f.write("Property: {} - baseuri {} - Exception: {} \n".format(prop, baseuri, e))
 
 
 def getGND(record, prop):
@@ -462,6 +466,10 @@ def getProperty(record, prop):
     if isinstance(prop, str):
         if prop in record:
             return record.get(prop)
+    elif isinstance(prop, tuple):
+        print(str(prop))
+        return record.get(prop[1])
+
     elif isinstance(prop, list):
         for elem in prop:
             if isinstance(record.get(elem), str):
@@ -698,6 +706,26 @@ def process_line(record):
             traceback.print_exc(file=f)
 
 
+def process_list(record):
+    for entry in record:
+        try:
+            mapline = {}
+            for key, val in mapping.items():
+                value = process_field(entry, val)
+                if value:
+                    mapline[key] = value
+            mapline = removeNone(mapline)
+            if mapline:
+                with lock:
+                    sys.stdout.write(json.dumps(mapline, indent=4)+"\n")
+                    sys.stdout.flush()
+        except Exception as e:
+            sys.stderr.write("Exception {} while traversing the mapping: ")  # \n {} - {}\n".format(e, key, val))
+            with open("errors.txt", 'a') as f:
+                traceback.print_exc(file=f)
+            quit()
+
+
 def gen_solrdump_cmd(host):
     fl = set()
     for k, v in mapping.items():
@@ -716,11 +744,21 @@ def main():
         description='simple LOD Mapping of FINC-Records')
     parser.add_argument('-gen_cmd', action="store_true",
                         help='generate bash command')
+    parser.add_argument('-file', type=str,
+                        help='defines input file, forces use of file instead of stdin')
     parser.add_argument(
         '-server', type=str, help="which server to use for harvest, only used for cmd prompt definition")
     args = parser.parse_args()
     if args.gen_cmd:
         print(gen_solrdump_cmd(args.server))
+        quit()
+    if args.file:
+        try:
+            with open(args.file) as json_file:
+                data = json.load(json_file)
+            process_list(data)
+        except FileNotFoundError:
+            sys.stderr.writelines("Cannot find file '{}'\n".format(args.file))
         quit()
     p = Pool(4)
     for line in sys.stdin:
