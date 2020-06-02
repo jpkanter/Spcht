@@ -594,6 +594,7 @@ def get_rvk(record, prop):
 
 
 def putContext(record):
+    #  this simply writes a "hard coded" blob of data, why though?
     return context
 
 # mapping={ "target_field":"someString"},
@@ -707,6 +708,11 @@ def process_line(record):
 
 
 def process_list(record):
+    # Assumption: the specified file is a list of json entries which are in turn a dictionary, the entries of the dict
+    # might be of some other types which is then handled with the original implementation
+    # this goes through the list of mappings and calls a function according to the information type presented in the
+    # "dictionaried" data. If a mapping exists it will write a link to the namespace of that particular mapping
+    # once done it writes a one big json dump with or without intendation
     for entry in record:
         try:
             mapline = {}
@@ -717,7 +723,7 @@ def process_list(record):
             mapline = removeNone(mapline)
             if mapline:
                 with lock:
-                    sys.stdout.write(json.dumps(mapline, indent=4)+"\n")
+                    sys.stdout.write(json.dumps(mapline, indent=None)+"\n")
                     sys.stdout.flush()
         except Exception as e:
             sys.stderr.write("Exception {} while traversing the mapping: ")  # \n {} - {}\n".format(e, key, val))
