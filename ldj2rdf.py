@@ -51,22 +51,22 @@ def get_context(con_dict, con_url):
             exit(-1)
 
 
-def init(l, c, m, i, f):
-    global lock
-    global con
-    global mp
-    global name
-    global format
-    mp = m
-    con = c
-    lock = l
-    format = f
-    if len(i["host"]) < 0:
-        name = str("-".join(["triples", i["host"], i["index"], i["type"], str(current_process().name)])) + "." + format
+def init(format, con, multiplayer, i_set, f_set):
+    global LOCK
+    global CON
+    global MP
+    global NAME
+    global FORMAT
+    MP = multiplayer
+    CON = con
+    LOCK = format
+    FORMAT = format
+    if len(i_set["host"]) < 0:
+        NAME = str("-".join(["triples", i_set["host"], i_set["index"], i_set["type"], str(current_process().name)])) + "." + FORMAT
     else:
-        name = str(current_process().name) + "." + format
-    if i["compression"]:
-        name += ".bz2"
+        NAME = str(current_process().name) + "." + FORMAT
+    if i_set["compression"]:
+        NAME += ".bz2"
 
 
 def adjust_or_get_context_elasticsearchScroll(doc):
@@ -115,7 +115,7 @@ def adjust_or_get_context_elasticsearchScroll(doc):
                                 "propertyID") and rvkl.get("identifier").get("propertyID") == "RVK":
                             doc[n]["about"][m]["@id"] = doc[n]["about"][m]["@id"].replace(" ", "+")
         if doc:
-            transpose_to_rdf(doc, con, text, context_included, name, format)
+            transpose_to_rdf(doc, CON, text, context_included, NAME, FORMAT)
     except Exception as e:
         with open("errors.txt", 'a') as f:
             traceback.print_exc(file=f)
@@ -139,18 +139,18 @@ def adjust_or_get_context_singledoc(doc):
         elif isinstance(doc.get("@context"), dict):
             context_included = True
         if doc:
-            transpose_to_rdf(doc, con, text, context_included, name, format)
+            transpose_to_rdf(doc, CON, text, context_included, NAME, FORMAT)
     except Exception as e:
         with open("errors.txt", 'a') as f:
             traceback.print_exc(file=f)
 
 
 def transpose_to_rdf(doc, con, text, context_included, name, f):
-    g = ConjunctiveGraph()
+    conGraph = ConjunctiveGraph()
     if text not in con:
         if not context_included:
-            if mp:
-                with lock:
+            if MP:
+                with LOCK:
                     get_context(con, text)
             else:
                 get_context(con, text)
@@ -159,17 +159,17 @@ def transpose_to_rdf(doc, con, text, context_included, name, f):
         if ".bz" in name:
             opener = bz2.open
         if context_included:
-            g.parse(data=json.dumps(doc), format='json-ld')
+            conGraph.parse(data=json.dumps(doc), format='json-ld')
         else:
-            g.parse(data=json.dumps(doc), format='json-ld', context=con[text])
+            conGraph.parse(data=json.dumps(doc), format='json-ld', context=con[text])
         with opener(name, "at") as fd:
-            print(str(g.serialize(format='nt').decode('utf-8').rstrip()), file=fd)
+            print(str(conGraph.serialize(format='nt').decode('utf-8').rstrip()), file=fd)
     else:
         if context_included:
-            g.parse(data=json.dumps(doc), format='json-ld')
+            conGraph.parse(data=json.dumps(doc), format='json-ld')
         else:
-            g.parse(data=json.dumps(doc), format='json-ld', context=con[text])
-        print(str(g.serialize(format=f).decode('utf-8').rstrip()))
+            conGraph.parse(data=json.dumps(doc), format='json-ld', context=con[text])
+        print(str(conGraph.serialize(format=f).decode('utf-8').rstrip()))
 
 
 if __name__ == "__main__":
@@ -213,22 +213,21 @@ if __name__ == "__main__":
             else:
                 args.doc = slashsplit[5]
 
-    m = Manager()
-    l = m.Lock()
-    c = m.dict()
-    i = m.dict({"host": args.host + ":" + str(args.port),
+    manager = Manager()
+    managerLock = manager.Lock()
+    managerDictC = manager.dict()
+    managerDictI = manager.dict({"host": args.host + ":" + str(args.port),
                 "type": args.type,
                 "index": args.index,
                 "compression": args.compress})
     f = args.format
     if not args.doc or not args.debug:
-        pool = Pool(processes=args.w, initializer=init, initargs=(l, c, True, i, f,))
+        pool = Pool(processes=args.w, initializer=init, initargs=(managerLock, managerDictC, True, managerDictI, f,))
     if args.scroll and not args.debug:
-        for fatload in esfatgenerator(host=args.host, port=args.port, type=args.type, index=args.index,
-                                      source_exclude="_isil,_recorddate,identifier"):
+        for fatload in esfatgenerator(host=args.host, port=args.port, type=args.type, index=args.index, source_exclude="_isil,_recorddate,identifier"):
             pool.apply_async(adjust_or_get_context_elasticsearchScroll, args=(fatload,))
     elif args.scroll and args.debug:
-        init(l, c, True, i, f, )
+        init(managerLock, managerDictC, True, managerDictI, f, )
         for fatload in esfatgenerator(host=args.host, port=args.port, type=args.type, index=args.index,
                                       source_exclude="_isil,_recorddate,identifier"):
             adjust_or_get_context_elasticsearchScroll(fatload)
@@ -236,15 +235,15 @@ if __name__ == "__main__":
         es = Elasticsearch([{'host': args.host}], port=args.port)
         record = es.get(index=args.index, doc_type=args.type, id=args.doc,
                         _source_exclude="_isil,_recorddate,identifier")
-        init(l, c, True, i, f, )
+        init(managerLock, managerDictC, True, managerDictI, f, )
         record["_source"]["@id"] = "http://d-nb.info/gnd/" + record["_source"].pop("id")
         adjust_or_get_context_singledoc(record.get("_source"))
     elif args.debug:
-        init(l, c, True, i, f, )
+        init(managerLock, managerDictC, True, managerDictI, f, )
         for line in sys.stdin:
             adjust_or_get_context_singledoc(json.loads(line))
     else:
-        init(l, c, True, i, f, )
+        init(managerLock, managerDictC, True, managerDictI, f, )
         for line in sys.stdin:
             pool.apply_async(adjust_or_get_context_singledoc, args=(json.loads(line),))
     if not args.doc or not args.debug:

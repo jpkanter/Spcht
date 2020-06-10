@@ -687,7 +687,7 @@ def removeNone(obj):
         return obj
 
 
-lock = Lock()
+LOCK = Lock()
 
 
 def process_line(record):
@@ -699,7 +699,7 @@ def process_line(record):
                 mapline[key] = value
         mapline = removeNone(mapline)
         if mapline:
-            with lock:
+            with LOCK:
                 sys.stdout.write(json.dumps(mapline, indent=None)+"\n")
                 sys.stdout.flush()
     except Exception as e:
@@ -722,7 +722,7 @@ def process_list(record):
                     mapline[key] = value
             mapline = removeNone(mapline)
             if mapline:
-                with lock:
+                with LOCK:
                     sys.stdout.write(json.dumps(mapline, indent=None)+"\n")
                     sys.stdout.flush()
         except Exception as e:
