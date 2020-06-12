@@ -1,3 +1,8 @@
+#!/usr/bin/env python
+# Stand-Alone Tool, gets some statistics about the specified solr.
+# Function: fetches x (def: 5000) entries, the enumerate over every data field to determine how many of those exist
+# Why? To see how good certain files in the database are actually filled
+
 # global python packages
 import copy
 from datetime import datetime

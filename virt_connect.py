@@ -21,7 +21,8 @@ SQLSPARQLPREFIX = "sparql "  # as i noted, its just some random magic words, jus
 
 def connect2SQL(datasource, uid, pwd):
     #  SQL Suite
-    #  DSN = data source name, the actual name you have choosen in the /etc/odbc file
+    #  DSN = data source name, the actual name you have chosen in the /etc/odbc file
+    #  http://docs.openlinksw.com/virtuoso/execpythonscript/
     sql = pyodbc.connect('DSN='+datasource+';UID='+uid+';PWD='+pwd)
     return sql
 
@@ -51,7 +52,7 @@ def QueryWrapper(sparql_query):
         return 1  # i cannot really thing about a use cases where this might happen
 
 
-# ====== END OF SQL BASES HOOKS =======
+# ====== END OF SQL BASED HOOKS =======
 
 
 def sparqlQuery(sparql_query, base_url, get_format="application/json", **kwargs):
