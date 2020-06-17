@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # connects to virtuoso and manipulates data there
 import json
+import sys
+
 import pyodbc
 import requests
 
@@ -67,10 +69,16 @@ def sparqlQuery(sparql_query, base_url, get_format="application/json", **kwargs)
         "save": "display",
         "fname": ""
     }
-    if is_dictkey(kwargs, "auth") and is_dictkey(kwargs, "pwd"):
-        response = requests.get(base_url, auth=HTTPDigestAuth(kwargs.get("auth"), kwargs.get("pwd")), params=params)
-    else:
-        response = requests.get(base_url, params=params)
+    try:
+        if is_dictkey(kwargs, "auth") and is_dictkey(kwargs, "pwd"):
+            # response = requests.get(base_url, auth=HTTPDigestAuth(kwargs.get("auth"), kwargs.get("pwd")), params=params)
+            response = requests.post(base_url, auth=HTTPDigestAuth(kwargs.get("auth"), kwargs.get("pwd")), data=params)
+        else:
+            response = requests.get(base_url, params=params)
+    except requests.exceptions.ConnectionError:
+        sys.stderr.write("Connection to Sparql-Server failed\n\r")
+        return -1
+
     if response is not None:
         if get_format == "application/json":
             return json.loads(response.text)

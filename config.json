@@ -13,7 +13,8 @@
     "sparql_user": "python",
     "sparql_pw": "TheresaSechsNull",
     "virtuoso-read": "http://localhost:8890/sparql",
-    "graph": "https://data.finc.info/resources/"
+    "graph": "https://data.finc.info/resources/",
+    "graph_label": "https://data.finc.info/resources/labels"
   },
   "settings": {
     "workers": 8

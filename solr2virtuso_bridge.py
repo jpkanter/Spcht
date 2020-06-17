@@ -65,6 +65,27 @@ def load_from_jsonld(file_path):
         send_error("graph_parser")
 
 
+def init_graph_name(file_path="init_labels.json"):
+    global URLS
+    # inserts all the description things for the other graphs, should only run once but the way
+    # sparql works it matters little to repeat it...at least i hoe that
+    try:
+        json_file = open(file_path, mode="r")
+        rdf = json.load(json_file)
+    except FileNotFoundError:
+        return -1
+    all_sparql = ""
+    for item in rdf:
+        if('s' not in item or
+           'p' not in item or
+           'o' not in item ):
+            continue
+        all_sparql += "INSERT DATA {{ GRAPH <{}> {{ {} {} {} }} }}".\
+            format(URLS['graph_label'], item['s'], item['p'], item['o'])
+
+    return sparqlQuery(all_sparql, URLS['virtuoso-write'], auth=URLS['sparql_user'], pwd=URLS['sparql_pw'])
+
+
 # monkey as in monkeypatch, its not meant to be offensive, its just that i feel pretty bad about the
 # whole things, i write a lot of lines to create something that is really only use able in development
 
@@ -138,10 +159,17 @@ def monkey_sparkle(subject, predicate, object):
             """
 
 
+def test_stdin():
+    data = sys.stdin.readlines()
+    print("Counted", len(data), "lines.")
+
 if __name__ == "__main__":
     load_config()
     print(colored("Programmstart", "green"))
-    data = load_from_jsonld("1-entry.txt")
+    test_stdin()
+    # data = load_from_jsonld("2nd-entry.txt")
     sparql = monkey_interpret_herring(data)
+    print(colored("Anzahl an Sparql Inserts: {}".format(len(sparql)), "cyan"))
     for entry in sparql:
-        sparqlQuery(entry, URLS['virtuoso-write'], auth=URLS['sparql_user'], pwd=URLS['sparql_pw'])
+        print(colored(entry, "green", attrs=["bold"]))
+        # sparqlQuery(entry, URLS['virtuoso-write'], auth=URLS['sparql_user'], pwd=URLS['sparql_pw'])
