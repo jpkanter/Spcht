@@ -44,3 +44,10 @@ def cprint_type(object, show_type=False):
         prefix = ""
 
     print(prefix, colored(object, colors.get(color, "white")))
+
+
+def list_has_elements(iterable):
+    # technically this can check more than lists, but i use it to check some crude object on having objects or not
+    for item in iterable:
+        return True
+    return False

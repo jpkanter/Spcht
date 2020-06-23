@@ -7,7 +7,7 @@ import sys
 
 from termcolor import colored
 
-from local_tools import is_dictkey, is_dict, cprint_type
+from local_tools import is_dictkey, is_dict,list_has_elements
 from pymarc.exceptions import RecordLengthInvalid, RecordLeaderInvalid, BaseAddressNotFound, BaseAddressInvalid, \
     RecordDirectoryInvalid, NoFieldsFound
 
@@ -123,6 +123,8 @@ def marc21_fixRecord(record="", record_id=0, validation=False, replace_method='d
 
 
 def marcleader2report(leader, output=sys.stdout):
+    # outputs human readable information about a marc leader
+    # text source: https://www.loc.gov/marc/bibliographic/bdleader.html
     marc_leader_text = {
         "05": {"label": "Record status",
                "a": "Increase in encoding level",
@@ -186,6 +188,22 @@ def marcleader2report(leader, output=sys.stdout):
             print(marc_leader_text.get(f'{i:02d}').get('label') + ": " + marc_leader_text.get(f'{i:02d}').get(leader[i], "unknown"), file=output)
 
 
+def normalize_marcdict(a_so_called_dictionary):
+    # all this trouble cause for some reasons pymarc insists on being awful
+    # to explain it a bit further, this is the direct outout of .as_dict() for an example file
+    # {'leader': '02546cam a2200841   4500', 'fields': [{'001': '0-023500557'}, ...
+    # the leader is okay, but why are the fields a list of single dictionaries? i really dont get it
+    the_long_unnecessary_list = a_so_called_dictionary.get('fields', None)
+    an_actual_dictionary = {}
+    if the_long_unnecessary_list is not None:
+        for mini_dict in the_long_unnecessary_list:
+            key = next(iter(mini_dict)) # Python 3.7 feature
+            an_actual_dictionary[key] = mini_dict[key]
+        return an_actual_dictionary
+    return False
+
+
+
 def marc2list(marc_full_record, validation=True, replace_method='decimal'):
     clean_marc = marc21_fixRecord(marc_full_record, validation=validation, replace_method=replace_method)
     if isinstance(clean_marc, str):  # would be boolean if something bad had happen
@@ -195,10 +213,12 @@ def marc2list(marc_full_record, validation=True, replace_method='decimal'):
             print(colored("Leader Texts", "magenta"))
             marcleader2report(record.leader)
             tempdict = {}
+            record_dict = normalize_marcdict(record.as_dict()) # for some reason i cannot access all fields,
+            # also funny, i could probably use this to traverse the entire thing ,but better save than sorry i guess
+            # sticking to the standard in case pymarc changes in a way or another
             for i in range(1000):
                 if record[f'{i:03d}'] is not None:
                     tempdict[i] = {}
-
                     for item in record[f'{i:03d}']:
                         # marc items are tuples, for title its basically 'a': 'Word', 'b': 'more Words'
                         tempdict[i][item[0]] = item[1]
@@ -206,6 +226,9 @@ def marc2list(marc_full_record, validation=True, replace_method='decimal'):
                             tempdict[i]['concat'] += " " + item[1]
                         else:
                             tempdict[i]['concat'] = item[1]
+                    if not list_has_elements(record[f'{i:03d}']):
+                        tempdict[i] = record_dict.get(f'{i:03d}')
+                        # normal len doesnt work cause no method, flat element
             marc_list.append(tempdict)
         if 0 < len(marc_list) < 2:
             return marc_list[0]

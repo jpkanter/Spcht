@@ -5,10 +5,13 @@
 import json
 import sys
 
+import pymarc
 
-from local_tools import is_dictkey, is_dict
+from local_tools import is_dictkey, is_dict, cprint_type
 from virt_connect import sparqlQuery
 from termcolor import colored
+from legacy_tools import fish_sparkle_insert, fish_sparkle, fish_longhandle, fish_interpret
+from solr_tools import marc2list, marc21_fixRecord
 
 ERROR_TXT = {}
 URLS = {}
@@ -52,7 +55,7 @@ def load_config(file_path="config.json"):
             sys.exit()
 
 
-def load_from_jsonld(file_path):
+def load_from_json(file_path):
     try:
         with open(file_path,mode='r') as rdf_file:
             return json.load(rdf_file)
@@ -63,6 +66,8 @@ def load_from_jsonld(file_path):
         send_error("json_parser")
     except:
         send_error("graph_parser")
+    # this looks like ripe for a finally block right? wrong, finally gets ALWAYS executed, we dont want that
+    return False
 
 
 def init_graph_name(file_path="init_labels.json"):
@@ -73,103 +78,75 @@ def init_graph_name(file_path="init_labels.json"):
         json_file = open(file_path, mode="r")
         rdf = json.load(json_file)
     except FileNotFoundError:
-        return -1
-    all_sparql = ""
+        return False
+    all_sparql = "INSERT IN GRAPH <{}> {\n".format(URLS['graph_label'])
     for item in rdf:
         if('s' not in item or
            'p' not in item or
            'o' not in item ):
             continue
-        all_sparql += "INSERT DATA {{ GRAPH <{}> {{ {} {} {} }} }}".\
-            format(URLS['graph_label'], item['s'], item['p'], item['o'])
-
+        all_sparql += " {} {} {} .\n".format(item['s'], item['p'], item['o'])
+    all_sparql += "}"
     return sparqlQuery(all_sparql, URLS['virtuoso-write'], auth=URLS['sparql_user'], pwd=URLS['sparql_pw'])
 
 
-# monkey as in monkeypatch, its not meant to be offensive, its just that i feel pretty bad about the
-# whole things, i write a lot of lines to create something that is really only use able in development
+def convertMapping(raw_dict, marc21="fullrecord", marc21_source="dict"):
+    # takes a raw solr query and converts it to a list of sparql queries to be inserted in a triplestore
+    # per default it assumes there is a marc entry in the solrdump but it can be proviced directly
+    # it also takes technically any dictionary with entries
+    temp_mapping = [
+        {
+            "name": "eindeutige Identifikationsnummer",
+            "source": "dict",
+            "graph": "http://data.finc.info/resources/",
+            "field": "id",
+            "type": "mandatory",
+            "fallback": {
+                "source": "marc",
+                "field": "001",
+                "subfield": "none"
+            }
+        },
+        {
+            "name": "ISSN",
+            "source": "dict",
+            "graph": "http://purl.org/ontology/bibo/issn/",
+            "field": "issn",
+            "type": "optional",
+            "fallback": {
+                "source": "marc",
+                "field": "020",
+                "subfield": "a"
+            }
+        }
+    ]
+# TODO: Redesign of the format for head data = id mapping
+# TODO: Fallback Mappings and recursive descriptors
+# TODO: Error logs for known error entries and total failures as statistic
+# TODO: Grouping of graph descriptors in an @context
+# TODO: consideration of a `fallback` tag in the dictionary
 
 
-def monkey_interpret_herring(data):
-    #  this function interprets the specific file format i got from another script, it feels very hacky
-    shorts = {}
-    subject = ""
-    node = {}
-    sparsql_queries = []
-    for entry in data.items():
-        if entry[0] == "@context":
-            for handle in entry[1].items():
-                shorts[handle[0]] = handle[1]
-                # there are some entries in @context that are not mappings, doesnt matter for the time being
-        elif entry[0] == "@id":
-            subject = entry[1]
-        else:
-            node[entry[0]] = entry[1]
+def main():
+    print(colored("Programmstart", "green"))
+    data = load_from_json("2nd-entry.txt")
+    sparql = fish_interpret(data)
+    print(colored("Anzahl an Sparql Inserts: {}".format(len(sparql)), "cyan"))
+    print(colored(fish_sparkle_insert(URLS['graph'], sparql), "green", attrs=["bold"]))
+    # sparqlQuery(entry, URLS['virtuoso-write'], auth=URLS['sparql_user'], pwd=URLS['sparql_pw'])
 
-    for key, value in node.items():
-        if isinstance(value, list):
-            print(key, "|", type(value), " - ", colored(value, "green"))
-            for element in value:  # iterate through list, statement for each entry
-                # not proud on this one
-                try:
-                    sparsql_queries.append(monkey_sparkle(subject, monkey_longhandle(shorts, key), element))
-                except TypeError:  # mostly cause monkey handle gives False
-                    pass  # error message is handled by monkey handle
-        elif isinstance(value, tuple):
-            print(key, "|", type(value), " - ", colored(value, "yellow"))
-        elif isinstance(value, str):
-            print(key, "|", type(value), " - ", colored(value, "magenta"))
-            try:
-                sparsql_queries.append(monkey_sparkle(subject, monkey_longhandle(shorts, key), value))
-            except TypeError:  # mostly cause monkey handle gives False
-                pass  # error message is handled by monkey handle
-        elif isinstance(value, dict):
-            print(key, "|", type(value), " - ", colored(value, "cyan"))
-        else:
-            print(key, "|", type(value), " - ", colored(value, "red"))
-
-    return sparsql_queries
-
-
-def monkey_longhandle(shorts, statement):
-    # this, which is not advisable, makes every short statement to a long statement, again
-    # shorts - list of @context stuff
-    # statement - already short handled stuff, example: dct:isPartOf
-    parts = statement.split(":")
-    if is_dictkey(shorts, parts[0]) and len(parts) == 2:
-        return shorts[parts[0]] + parts[1]
-    elif len(parts) == 1:
-        return statement  # basically does nothing
-    else:
-        send_error(parts[0], "@context")
-        return False
-
-
-def monkey_sparkle(subject, predicate, object):
-    # creates a simple sparkSQL query without any frills, not to be used in production
-    global URLS
-    return """INSERT DATA 
-                { GRAPH <"""+URLS['graph']+""">
-                    { 
-                        <"""+subject+"""> 
-                        <"""+predicate+"""> 
-                        '"""+object+"""' .
-                      }  
-                }
-            """
-
-
-def test_stdin():
-    data = sys.stdin.readlines()
-    print("Counted", len(data), "lines.")
 
 if __name__ == "__main__":
     load_config()
-    print(colored("Programmstart", "green"))
-    test_stdin()
-    # data = load_from_jsonld("2nd-entry.txt")
-    sparql = monkey_interpret_herring(data)
-    print(colored("Anzahl an Sparql Inserts: {}".format(len(sparql)), "cyan"))
-    for entry in sparql:
-        print(colored(entry, "green", attrs=["bold"]))
-        # sparqlQuery(entry, URLS['virtuoso-write'], auth=URLS['sparql_user'], pwd=URLS['sparql_pw'])
+    print(colored("Test Marc Stuff", "cyan"))
+
+    myfile = open("marc21test.json", "r")
+    marctest = json.load(myfile)
+    myfile.close()
+
+    print(colored(marctest, "yellow"))
+    print(json.dumps(marc2list(marctest.get('fullrecord')), indent=4))
+
+
+
+
