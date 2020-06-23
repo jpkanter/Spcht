@@ -297,6 +297,10 @@
       "wit": "ZeugeIn",
       "wpr": "VerfasserIn eines Vorworts",
       "wst": "VerfasserIn von ergänzendem Text"
+    },
+    "prop2isil": {
+      "swb_id_str": "(DE-576)",
+      "kxp_id_str": "(DE-627)"
     }
   }
 }

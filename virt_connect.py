@@ -50,8 +50,8 @@ def QueryWrapper(sparql_query):
         return response
     except pyodbc.ProgrammingError:
         return "No results.  Previous SQL was not a query."
-    finally:
-        return 1  # i cannot really thing about a use cases where this might happen
+
+    return True  # i cannot really thing about a use cases where this might happen
 
 
 # ====== END OF SQL BASED HOOKS =======
@@ -77,12 +77,15 @@ def sparqlQuery(sparql_query, base_url, get_format="application/json", **kwargs)
             response = requests.get(base_url, params=params)
     except requests.exceptions.ConnectionError:
         sys.stderr.write("Connection to Sparql-Server failed\n\r")
-        return -1
+        return False
 
-    if response is not None:
-        if get_format == "application/json":
-            return json.loads(response.text)
+    try:
+        if response is not None:
+            if get_format == "application/json":
+                return json.loads(response.text)
+            else:
+                return response.text
         else:
-            return response.text
-    else:
-        return -1
+            return False
+    except json.decoder.JSONDecodeError:
+        return response.text
