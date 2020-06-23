@@ -6,12 +6,37 @@ comments had proven tiresome
 
 ## Content
 
-### ldj2rdf.py
+## virt_connect.py & local_tools.py
 
+Different functions to provide utility for the other stuff. Nothing more than splitting different things in different files.
+
+### Functions
+
+- is_dictkey & is_dict
+
+  absolutely unncessary functions that are just shorthands for checks to get a true/false distinction. I am quite sure there is already an in-build function that does the same but i don't know it. Might be re-factored later.
+
+- connect2SQL
+
+- sparlqlQueryViaSQL
+
+- QueryWrapper
+
+  Part of the "do SparlQL Queries via the SQL Interface". Basic functionality should work but the behavior is not necessarily constant. I would rather not use this.
+
+- sparqlQuery
+
+  Simple Wrapper for the Queries to any given SparQL Endpoint, Supports the use of httpAUTH with optional Parameters `auth` and `pw`
+
+### In Development, not working as intended for now, goal is a cli style interface that can be used in conjunction with a cron job
 
 ### finc2rdf.py
 
 Takes a json formated Apache Solr Database output and formats it to a json-ld formated rdf file.
+
+### ldj2rdf.py
+
+Converts, as far as i see it, input from `finc2rdf.py` and converts it to a proper rdf format
 
 ## solr2virtuoso_bridge.py
 
