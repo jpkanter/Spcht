@@ -102,19 +102,9 @@ ENV/
 
 
 # individual stuff
-.idea
 helperscripts
 luigi
 processing
 tests
-/stats.json
 /errors.txt
-/50-entries.json
-/50-entries.txt
-/500entries.jsonld
-/500indent.json
-/500sequential.json
 /debug.json
-/1-entry.txt
-/2nd-entry.txt
-/randomSparlqls.txt
