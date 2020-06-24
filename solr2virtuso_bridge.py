@@ -90,36 +90,59 @@ def init_graph_name(file_path="init_labels.json"):
     return sparqlQuery(all_sparql, URLS['virtuoso-write'], auth=URLS['sparql_user'], pwd=URLS['sparql_pw'])
 
 
-def convertMapping(raw_dict, marc21="fullrecord", marc21_source="dict"):
+def convertMapping(raw_dict, graph, marc21="fullrecord", marc21_source="dict"):
     # takes a raw solr query and converts it to a list of sparql queries to be inserted in a triplestore
     # per default it assumes there is a marc entry in the solrdump but it can be proviced directly
     # it also takes technically any dictionary with entries
-    temp_mapping = [
-        {
-            "name": "eindeutige Identifikationsnummer",
-            "source": "dict",
-            "graph": "http://data.finc.info/resources/",
-            "field": "id",
-            "type": "mandatory",
-            "fallback": {
-                "source": "marc",
-                "field": "001",
-                "subfield": "none"
-            }
+    temp_mapping = {
+        "id_source": "dict",
+        "id_field": "id",
+        "id_fallback": {
+            "source": "marc",
+            "field": "001",
+            "subfield": "none"
         },
-        {
-            "name": "ISSN",
-            "source": "dict",
-            "graph": "http://purl.org/ontology/bibo/issn/",
-            "field": "issn",
-            "type": "optional",
-            "fallback": {
-                "source": "marc",
-                "field": "020",
-                "subfield": "a"
+        "nodes": [
+            {
+                "name": "ISBN",
+                "source": "dict",
+                "graph": "http://purl.org/ontology/bibo/isbn",
+                "field": "isbn",
+                "type": "optional",
+                "fallback": {
+                    "source": "marc",
+                    "field": "020",
+                    "subfield": "a"
+                }
+            },
+            {
+                "name": "ISSN",
+                "source": "dict",
+                "graph": "http://purl.org/ontology/bibo/issn/",
+                "field": "issn",
+                "type": "optional",
+                "fallback": {
+                    "source": "marc",
+                    "field": "022",
+                    "subfield": "a"
+                }
+            },
+            {
+                "name": "Titel des Werkes",
+                "source": "dict",
+                "graph": "http://purl.org/dc/terms/title",
+                "field": "title",
+                "alternatives": ["title_full", "title_fullStr", "title_full_unstemmed"],
+                "type": "mandatory",
+                "fallback": {
+                    "source": "marc",
+                    "field": "245",
+                    "subfield": "concat",
+                    "comment": "concat might not be the best source, marc:245 seems complex, TODO"  # ? how?
+                }
             }
-        }
-    ]
+        ]
+    }
 # TODO: Redesign of the format for head data = id mapping
 # TODO: Fallback Mappings and recursive descriptors
 # TODO: Error logs for known error entries and total failures as statistic

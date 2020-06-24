@@ -51,26 +51,40 @@ Technically this is a _json_ file describing the way the script is supposed to m
 Lets get started with an example:
 
 ```json
-[
-    {
-     "name": "ISSN",
-        "source": "dict",
-        "graph": "http://purl.org/ontology/bibo/issn/",
-        "field": "issn",
-        "type": "optional",
-        "fallback": {
-            "source": "marc",
-            "field": "020",
-            "subfield": "a"
-        }
-    }
-]
+{
+    "id_source": "dict",
+    "id_field": "id",
+    "id_fallback": {
+        "source": "marc",
+        "field": "001",
+        "subfield": "none"
+    },
+    "nodes": [
+        {
+            "name": "ISBN",
+            "source": "dict",
+            "graph": "http://purl.org/ontology/bibo/isbn",
+            "field": "isbn",
+            "type": "optional",
+            "fallback": {
+                "source": "marc",
+                "field": "020",
+                "subfield": "a"
+            }
+        },
+        {...},
+        {...},
+         ...
+    ]
+}
 ```
 
-The basic structure is a list of dictionaries. Each dictionary contains the mapping for one data field that _can_ result in more than one graph-node.
+The basic structure is a core entry for the graph and a list of dictionaries. Each dictionary contains the mapping for one data field that _can_ result in more than one graph-node.
 
 #### actual mapping:
 
+* Fields labeled with a prefix `id_` to be found in the head information respectively the root contain the basic informations about the graph we are trying to construct. It behaves in many ways the same as the node-dictionaries including the fall-back excluding only the need for a graph
+* `nodes` - this contains the description of all nodes. I renounced the idea of calling it *fish-bones*, a metaphor can only be stretched so far.
 * `name` - the name doesn't serve any purpose, you may display it while processing but its just there so you have a better overview, while this is superfluous for the program human readability seems like something to wish for
   * Values: `anything`
 * `source` - source for the data field, if its a dictionary `field`is the key we are looking for. If the source is to be found in a corresponding MARC21 entry `field` describes the Entry Number ranging from 000 to 999. There is also a necessary `subfield` as most MARC21 entries do not lay on the root.
@@ -86,7 +100,7 @@ The basic structure is a list of dictionaries. Each dictionary contains the mapp
   * Values: `an entry dictionary {}`
 * `type` - if everything fails, all fall backs are not to be found and all alternatives yield nothing and the `type` is set to mandatory the whole entry gets discarded, if some basic data could be gathered the list of errors gets a specific entry, otherwise there is only a counter of indescribable mapping errors being incremented by one. 
   * Values: `optional`, `mandatory`
-
+* other fields: the salmon descriptor format is meant to be a human readable configuration file, you can add any field you might like to make things more clear is not described to hold a function. For future extension it would be safest to stick to two particular dictionary-keys: `name` and `comment`
 ## Requirements
 
 * python3-rdflib 
