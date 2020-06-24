@@ -1,11 +1,11 @@
 from termcolor import colored
 
 
-def is_dictkey(dictionary, key):
-    if key in dictionary:
-        return True
-    else:
-        return False
+def is_dictkey(dictionary, *keys):
+    for key in keys:
+        if not key in dictionary:
+            return False
+    return True
 
 
 def is_dict(variable):  # for all intends and purposes this is just an alias for isinstance

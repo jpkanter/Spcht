@@ -90,8 +90,106 @@ def init_graph_name(file_path="init_labels.json"):
     return sparqlQuery(all_sparql, URLS['virtuoso-write'], auth=URLS['sparql_user'], pwd=URLS['sparql_pw'])
 
 
-def check_salmon_format(salmon_dictionary):
+def check_salmon_format(salmon_dictionary, out=sys.stderr, i18n=None):
+    # checks the format for any miss shaped data structures
+    # * what it does not check for is illogical entries like having alternatives for a pure marc source
+    # for language stuff i give you now the ability to actually provide local languages
+    error_desc = {
+        "header_miss": "The main header informations [id_source, id_field, main] are missing, is this even the right file?",
+        "header_mal": "The header information seems to be malformed",
+        "basic_struct": "Elements of the basic structure ( [source, field, type] ) are missing",
+        "marc_subfield": "Every marc entry needs a field AND a subfield item, cannot find subfield.",
+        "field_str": "The field entry has to be a string",
+        "type_str": "The type entry has to be a string and contain either: 'mandatory' or 'optional",
+        "type_chk": "Type-String can only 'mandatory' or 'optional'. Maybe encoding error?",
+        "alt_list": "Alternatives must be a list of strings, eg: ['item1', 'item2']",
+        "alt_list_str": "Every entry in the alternatives list has to be a string",
+        "fallback": "-> structure of the fallback node contains errors",
+        "nodes": "-> error in structure of Node",
+        "fallback_dict": "Fallback structure must be an dictionary build like a regular node"
+    }
+    if isinstance(i18n, dict):
+        for key, value in error_desc.items():
+            if is_dictkey(i18n, key) and isinstance(i18n[key], str):
+                error_desc[key] = i18n[key]
+    # ? this should probably be in every reporting function which bears the question if its not possible in another way
+    # checks basic infos
+    if not is_dictkey(salmon_dictionary, 'id_source', 'id_field', 'nodes'):
+        print(error_desc['header_miss'], file=out)
+        return False
+    # transforms header in a special node to avoid boiler plate code
+    header_node = {
+        "source": salmon_dictionary.get('id_source'),
+        "field": salmon_dictionary.get('id_field'),
+        "subfield": salmon_dictionary.get('id_subfield', None),
+        "alternatives": salmon_dictionary.get('id_alternatives', None),
+        "fallback": salmon_dictionary.get('id_fallback', None)
+    }  # ? there must be a better way for this mustn't it?
+    # a lot of things just to make sure the header node is correct, its almost like there is a better way
+    plop = []
+    for key, value in header_node.items():  # this removes the none existent entries cause i dont want to add more checks
+        if value is None:
+            plop.append(key)  # what you cant do with dictionaries you iterate through is removing keys while doing so
+    for key in plop:
+        header_node.pop(key, None)
+    del plop
+
+    #the actual header check
+    if not check_salmon_format_node(header_node, error_desc, out):
+        print("header_mal", file=out)
+        return False
+    # end of header checks
+    for node in salmon_dictionary['nodes']:
+        if not check_salmon_format_node(node, error_desc, out, True):
+            print(error_desc['nodes'], node.get('name', node.get('field', "unknown")), file=out)
+            return False
     # ! make sure everything that has to be here is here
+    return True
+
+
+def check_salmon_format_node(node, error_desc, out, is_root=False):
+    # @param node - a dictionary with a single node in it
+    # @param error_desc - the entire flat dictionary of error texts
+    # * i am writing print & return a lot here, i really considered making a function so i can do "return funct()"
+    # * but what is the point? Another sub function to save one line of text each time and obfuscate the code more?
+    if not is_root and not is_dictkey(node, 'source', 'field'):
+        print(error_desc['basic_struct'], file=out)
+        return False
+    if is_root and not is_dictkey(node, 'source', 'field', 'type'):
+        print(error_desc['basic_struct'], file=out)
+        return False
+    if node['source'] == "marc":
+        if not is_dictkey(node, 'subfield'):
+            print(error_desc['marc_subfield'], file=out)
+            return False
+    if not isinstance(node['field'], str):  # ? is a one character string a chr?
+        print(error_desc['field_str'], file=out)
+        return False
+    # root node specific things
+    if is_root:
+        if not isinstance(node['type'], str):
+            print(error_desc['type_str'], file=out)
+            return False
+        if node['type'] != "optional" and node['type'] != "mandatory":
+            print(error_desc['type_chk'], file=out)
+            return False
+    if is_dictkey(node, 'alternatives'):
+        if not isinstance(node['alternatives'], list):
+            print(error_desc['alt_list'], file=out)
+            return False
+        else:  # this else is redundant, its here for you dear reader
+            for item in node['alternatives']:
+                if not isinstance(item, str):
+                    print(error_desc['alt_list_str'], file=out)
+                    return False
+    if is_dictkey(node, 'fallback'):
+        if isinstance(node['fallback'], dict):
+            if not check_salmon_format_node(node['fallback'], error_desc, out):  # ! this is recursion
+                print(error_desc['fallback'], file=out)
+                return False
+        else:
+            print(error_desc['fallback_dict'], file=out)
+            return False
     return True
 
 
@@ -110,11 +208,11 @@ def salmon_recursion_node(sub_dict, raw_dict, marc21_dict=None):
             pass
         else:
             print(colored("some Marc", "yellow"))
-            if is_dictkey(marc21_dict, sub_dict['field']):
+            if is_dictkey(marc21_dict, sub_dict['field'].lstrip("0")):
                 if sub_dict['subfield'] == 'none':
                     return marc21_dict[sub_dict['field']]
-                elif is_dictkey(marc21_dict[sub_dict['field']], sub_dict['subfield']):
-                    return marc21_dict[sub_dict['field']][sub_dict['subfield']]
+                elif is_dictkey(marc21_dict[sub_dict['field'].lstrip("0")], sub_dict['subfield']):
+                    return marc21_dict[sub_dict['field'].lstrip("0")][sub_dict['subfield']]
         # ! this handling of the marc format is probably too simply
         # TODO: gather more samples of awful marc and process it
     elif sub_dict['source'] == "dict":
@@ -191,6 +289,7 @@ def convertMapping(raw_dict, graph, marc21="fullrecord", marc21_source="dict"):
             }
         ]
     }
+    print("Check Salmon", check_salmon_format(temp_mapping))
     salmon = temp_mapping  # salmon descriptor format - sdf
 # Preparation of Data to make it more handy in the further processing
     marc21_record = None # setting a default here
@@ -237,7 +336,8 @@ def convertMapping(raw_dict, graph, marc21="fullrecord", marc21_source="dict"):
                 print(facet, colored("I cannot handle that for the moment", "magenta"))
     else:
         return False  # ? or none?
-    print(list_of_sparql_inserts)
+    for line in list_of_sparql_inserts:
+        print(line, end="\r")
 
 # TODO: Error logs for known error entries and total failures as statistic
 # TODO: Grouping of graph descriptors in an @context
