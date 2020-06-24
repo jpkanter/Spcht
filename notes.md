@@ -49,3 +49,17 @@ for entry in data.items():
         print(colored(i, "cyan", attrs=["bold"]))
 ```
 
+
+
+```python
+if salmon['id_source'] == "dict":
+    if is_dictkey(raw_dict, salmon['id_field']):
+        ressource = raw_dict[salmon['id_field']]
+    elif is_dictkey(salmon, "id_alternatives"):
+        for entry in salmon['id_alternatives']:
+            if is_dictkey(raw_dict, entry):
+                ressource = raw_dict[entry]
+    elif is_dictkey(salmon, "id_fallback"):
+       ressource = salmon_recursion_node(salmon['id_fallback'])
+```
+

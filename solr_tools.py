@@ -203,15 +203,12 @@ def normalize_marcdict(a_so_called_dictionary):
     return False
 
 
-
 def marc2list(marc_full_record, validation=True, replace_method='decimal'):
     clean_marc = marc21_fixRecord(marc_full_record, validation=validation, replace_method=replace_method)
     if isinstance(clean_marc, str):  # would be boolean if something bad had happen
         reader = pymarc.MARCReader(clean_marc.encode('utf-8'))
         marc_list = []
         for record in reader:
-            print(colored("Leader Texts", "magenta"))
-            marcleader2report(record.leader)
             tempdict = {}
             record_dict = normalize_marcdict(record.as_dict()) # for some reason i cannot access all fields,
             # also funny, i could probably use this to traverse the entire thing ,but better save than sorry i guess

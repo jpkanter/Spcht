@@ -5,7 +5,7 @@ from local_tools import is_dictkey
 
 
 def fish_interpret(data):
-    #  this function interprets the specific file format i got from another script, it feels very hackyp
+    #  this function interprets the specific file format i got from another script, it feels very hacky
     shorts = {}
     subject = ""
     node = {}

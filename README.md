@@ -85,7 +85,8 @@ The basic structure is a core entry for the graph and a list of dictionaries. Ea
 
 * Fields labeled with a prefix `id_` to be found in the head information respectively the root contain the basic informations about the graph we are trying to construct. It behaves in many ways the same as the node-dictionaries including the fall-back excluding only the need for a graph
 * `nodes` - this contains the description of all nodes. I renounced the idea of calling it *fish-bones*, a metaphor can only be stretched so far.
-* `name` - the name doesn't serve any purpose, you may display it while processing but its just there so you have a better overview, while this is superfluous for the program human readability seems like something to wish for
+  * Values: a list of dictionaries.
+* `name` - the name doesn't serve any purpose, you may display it while processing but its just there so you have a better overview, while this is superfluous for the program, human readability seems like something to wish for.
   * Values: `anything`
 * `source` - source for the data field, if its a dictionary `field`is the key we are looking for. If the source is to be found in a corresponding MARC21 entry `field` describes the Entry Number ranging from 000 to 999. There is also a necessary `subfield` as most MARC21 entries do not lay on the root.
   * Values: `dict` and `marc`
