@@ -226,6 +226,24 @@ def main():
     write_statistic()
 
 
+def crawl_multi(list_of_ids, outfile):
+    global MAIN_URL
+    load_config()
+    file = open(list_of_ids "r")
+    lines = file.readlines()
+    file.close()
+    entries = []
+    for item in lines:
+        temp_url_param = copy.deepcopy(MAIN_URL_PARAM)
+        temp_url_param['q'] = "id:"+item.rstrip()
+        temp_url_param['rows'] = "1"
+        data = test_json(load_remote_content(MAIN_URL, temp_url_param))
+        entries.append(data.get('response').get('docs')[0])
+    out = open(outfile, "w")
+    json.dump(entries, out, indent=4)
+    out.close()
+
+
 if __name__ == "__main__":
     main()
     print("Overall Executiontime was {} seconds".format(str(round(time.time() - start_time, 3))))
