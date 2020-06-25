@@ -10,7 +10,7 @@ import pymarc
 from local_tools import is_dictkey, is_dict, cprint_type
 from virt_connect import sparqlQuery
 from termcolor import colored
-from legacy_tools import fish_sparkle_insert, fish_sparkle, fish_longhandle, fish_interpret
+from legacy_tools import bird_sparkle_insert, bird_sparkle, bird_longhandle, fish_interpret
 from solr_tools import marc2list, marc21_fixRecord
 
 ERROR_TXT = {}
@@ -90,7 +90,7 @@ def init_graph_name(file_path="init_labels.json"):
     return sparqlQuery(all_sparql, URLS['virtuoso-write'], auth=URLS['sparql_user'], pwd=URLS['sparql_pw'])
 
 
-def check_salmon_format(salmon_dictionary, out=sys.stderr, i18n=None):
+def check_spcht_format(spcht_dictionary, out=sys.stderr, i18n=None):
     # checks the format for any miss shaped data structures
     # * what it does not check for is illogical entries like having alternatives for a pure marc source
     # for language stuff i give you now the ability to actually provide local languages
@@ -114,16 +114,16 @@ def check_salmon_format(salmon_dictionary, out=sys.stderr, i18n=None):
                 error_desc[key] = i18n[key]
     # ? this should probably be in every reporting function which bears the question if its not possible in another way
     # checks basic infos
-    if not is_dictkey(salmon_dictionary, 'id_source', 'id_field', 'nodes'):
+    if not is_dictkey(spcht_dictionary, 'id_source', 'id_field', 'nodes'):
         print(error_desc['header_miss'], file=out)
         return False
     # transforms header in a special node to avoid boiler plate code
     header_node = {
-        "source": salmon_dictionary.get('id_source'),
-        "field": salmon_dictionary.get('id_field'),
-        "subfield": salmon_dictionary.get('id_subfield', None),
-        "alternatives": salmon_dictionary.get('id_alternatives', None),
-        "fallback": salmon_dictionary.get('id_fallback', None)
+        "source": spcht_dictionary.get('id_source'),
+        "field": spcht_dictionary.get('id_field'),
+        "subfield": spcht_dictionary.get('id_subfield', None),
+        "alternatives": spcht_dictionary.get('id_alternatives', None),
+        "fallback": spcht_dictionary.get('id_fallback', None)
     }  # ? there must be a better way for this mustn't it?
     # a lot of things just to make sure the header node is correct, its almost like there is a better way
     plop = []
@@ -135,19 +135,19 @@ def check_salmon_format(salmon_dictionary, out=sys.stderr, i18n=None):
     del plop
 
     #the actual header check
-    if not check_salmon_format_node(header_node, error_desc, out):
+    if not check_spcht_format_node(header_node, error_desc, out):
         print("header_mal", file=out)
         return False
     # end of header checks
-    for node in salmon_dictionary['nodes']:
-        if not check_salmon_format_node(node, error_desc, out, True):
+    for node in spcht_dictionary['nodes']:
+        if not check_spcht_format_node(node, error_desc, out, True):
             print(error_desc['nodes'], node.get('name', node.get('field', "unknown")), file=out)
             return False
     # ! make sure everything that has to be here is here
     return True
 
 
-def check_salmon_format_node(node, error_desc, out, is_root=False):
+def check_spcht_format_node(node, error_desc, out, is_root=False):
     # @param node - a dictionary with a single node in it
     # @param error_desc - the entire flat dictionary of error texts
     # * i am writing print & return a lot here, i really considered making a function so i can do "return funct()"
@@ -184,7 +184,7 @@ def check_salmon_format_node(node, error_desc, out, is_root=False):
                     return False
     if is_dictkey(node, 'fallback'):
         if isinstance(node['fallback'], dict):
-            if not check_salmon_format_node(node['fallback'], error_desc, out):  # ! this is recursion
+            if not check_spcht_format_node(node['fallback'], error_desc, out):  # ! this is recursion
                 print(error_desc['fallback'], file=out)
                 return False
         else:
@@ -193,7 +193,7 @@ def check_salmon_format_node(node, error_desc, out, is_root=False):
     return True
 
 
-def salmon_recursion_node(sub_dict, raw_dict, marc21_dict=None):
+def spcht_recursion_node(sub_dict, raw_dict, marc21_dict=None):
     # i do not like the general use of recursion, but for traversing trees this seems the best solution
     # there is actually not so much overhead in python, its more one of those stupid feelings, i googled some
     # random reddit thread: https://old.reddit.com/r/Python/comments/4hkds8/do_you_recommend_using_recursion_in_python_why_or/
@@ -229,7 +229,7 @@ def salmon_recursion_node(sub_dict, raw_dict, marc21_dict=None):
         # * this is it, the dreaded recursion, this might happen a lot of times, depending on how motivated the
         # * librarian was who wrote the descriptor format
         print(colored("Fallback triggered", "yellow"), sub_dict.get('fallback'))
-        return salmon_recursion_node(sub_dict['fallback'], raw_dict, marc21_dict)
+        return spcht_recursion_node(sub_dict['fallback'], raw_dict, marc21_dict)
     else:
         print(colored("absolutlty nothing", "yellow"))
         return None  # usually i return false in these situations, but none seems appropriate
@@ -289,8 +289,8 @@ def convertMapping(raw_dict, graph, marc21="fullrecord", marc21_source="dict"):
             }
         ]
     }
-    print("Check Salmon", check_salmon_format(temp_mapping))
-    salmon = temp_mapping  # salmon descriptor format - sdf
+    print("Check Spcht", check_spcht_format(temp_mapping))
+    spcht = temp_mapping  # spcht descriptor format - sdf
 # Preparation of Data to make it more handy in the further processing
     marc21_record = None # setting a default here
     if marc21_source == "dict":
@@ -301,20 +301,19 @@ def convertMapping(raw_dict, graph, marc21="fullrecord", marc21_source="dict"):
         return False  # TODO alternative marc source options
         # ? what if there are just no marc data and we know that in advance?
     list_of_sparql_inserts = []
-# generate core graph, i presume we already checked the salmon for being fresh
-# TODO check function to make sure the salmon is fresh = the format is correct
+# generate core graph, i presume we already checked the spcht for being corredct
 # ? instead of making one hard coded go i could insert a special round of the general loop right?
     sub_dict = {
-        "source": salmon.get('id_source'),
-        "field": salmon.get('id_field'),
-        "subfield": salmon.get('id_subfield', None),
-        "alternatives": salmon.get('id_alternatives', None),
-        "fallback": salmon.get('id_fallback', None)
+        "source": spcht.get('id_source'),
+        "field": spcht.get('id_field'),
+        "subfield": spcht.get('id_subfield', None),
+        "alternatives": spcht.get('id_alternatives', None),
+        "fallback": spcht.get('id_fallback', None)
     }
-    ressource = salmon_recursion_node(sub_dict, raw_dict, marc21_record)
+    ressource = spcht_recursion_node(sub_dict, raw_dict, marc21_record)
     print("Res", colored(ressource, "green"))
     if ressource is not None:
-        for node in salmon['nodes']:
+        for node in spcht['nodes']:
             sub_dict = {  # this is boilerplate from above but i found no apparent solution to it
                 "source": node['source'],  # i want to throw this exceptions, but the format is checked anyway right?!
                 "field": node['field'],
@@ -322,16 +321,16 @@ def convertMapping(raw_dict, graph, marc21="fullrecord", marc21_source="dict"):
                 "alternatives": node.get('alternatives', None),
                 "fallback": node.get('fallback', None)
             }
-            facet = salmon_recursion_node(sub_dict, raw_dict, marc21_record)
+            facet = spcht_recursion_node(sub_dict, raw_dict, marc21_record)
             print(colored(facet, "cyan"))
             if facet is None:
                 if node['type'] == "mandatory":
                     return False  # cannot continue without mandatory fields
             elif isinstance(facet, str):
-                list_of_sparql_inserts.append(fish_sparkle(graph + ressource, node['graph'], facet))
+                list_of_sparql_inserts.append(bird_sparkle(graph + ressource, node['graph'], facet))
             elif isinstance(facet, list):
                 for item in facet:
-                    list_of_sparql_inserts.append(fish_sparkle(graph + ressource, node['graph'], item))
+                    list_of_sparql_inserts.append(bird_sparkle(graph + ressource, node['graph'], item))
             else:
                 print(facet, colored("I cannot handle that for the moment", "magenta"))
     else:
@@ -345,13 +344,13 @@ def convertMapping(raw_dict, graph, marc21="fullrecord", marc21_source="dict"):
 # TODO: learn how to properly debug in python, i am quite sure print isn't the way to go
 
 
-# * other stuff that gets definetly deleted later on
+# * other stuff that gets definitely deleted later on
 def other_fish():
     print(colored("Programmstart", "green"))
     data = load_from_json("2nd-entry.txt")
     sparql = fish_interpret(data)
     print(colored("Anzahl an Sparql Inserts: {}".format(len(sparql)), "cyan"))
-    print(colored(fish_sparkle_insert(URLS['graph'], sparql), "green", attrs=["bold"]))
+    print(colored(bird_sparkle_insert(URLS['graph'], sparql), "green", attrs=["bold"]))
     # sparqlQuery(entry, URLS['virtuoso-write'], auth=URLS['sparql_user'], pwd=URLS['sparql_pw'])
 
 

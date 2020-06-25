@@ -42,11 +42,11 @@ Converts, as far as i see it, input from `finc2rdf.py` and converts it to a prop
 
 The main piece of work here, developed to do all the heavy lifting. It introduces a setting/descriptor format to actually map corresponding data fields from the apache solr database to sparql queries. The functions in the code do not actually require a solr as input source, if you have any other way to retrieve pure _jsoned_ dictionaries with a simple file structure it should also work. Or at least should be possible to easily modify the code to use such a source.
 
-### the salmon descriptor format
+### the Spcht descriptor format
 
 > "We do not have enough obscure standards." - No-one ever
 
-Technically this is a _json_ file describing the way the script is supposed to map the input to actual linked data. This was done to keep it adjustable and general so others might be able to use it. There is no specific reason for the name except that i had salmon for lunch.
+Technically this is a _json_ file describing the way the script is supposed to map the input to actual linked data. This was done to keep it adjustable and general so others might be able to use it. The name is in tradition of naming things after miss-written birds.
 
 Lets get started with an example:
 
@@ -84,10 +84,10 @@ The basic structure is a core entry for the graph and a list of dictionaries. Ea
 #### actual mapping:
 
 * Fields labeled with a prefix `id_` to be found in the head information respectively the root contain the basic informations about the graph we are trying to construct. It behaves in many ways the same as the node-dictionaries including the fall-back excluding only the need for a graph
-* `nodes` - this contains the description of all nodes. I renounced the idea of calling it *fish-bones*, a metaphor can only be stretched so far.
+* `nodes` - this contains the description of all nodes. I renounced the idea of calling it *feathers*, a metaphor can only be stretched so far.
   * Values: a list of dictionaries.
-* `name` - the name doesn't serve any purpose, you may display it while processing but its just there so you have a better overview, while this is superfluous for the program, human readability seems like something to wish for.
-  * Values: `anything`
+* `name` - the name doesn't serve any purpose, you may display it while processing but its just there so you have a better overview, while this is superfluous for the program, human readability seems like something to wish for. While not used for any processing the error reporting engine of the format checker uses it to clarify the position of an error but doesn't need it desperately.
+  * Values: `any string`
 * `source` - source for the data field, if its a dictionary `field`is the key we are looking for. If the source is to be found in a corresponding MARC21 entry `field` describes the Entry Number ranging from 000 to 999. There is also a necessary `subfield` as most MARC21 entries do not lay on the root.
   * Values: `dict` and `marc`
 * `graph` - the actual mapping to linked data. Before sending sparql queries the script will shorten all entries accordingly. If you have multiple entries of the same source they will be grouped. I decided that for this kind of configuration file it is best to leave as many information to the bare eye as possible.
@@ -101,7 +101,7 @@ The basic structure is a core entry for the graph and a list of dictionaries. Ea
   * Values: `an entry dictionary {}`
 * `type` - if everything fails, all fall backs are not to be found and all alternatives yield nothing and the `type` is set to mandatory the whole entry gets discarded, if some basic data could be gathered the list of errors gets a specific entry, otherwise there is only a counter of indescribable mapping errors being incremented by one. 
   * Values: `optional`, `mandatory`
-* other fields: the salmon descriptor format is meant to be a human readable configuration file, you can add any field you might like to make things more clear is not described to hold a function. For future extension it would be safest to stick to two particular dictionary-keys: `name` and `comment`
+* other fields: the spcht descriptor format is meant to be a human readable configuration file, you can add any field you might like to make things more clear is not described to hold a function. For future extension it would be safest to stick to two particular dictionary-keys: `name` and `comment`
 ## Requirements
 
 * python3-rdflib 

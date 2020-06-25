@@ -26,7 +26,7 @@ def fish_interpret(data):
             for element in value:  # iterate through list, statement for each entry
                 # not proud on this one
                 try:
-                    sparsql_queries.append(fish_sparkle(subject, fish_longhandle(shorts, key), element))
+                    sparsql_queries.append(bird_sparkle(subject, bird_longhandle(shorts, key), element))
                 except TypeError:  # mostly cause monkey handle gives False
                     pass  # error message is handled by monkey handle
         elif isinstance(value, tuple):
@@ -34,7 +34,7 @@ def fish_interpret(data):
         elif isinstance(value, str):
             # print(key, "|", type(value), " - ", colored(value, "magenta"))
             try:
-                sparsql_queries.append(fish_sparkle(subject, fish_longhandle(shorts, key), value))
+                sparsql_queries.append(bird_sparkle(subject, bird_longhandle(shorts, key), value))
             except TypeError:  # mostly cause monkey handle gives False
                 pass  # error message is handled by monkey handle
         elif isinstance(value, dict):
@@ -45,7 +45,7 @@ def fish_interpret(data):
     return sparsql_queries
 
 
-def fish_longhandle(shorts, statement):
+def bird_longhandle(shorts, statement):
     # this, which is not advisable, makes every short statement to a long statement, again
     # shorts - list of @context stuff
     # statement - already short handled stuff, example: dct:isPartOf
@@ -59,12 +59,12 @@ def fish_longhandle(shorts, statement):
         return False
 
 
-def fish_sparkle(subject, predicate, object):
+def bird_sparkle(subject, predicate, object):
     # creates a simple sparkSQL query without any frills, not to be used in production
     return "<{}> <{}> \"{}\" .\n".format(subject, predicate, object)
 
 
-def fish_sparkle_insert(graph, insert_list):
+def bird_sparkle_insert(graph, insert_list):
     sparkle = "INSERT IN GRAPH <{}> {{\n".format(graph)
     for entry in insert_list:
         sparkle += entry
