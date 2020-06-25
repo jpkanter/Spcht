@@ -344,6 +344,10 @@ def eprint(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
 
 
+# ? prop2isil = {"swb_id_str": "(DE-576)",
+# ?            "kxp_id_str": "(DE-627)"
+# ?            }
+
 def getIDs(record, prop):
     if isinstance(prop, str):
         if prop in prop2isil and prop in record:

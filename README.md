@@ -84,24 +84,59 @@ The basic structure is a core entry for the graph and a list of dictionaries. Ea
 #### actual mapping:
 
 * Fields labeled with a prefix `id_` to be found in the head information respectively the root contain the basic informations about the graph we are trying to construct. It behaves in many ways the same as the node-dictionaries including the fall-back excluding only the need for a graph
+
 * `nodes` - this contains the description of all nodes. I renounced the idea of calling it *feathers*, a metaphor can only be stretched so far.
+  
   * Values: a list of dictionaries.
+  
 * `name` - the name doesn't serve any purpose, you may display it while processing but its just there so you have a better overview, while this is superfluous for the program, human readability seems like something to wish for. While not used for any processing the error reporting engine of the format checker uses it to clarify the position of an error but doesn't need it desperately.
+  
   * Values: `any string`
+  
 * `source` - source for the data field, if its a dictionary `field`is the key we are looking for. If the source is to be found in a corresponding MARC21 entry `field` describes the Entry Number ranging from 000 to 999. There is also a necessary `subfield` as most MARC21 entries do not lay on the root.
+  
   * Values: `dict` and `marc`
+  
 * `graph` - the actual mapping to linked data. Before sending sparql queries the script will shorten all entries accordingly. If you have multiple entries of the same source they will be grouped. I decided that for this kind of configuration file it is best to leave as many information to the bare eye as possible.
+  
   * Values: `a fully qualify graph descriptor string`
+  
 * `field`, `subfield` - describes in which linear data field the corresponding data can be found. `subfield` is only really needed if you work with a MARC21 entry. _The leading 0 of the MARC21 entry gets omitted, `020` equals `20`._
+  
   * Value: `a string`
+  
 * `alternatives` - there is possibility that a specific data field isn't always available in your given database but you know there are other keys that might contain the desired data. `alternatives` is a list of different dictionary keys which will be tried in order of their appearance.
+  
   * Values: `a list of strings [str, str, str]`
+  
 * `fallback` - if the current specified source isn't available you may describe an alternative. Currently only "_marc_" or "_dict_" are possible entries. You can use the same source with different fields to generate a fall-back order. _eg. if dict key "summer" isn't available the fall-back will also look into the dict but use the field "winter_ You may also just use `alternatives` for this.
   The sub-dictionary of `fallback` contains another dictionary descriptor. You may chain sub-dictionaries _ad infinitum_ (or the maximum dictionary depth of json)
+  
   * Values: `an entry dictionary {}`
+  
 * `type` - if everything fails, all fall backs are not to be found and all alternatives yield nothing and the `type` is set to mandatory the whole entry gets discarded, if some basic data could be gathered the list of errors gets a specific entry, otherwise there is only a counter of indescribable mapping errors being incremented by one. 
+  
   * Values: `optional`, `mandatory`
+  
 * other fields: the spcht descriptor format is meant to be a human readable configuration file, you can add any field you might like to make things more clear is not described to hold a function. For future extension it would be safest to stick to two particular dictionary-keys: `name` and `comment`
+
+#### a basic mapping to copy and paste
+
+```json
+{
+  "id_source": "",
+  "id_field": "",
+  "nodes": [
+    {
+      "name": "your text here",
+      "source": "",
+      "graph": "",
+      "field": "",
+      "type": "optional"
+    }
+  ]
+}
+```
 ## Requirements
 
 * python3-rdflib 

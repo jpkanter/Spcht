@@ -9,13 +9,14 @@ import pymarc
 
 from local_tools import is_dictkey, is_dict, cprint_type
 from virt_connect import sparqlQuery
-from termcolor import colored
+from termcolor import colored, cprint
 from legacy_tools import bird_sparkle_insert, bird_sparkle, bird_longhandle, fish_interpret
 from solr_tools import marc2list, marc21_fixRecord
 
 ERROR_TXT = {}
 URLS = {}
 SETTINGS = {}
+SPCHT = None  # SPECHT DESCRIPTOR FORMAT mapping
 
 
 def send_error(message, error_name=None):
@@ -238,59 +239,12 @@ def spcht_recursion_node(sub_dict, raw_dict, marc21_dict=None):
 
 def convertMapping(raw_dict, graph, marc21="fullrecord", marc21_source="dict"):
     # takes a raw solr query and converts it to a list of sparql queries to be inserted in a triplestore
-    # per default it assumes there is a marc entry in the solrdump but it can be proviced directly
-    # it also takes technically any dictionary with entries
-    temp_mapping = {
-        "id_source": "dict",
-        "id_field": "id",
-        "id_fallback": {
-            "source": "marc",
-            "field": "001",
-            "subfield": "none"
-        },
-        "nodes": [
-            {
-                "name": "ISBN",
-                "source": "dict",
-                "graph": "http://purl.org/ontology/bibo/isbn",
-                "field": "isbn",
-                "type": "optional",
-                "fallback": {
-                    "source": "marc",
-                    "field": "020",
-                    "subfield": "a"
-                }
-            },
-            {
-                "name": "ISSN",
-                "source": "dict",
-                "graph": "http://purl.org/ontology/bibo/issn/",
-                "field": "issn",
-                "type": "optional",
-                "fallback": {
-                    "source": "marc",
-                    "field": "022",
-                    "subfield": "a"
-                }
-            },
-            {
-                "name": "Titel des Werkes",
-                "source": "dict",
-                "graph": "http://purl.org/dc/terms/title",
-                "field": "title",
-                "alternatives": ["title_full", "title_fullStr", "title_full_unstemmed"],
-                "type": "mandatory",
-                "fallback": {
-                    "source": "marc",
-                    "field": "245",
-                    "subfield": "concat",
-                    "comment": "concat might not be the best source, marc:245 seems complex, TODO"  # ? how?
-                }
-            }
-        ]
-    }
-    print("Check Spcht", check_spcht_format(temp_mapping))
-    spcht = temp_mapping  # spcht descriptor format - sdf
+    # per default it assumes there is a marc entry in the solrdump but it can be provided directly
+    # it also takes technically any dictionary with entries as input
+    global SPCHT
+    spcht = SPCHT  # spcht descriptor format - sdf
+    # ! this is temporarily here, i am not sure how i want to handle the descriptor dictionary for now
+    # ! there might be a use case to have a different mapping file for every single call instead of a global one
 # Preparation of Data to make it more handy in the further processing
     marc21_record = None # setting a default here
     if marc21_source == "dict":
@@ -322,12 +276,14 @@ def convertMapping(raw_dict, graph, marc21="fullrecord", marc21_source="dict"):
                 "fallback": node.get('fallback', None)
             }
             facet = spcht_recursion_node(sub_dict, raw_dict, marc21_record)
-            print(colored(facet, "cyan"))
+            print(node.get('name'), colored(facet, "cyan"))
             if facet is None:
                 if node['type'] == "mandatory":
                     return False  # cannot continue without mandatory fields
             elif isinstance(facet, str):
                 list_of_sparql_inserts.append(bird_sparkle(graph + ressource, node['graph'], facet))
+            elif isinstance(facet, tuple):
+                print(colored("Tuple found", "red"), facet)
             elif isinstance(facet, list):
                 for item in facet:
                     list_of_sparql_inserts.append(bird_sparkle(graph + ressource, node['graph'], item))
@@ -368,7 +324,14 @@ def marc_test():
 if __name__ == "__main__":
     load_config()
     test = load_from_json("1fromsolrs.json")
-    convertMapping(test, URLS['graph'])
+    # load spcht format
+    temp = load_from_json("default.spcht.json")
+    if check_spcht_format(temp):
+        cprint("SPCHT Format o.k.", "green", attrs=["bold"])
+        SPCHT = temp
+        del temp
+    if SPCHT is not None:
+        convertMapping(test, URLS['graph'])
 
 
 # TODO: create real config example file without local/vpn data in it

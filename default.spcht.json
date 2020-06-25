@@ -1,0 +1,149 @@
+ {
+    "id_source": "dict",
+    "id_field": "id",
+    "id_fallback": {
+        "source": "marc",
+        "field": "001",
+        "subfield": "none"
+    },
+    "nodes": [
+        {
+            "name": "ISBN",
+            "source": "dict",
+            "graph": "http://purl.org/ontology/bibo/isbn",
+            "field": "isbn",
+            "type": "optional",
+            "fallback": {
+                "source": "marc",
+                "field": "020",
+                "subfield": "a"
+            }
+        },
+        {
+            "name": "ISSN",
+            "source": "dict",
+            "graph": "http://purl.org/ontology/bibo/issn/",
+            "field": "issn",
+            "type": "optional",
+            "fallback": {
+                "source": "marc",
+                "field": "022",
+                "subfield": "a"
+            }
+        },
+        {
+            "name": "Titel des Werkes",
+            "source": "dict",
+            "graph": "http://purl.org/dc/terms/title",
+            "field": "title",
+            "alternatives": ["title_full", "title_fullStr", "title_full_unstemmed"],
+            "type": "mandatory",
+            "fallback": {
+                "source": "marc",
+                "field": "245",
+                "subfield": "concat",
+                "comment": "concat might not be the best source, marc:245 seems complex, TODO"
+            }
+        },
+        {
+            "name": "Kurzer Titel",
+            "source": "dict",
+            "graph": "http://purl.org/ontology/bibo/shortTitle",
+            "field": "title_short",
+            "type": "optional"
+        },
+        {
+            "name": "Alternativer Titel",
+            "source": "dict",
+            "graph": "http://purl.org/dc/terms/alternative",
+            "field": "title_alt",
+            "type": "optional"
+        },
+        {
+            "name": "Untertitel todo",
+            "source": "dict",
+            "graph": "http://rdaregistry.info/Elements/u/P60493",
+            "field": "title_sub",
+            "alternatives": ["title_part"],
+            "type": "optional"
+        },
+        {
+            "name": "gleich wie",
+            "source": "dict",
+            "graph": "http://umbel.org/umbel/isLike",
+            "field": "url",
+            "type": "optional"
+        },
+        {
+            "name": "Author 1",
+            "source": "dict",
+            "graph": "http://rdaregistry.info/Elements/u/P60327",
+            "field": "author",
+            "type": "optional"
+        },
+        {
+            "name": "Author 2 - Teilhaber",
+            "source": "dict",
+            "graph": "http://purl.org/dc/terms/contributor",
+            "field": "author2",
+            "type": "optional"
+        },
+        {
+            "name": "has publication statement",
+            "source": "dict",
+            "graph": "http://rdaregistry.info/Elements/u/P60333",
+            "field": "imprint_str_mv",
+            "type": "optional"
+        },
+        {
+            "name": "has place of publication",
+            "source": "dict",
+            "graph": "http://rdaregistry.info/Elements/u/P60163",
+            "field": "publishPlace",
+            "type": "optional"
+        },
+        {
+            "name": "Publisher",
+            "source": "dict",
+            "graph": "http://purl.org/dc/terms/publisher",
+            "field": "publisher",
+            "type": "optional"
+        },
+        {
+            "name": "has dissertation or thesis information",
+            "source": "dict",
+            "graph": "http://rdaregistry.info/Elements/u/P60489",
+            "field": "publisher",
+            "type": "optional"
+        },
+        {
+            "name": "ISBD",
+            "source": "dict",
+            "graph": "http://iflastandards.info/ns/isbd/elements/P1053",
+            "field": "physical",
+            "type": "optional"
+        },
+        {
+            "name": "Bibliographic Citation - A bibliographic reference for the resource.",
+            "source": "dict",
+            "graph": "http://purl.org/dc/terms/bibliographicCitation",
+            "field": "container_title",
+            "alternatives": ["container_reference"],
+            "type": "optional"
+        },
+        {
+            "name": "Identifikation SWB @todo",
+            "source": "dict",
+            "graph": "http://purl.org/dc/terms/identifier",
+            "field": "swb_id_str",
+            "type": "optional"
+        },
+        {
+            "name": "Identifikation KXP @todo",
+            "source": "dict",
+            "graph": "http://purl.org/dc/terms/identifier",
+            "field": "kxp_id_str",
+            "type": "optional"
+        }
+    ]
+}
