@@ -137,6 +137,51 @@ The basic structure is a core entry for the graph and a list of dictionaries. Ea
   ]
 }
 ```
+### in Development
+
+With the two current types not every kind of information can be mapped properly. At least two additional node sets are planned to be realized:
+
+#### MARC multivalued - marcmv
+
+```json
+{
+    "name": "optional informations here",
+    "source": "marcmv",
+    "graph": "https://domain.tld/mapping/element/#1234",
+    "type": "optional",
+    "field": "245",
+    "subfields": ["a", "c"],
+    "separator": ",",
+    "fallback": {}
+}
+```
+
+It contains the `subfields` entry instead of a single `subfield` _(without the s)_
+
+The parameter `separator` is optional, per default it will separated the subfields of the marc entry by one whitespace _(" ")_
+
+#### Dictionary Map - dictmap
+
+```json
+{
+    "name": "some descriptive stuff",
+    "source": "dictmap",
+    "graph": "https://domain.tld/mapping/element/#4321",
+    "type": "optional",
+    "field": "stuff2map",
+    "mapping": {
+        "default": "this is mandatory",
+        "entry1": "other words",
+        "entry2": "more words"
+    }
+    "fallback": {}
+}
+```
+
+Some fields are not displaying exactly what we want so we need to translate the information to some other kind of info. The Descriptor provides a mapping for this entry, the field `mapping` has to be a dictionary and must always contain at least one entry: "default". The entry is matched as it, although a regex like matching system might be constructed later.
+
+This source is similar to the normal _dict_ type but does not support the use of the `alternatives` field.
+
 ## Requirements
 
 * python3-rdflib 
