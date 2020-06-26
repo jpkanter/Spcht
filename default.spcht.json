@@ -144,6 +144,36 @@
             "graph": "http://purl.org/dc/terms/identifier",
             "field": "kxp_id_str",
             "type": "optional"
+        },
+        {
+            "name": "Typ der Dokument Art",
+            "source": "dictmap",
+            "graph": "https://www.w3.org/TR/rdf-schema/#ch_type",
+            "field": "format_finc",
+            "type": "optional",
+            "mapping": {
+                "default": "http://purl.org/ontology/bibo/Document",
+                "Article, E-Article": "http://purl.org/ontology/bibo/Article",
+                "Book, E-Book": "http://purl.org/ontology/bibo/Book",
+                "Journal, E-Journal": "http://purl.org/ontology/bibo/Periodical",
+                "Manuscript": "http://purl.org/ontology/bibo/Manuscript",
+                "Map": "http://purl.org/ontology/bibo/Map",
+                "Thesis": "http://purl.org/ontology/bibo/Thesis",
+                "Video": "http://purl.org/ontology/bibo/AudioVisualDocument"
+            }
+        },
+        {
+            "name": "Medium des Objekts",
+            "source": "dictmap",
+            "graph": "http://purl.org/dc/terms/medium",
+            "field": "format_finc",
+            "type": "optional",
+            "mapping": {
+                "default": "None",
+                "Audio": "http://rdaregistry.info/termList/RDAMediaType/1001",
+                "Microform": "http://rdaregistry.info/termList/RDAMediaType/1002",
+                "Notated Music": "http://rdaregistry.info/Elements/u/P60488"
+            }
         }
     ]
 }

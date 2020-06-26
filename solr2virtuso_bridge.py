@@ -167,6 +167,7 @@ def check_spcht_format_node(node, error_desc, out, is_root=False):
         print(error_desc['field_str'], file=out)
         return False
     # root node specific things
+    # TODO: include dictmap for checking
     if is_root:
         if not isinstance(node['type'], str):
             print(error_desc['type_str'], file=out)
@@ -226,6 +227,42 @@ def spcht_recursion_node(sub_dict, raw_dict, marc21_dict=None):
             for entry in sub_dict['alternatives']:
                 if is_dictkey(raw_dict, entry):
                     return raw_dict[entry]
+    elif sub_dict['source'] == "dictmap" and is_dictkey(raw_dict, sub_dict['field']):
+        # the second check is the reason why this source type doesnt allow alternatives, although it would not be
+        # impossible to check for those. dictmap ALWAYS returns something as long the raw_dict has the field
+        # ? idea: make it so that you can inherit the mapping of the parent element
+        print(colored("Source DictMap", "yellow"))
+        if isinstance(raw_dict[sub_dict['field']], list): # ? repeated dictionary calls not good for performance?
+        # ? right now the default mapping is mandatory, but it can be none, so i should probably build it the other way
+        # ? around and make default optional
+        # TODO: make default optional
+            response_list = []
+            for item in raw_dict[sub_dict['field']]:
+                one_entry = sub_dict['mapping'].get(item)
+                if one_entry is not None:
+                    response_list.append(one_entry)
+                    del one_entry
+            if (len(response_list) <= 0
+              and (not is_dictkey(sub_dict, 'fallback') or sub_dict.get('fallback') is None)
+              and sub_dict['mapping']['default'] != "None"):
+
+                # * caveat here, if there is a list of unknown things there will be only one default
+                response_list.append(sub_dict['mapping']['default'])
+                return response_list
+            elif len(response_list) > 0:
+                return response_list
+        elif isinstance(raw_dict[sub_dict['field']], str):
+            # ! this here might be a bug, if there is no mapping but a fallback the fallback gets ignored
+            if is_dictkey(sub_dict['mapping'], raw_dict[sub_dict['field']]):
+                return sub_dict['mapping'].get(raw_dict[sub_dict['field']], sub_dict['mapping']['default'])
+            elif not is_dictkey(sub_dict, 'fallback') or sub_dict.get('fallback') is None and sub_dict['mapping']['default'] != "None":
+                return sub_dict['mapping']['default']
+            # * the beauty is, it will always return something as long as the field exists
+        else:
+            print(colored("field contains a non-list, non-string: {}".format(type(raw_dict[sub_dict['field']])), "red"))
+        # this has the simplicity that if always yields something if there is no fallback, the downside is
+        # that the default entry of the last fallback is what is returned
+
     if is_dictkey(sub_dict, 'fallback') and sub_dict['fallback'] is not None:  # we only get here if everything else failed
         # * this is it, the dreaded recursion, this might happen a lot of times, depending on how motivated the
         # * librarian was who wrote the descriptor format
@@ -259,9 +296,9 @@ def convertMapping(raw_dict, graph, marc21="fullrecord", marc21_source="dict"):
 # generate core graph, i presume we already checked the spcht for being corredct
 # ? instead of making one hard coded go i could insert a special round of the general loop right?
     sub_dict = {
-        "source": spcht.get('id_source'),
-        "field": spcht.get('id_field'),
-        "subfield": spcht.get('id_subfield', None),
+        "source": spcht['id_source'],# i want to throw this exceptions, but the format is checked anyway right?!
+        "field": spcht['id_field'],
+        "subfield": spcht.get('id_subfield', None),# i am aware that .get returns none anyway, this is about you
         "alternatives": spcht.get('id_alternatives', None),
         "fallback": spcht.get('id_fallback', None)
     }
@@ -269,14 +306,7 @@ def convertMapping(raw_dict, graph, marc21="fullrecord", marc21_source="dict"):
     print("Res", colored(ressource, "green"))
     if ressource is not None:
         for node in spcht['nodes']:
-            sub_dict = {  # this is boilerplate from above but i found no apparent solution to it
-                "source": node['source'],  # i want to throw this exceptions, but the format is checked anyway right?!
-                "field": node['field'],
-                "subfield": node.get('subfield', None),  # i am aware that .get returns none anyway, this is about you
-                "alternatives": node.get('alternatives', None),
-                "fallback": node.get('fallback', None)
-            }
-            facet = spcht_recursion_node(sub_dict, raw_dict, marc21_record)
+            facet = spcht_recursion_node(node, raw_dict, marc21_record)
             print(node.get('name'), colored(facet, "cyan"))
             # ? maybe i want to output a more general s p o format? or rather only "p & o"
             if facet is None:
