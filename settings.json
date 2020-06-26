@@ -6,7 +6,8 @@
     "wt": "json"
   },
   "chunk_size": "1000",
-  "dump_file": "targetdump.json",
+  "delay": "5000",
+  "dump_file": "targetfile.json",
   "errors": {
     "file": "Kann entfernte Datei nicht öffnen, Fehler: {}",
     "json": "Kann JSON String nicht interpretieren",

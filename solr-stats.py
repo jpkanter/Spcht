@@ -221,7 +221,7 @@ def main():
 
     with open(GLOBAL['dump_file'], "w") as fw:
         #  json.dump(big_data, fw, indent=4)
-        json.dump(big_data, fw, indent = None, separators = (",", ":"))
+        json.dump(big_data, fw, indent=None, separators=(",", ":"))
     crawl_statistic()
     write_statistic()
 
@@ -229,7 +229,7 @@ def main():
 def crawl_multi(list_of_ids, outfile):
     global MAIN_URL
     load_config()
-    file = open(list_of_ids "r")
+    file = open(list_of_ids, "r")
     lines = file.readlines()
     file.close()
     entries = []

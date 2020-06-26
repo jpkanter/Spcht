@@ -255,6 +255,7 @@ def convertMapping(raw_dict, graph, marc21="fullrecord", marc21_source="dict"):
         return False  # TODO alternative marc source options
         # ? what if there are just no marc data and we know that in advance?
     list_of_sparql_inserts = []
+    debug_list = []
 # generate core graph, i presume we already checked the spcht for being corredct
 # ? instead of making one hard coded go i could insert a special round of the general loop right?
     sub_dict = {
@@ -277,22 +278,26 @@ def convertMapping(raw_dict, graph, marc21="fullrecord", marc21_source="dict"):
             }
             facet = spcht_recursion_node(sub_dict, raw_dict, marc21_record)
             print(node.get('name'), colored(facet, "cyan"))
+            # ? maybe i want to output a more general s p o format? or rather only "p & o"
             if facet is None:
                 if node['type'] == "mandatory":
                     return False  # cannot continue without mandatory fields
             elif isinstance(facet, str):
-                list_of_sparql_inserts.append(bird_sparkle(graph + ressource, node['graph'], facet))
+                # list_of_sparql_inserts.append(bird_sparkle(graph + ressource, node['graph'], facet))
+                debug_list.append("{} - {}".format(node['graph'], facet))
             elif isinstance(facet, tuple):
                 print(colored("Tuple found", "red"), facet)
             elif isinstance(facet, list):
                 for item in facet:
-                    list_of_sparql_inserts.append(bird_sparkle(graph + ressource, node['graph'], item))
+                    # list_of_sparql_inserts.append(bird_sparkle(graph + ressource, node['graph'], item))
+                    debug_list.append("{} - {}".format(node['graph'], item))
             else:
                 print(facet, colored("I cannot handle that for the moment", "magenta"))
     else:
         return False  # ? or none?
-    for line in list_of_sparql_inserts:
-        print(line, end="\r")
+
+    # ! this is NOT final
+    return debug_list
 
 # TODO: Error logs for known error entries and total failures as statistic
 # TODO: Grouping of graph descriptors in an @context
@@ -330,8 +335,43 @@ if __name__ == "__main__":
         cprint("SPCHT Format o.k.", "green", attrs=["bold"])
         SPCHT = temp
         del temp
+    debug_dict = {
+        "0-1172721416": "monographischer Band - Goethes Faust mit Illustrator",
+        "0-1172720975": "dazugehörige GA",
+        "0-1499736606": "Online-Ressource, Campuslizenz",
+        "0-1651221162": "E-Book; LFER, Teil einer gezählten Reihe",
+        "0-638069130": "+ dazugehörige Reihe",
+        "0-101017634X": "Zeitschrift",
+        "0-876618255": "Monographie",
+        "0-1575152746": "DVD",
+        "0-1353737586": "Handschrift, Hochschulschrift",
+        "0-1540394506": "Medienkombination",
+        "0-1588127508": "+ Band Medienkombi",
+        "0-1563786273": "Mikroform, Hochschulschrift",
+        "0-1465972943": "Objekt",
+        "0-016092031": "Noten",
+        "0-505985926": "CD",
+        "0-1648651445": "LFER, GA",
+        "0-1385933259": "LFER, dazugehöriger Band",
+        "0-1550117564": "japanische Schriftzeichen; Werktitelverknüpfung",
+        "0-1550115898": "+ zugehörige GA",
+        "0-279416644": "Karte"
+    }
     if SPCHT is not None:
-        convertMapping(test, URLS['graph'])
+        thetestset = load_from_json("thetestset.json")
+        double_list = []
+        for entry in thetestset:
+            temp = convertMapping(entry, URLS['graph'])
+            if temp:
+                double_list.append("\n\n=== {} - {} ===\n".format(entry.get('id', "Unknown ID"), debug_dict.get(entry.get('id'))))
+                double_list += temp
+
+        my_debug_output = open("bridgeoutput.txt", "w")
+        for line in double_list:
+            print(line, file=my_debug_output)
+        my_debug_output.close()
+
+    # TODO: trying all 15 Testsets every time
 
 
 # TODO: create real config example file without local/vpn data in it

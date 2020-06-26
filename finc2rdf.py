@@ -636,7 +636,8 @@ context = {
 mapping = {
     "@context": putContext,
     "@id": {getAtID: "id"},
-    "identifier": {getIDs: ["swb_id_str", "kxp_id_str"]},
+    "identifier": {getIDs: ["
+        ", "kxp_id_str"]},
     "bibo:issn": {getProperty: "issn"},
     "bibo:isbn": {getProperty: "isbn"},
     "umbel:isLike": {getProperty: "url"},
