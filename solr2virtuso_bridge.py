@@ -17,6 +17,7 @@ ERROR_TXT = {}
 URLS = {}
 SETTINGS = {}
 SPCHT = None  # SPECHT DESCRIPTOR FORMAT mapping
+TESTFOLDER = "./testdata/"
 
 
 def send_error(message, error_name=None):
@@ -105,6 +106,8 @@ def check_spcht_format(spcht_dictionary, out=sys.stderr, i18n=None):
         "type_chk": "Type-String can only 'mandatory' or 'optional'. Maybe encoding error?",
         "alt_list": "Alternatives must be a list of strings, eg: ['item1', 'item2']",
         "alt_list_str": "Every entry in the alternatives list has to be a string",
+        "map_dict": "Translation mapping must be a dictionary",
+        "map_dict_str": "Every element of the mapping must be a string",
         "fallback": "-> structure of the fallback node contains errors",
         "nodes": "-> error in structure of Node",
         "fallback_dict": "Fallback structure must be an dictionary build like a regular node"
@@ -123,8 +126,8 @@ def check_spcht_format(spcht_dictionary, out=sys.stderr, i18n=None):
         "source": spcht_dictionary.get('id_source'),
         "field": spcht_dictionary.get('id_field'),
         "subfield": spcht_dictionary.get('id_subfield', None),
-        "alternatives": spcht_dictionary.get('id_alternatives', None),
         "fallback": spcht_dictionary.get('id_fallback', None)
+        # this main node doesnt contain alternatives
     }  # ? there must be a better way for this mustn't it?
     # a lot of things just to make sure the header node is correct, its almost like there is a better way
     plop = []
@@ -184,6 +187,15 @@ def check_spcht_format_node(node, error_desc, out, is_root=False):
                 if not isinstance(item, str):
                     print(error_desc['alt_list_str'], file=out)
                     return False
+    if is_dictkey(node, 'mapping'):
+        if not isinstance(node['mapping'], list):
+            print(error_desc['map_dict'], file=out)
+            return False
+        else:  # ? again the thing with the else for comprehension, this comment is superfluous
+            for key, value in node['mapping'].items():
+                if not isinstance(value, str):
+                    print(error_desc['map_dict_str'], file=out)
+                    return False
     if is_dictkey(node, 'fallback'):
         if isinstance(node['fallback'], dict):
             if not check_spcht_format_node(node['fallback'], error_desc, out):  # ! this is recursion
@@ -232,34 +244,7 @@ def spcht_recursion_node(sub_dict, raw_dict, marc21_dict=None):
         # impossible to check for those. dictmap ALWAYS returns something as long the raw_dict has the field
         # ? idea: make it so that you can inherit the mapping of the parent element
         print(colored("Source DictMap", "yellow"))
-        if isinstance(raw_dict[sub_dict['field']], list): # ? repeated dictionary calls not good for performance?
-        # ? right now the default mapping is mandatory, but it can be none, so i should probably build it the other way
-        # ? around and make default optional
-        # TODO: make default optional
-            response_list = []
-            for item in raw_dict[sub_dict['field']]:
-                one_entry = sub_dict['mapping'].get(item)
-                if one_entry is not None:
-                    response_list.append(one_entry)
-                    del one_entry
-            if (len(response_list) <= 0
-              and (not is_dictkey(sub_dict, 'fallback') or sub_dict.get('fallback') is None)
-              and sub_dict['mapping']['default'] != "None"):
 
-                # * caveat here, if there is a list of unknown things there will be only one default
-                response_list.append(sub_dict['mapping']['default'])
-                return response_list
-            elif len(response_list) > 0:
-                return response_list
-        elif isinstance(raw_dict[sub_dict['field']], str):
-            # ! this here might be a bug, if there is no mapping but a fallback the fallback gets ignored
-            if is_dictkey(sub_dict['mapping'], raw_dict[sub_dict['field']]):
-                return sub_dict['mapping'].get(raw_dict[sub_dict['field']], sub_dict['mapping']['default'])
-            elif not is_dictkey(sub_dict, 'fallback') or sub_dict.get('fallback') is None and sub_dict['mapping']['default'] != "None":
-                return sub_dict['mapping']['default']
-            # * the beauty is, it will always return something as long as the field exists
-        else:
-            print(colored("field contains a non-list, non-string: {}".format(type(raw_dict[sub_dict['field']])), "red"))
         # this has the simplicity that if always yields something if there is no fallback, the downside is
         # that the default entry of the last fallback is what is returned
 
@@ -272,6 +257,52 @@ def spcht_recursion_node(sub_dict, raw_dict, marc21_dict=None):
         print(colored("absolutlty nothing", "yellow"))
         return None  # usually i return false in these situations, but none seems appropriate
 # TODO: remove debug prints
+
+
+def spcht_node_mapping(value, mapping):
+    INHERIT = '$inherit' # this can be changed later if really needed
+    if not isinstance(mapping, dict) or mapping is None:
+        return value
+    # no big else block cause it would indent everything, i dont like that
+    if isinstance(value, list):  # ? repeated dictionary calls not good for performance?
+        # ? default is optional, if not is given there can be a discard of the value despite it being here
+        # TODO: make 'default': '$inherit' to an actual function
+        response_list = []
+        for item in value:
+            one_entry = mapping.get(item)
+            if one_entry is not None:
+                response_list.append(one_entry)
+            else:
+                if mapping['default'] == INHERIT:
+                    response_list.append(item)
+            del one_entry
+        if len(response_list) > 0:
+            return response_list
+        elif len(response_list) <= 0 and is_dictkey(mapping, 'default') and mapping['default'] != "None":
+            # * caveat here, if there is a list of unknown things there will be only one default
+            if mapping['default'] == INHERIT: # Heritage, you can passthrough the variable if needed
+                response_list.append(value)
+            else:
+                response_list.append(mapping['default'])
+            return response_list
+        else:  # if there is no response list but also no defined default, it crashes back to nothing
+            return None
+
+    elif isinstance(value, str):
+        # ! this here might be a bug, if there is no mapping but a fallback the fallback gets ignored
+        if is_dictkey(mapping, value):
+            return mapping.get(value, mapping['default'])
+        elif is_dictkey(mapping, 'default') and mapping['default'] != "None":
+            if mapping['default'] == INHERIT:
+                return value
+            else:
+                return mapping['default']
+        else:
+            return None
+            # ? i was contemplating whether it should return value or None. None is the better one i think
+            # ? cause if we no default is defined we probably have a reason for that right?
+    else:
+        print(colored("field contains a non-list, non-string: {}".format(type(value)), "red"))
 
 
 def convertMapping(raw_dict, graph, marc21="fullrecord", marc21_source="dict"):
@@ -296,9 +327,9 @@ def convertMapping(raw_dict, graph, marc21="fullrecord", marc21_source="dict"):
 # generate core graph, i presume we already checked the spcht for being corredct
 # ? instead of making one hard coded go i could insert a special round of the general loop right?
     sub_dict = {
-        "source": spcht['id_source'],# i want to throw this exceptions, but the format is checked anyway right?!
+        "source": spcht['id_source'],  # i want to throw this exceptions, but the format is checked anyway right?!
         "field": spcht['id_field'],
-        "subfield": spcht.get('id_subfield', None),# i am aware that .get returns none anyway, this is about you
+        "subfield": spcht.get('id_subfield', None),  # i am aware that .get returns none anyway, this is about you
         "alternatives": spcht.get('id_alternatives', None),
         "fallback": spcht.get('id_fallback', None)
     }
@@ -346,9 +377,10 @@ def other_fish():
 
 
 def marc_test():
+    global TESTFOLDER
     print(colored("Test Marc Stuff", "cyan"))
 
-    myfile = open("marc21test.json", "r")
+    myfile = open(TESTFOLDER+"marc21test.json", "r")
     marctest = json.load(myfile)
     myfile.close()
 
@@ -358,7 +390,7 @@ def marc_test():
 
 if __name__ == "__main__":
     load_config()
-    test = load_from_json("1fromsolrs.json")
+    test = load_from_json(TESTFOLDER+"1fromsolrs.json")
     # load spcht format
     temp = load_from_json("default.spcht.json")
     if check_spcht_format(temp):
@@ -388,7 +420,7 @@ if __name__ == "__main__":
         "0-279416644": "Karte"
     }
     if SPCHT is not None:
-        thetestset = load_from_json("thetestset.json")
+        thetestset = load_from_json(TESTFOLDER+"thetestset.json")
         double_list = []
         for entry in thetestset:
             temp = convertMapping(entry, URLS['graph'])
