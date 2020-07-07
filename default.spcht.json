@@ -10,7 +10,7 @@
         {
             "name": "ISBN",
             "source": "dict",
-            "graph": "http://purl.org/ontology/bibo/isbn",
+            "graph": "http://schema.org/isbn",
             "field": "isbn",
             "type": "optional",
             "fallback": {
@@ -22,7 +22,7 @@
         {
             "name": "ISSN",
             "source": "dict",
-            "graph": "http://purl.org/ontology/bibo/issn/",
+            "graph":  "https://schema.org/issn",
             "field": "issn",
             "type": "optional",
             "fallback": {
@@ -32,11 +32,11 @@
             }
         },
         {
-            "name": "Titel des Werkes",
+            "name": "Hauptsachtitel des Werkes",
             "source": "dict",
             "graph": "http://purl.org/dc/terms/title",
             "field": "title",
-            "alternatives": ["title_full", "title_fullStr", "title_full_unstemmed"],
+            "alternatives": ["title_short"],
             "type": "mandatory",
             "fallback": {
                 "source": "marc",
@@ -46,13 +46,6 @@
             }
         },
         {
-            "name": "Kurzer Titel",
-            "source": "dict",
-            "graph": "http://purl.org/ontology/bibo/shortTitle",
-            "field": "title_short",
-            "type": "optional"
-        },
-        {
             "name": "Alternativer Titel",
             "source": "dict",
             "graph": "http://purl.org/dc/terms/alternative",
@@ -60,25 +53,150 @@
             "type": "optional"
         },
         {
-            "name": "Untertitel todo",
+            "name": "Zusatz zum Hauptsachtitel",
             "source": "dict",
             "graph": "http://rdaregistry.info/Elements/u/P60493",
             "field": "title_sub",
             "alternatives": ["title_part"],
-            "type": "optional"
+            "type": "optional",
+                "fallback": {
+                "source": "marc",
+                "field": "245",
+                "subfield": "b"
+                }
         },
         {
             "name": "gleich wie",
             "source": "dict",
             "graph": "http://umbel.org/umbel/isLike",
             "field": "url",
-            "type": "optional"
+            "type": "optional",
+            "comment": "ohne Marc-Fallback; in den SOLR gelangen nur URNs nach einem bestimmten Muster aus 024a:037n:856u"
         },
         {
-            "name": "Author 1",
+            "name": "Verfasser (string)",
             "source": "dict",
             "graph": "http://rdaregistry.info/Elements/u/P60327",
             "field": "author",
+            "type": "optional"
+        },
+        {
+            "name": "Verfasser (URI)", 
+            "source": "dict",
+            "graph": "http://purl.org/dc/terms/creator",
+            "field": "names_id_str_mv", 
+            "type": "optional",
+            "comment": "mit Hash-URI arbeiten, um den Name-String (SOLR:author) als label unterzubringen",
+            "fallback": {
+                "source": "marc",
+                "field": "100",
+                "subfield": "0", 
+                "comment": "aber nur wenn Präfix DE-588, TODO: Filter?"
+            }
+        },
+        {
+            "name": "Verfasserrolle (URI)",
+            "comment": " # todo - Zuordnung!",
+            "source": "dict",
+            "graph": "http://id.loc.gov/vocabulary/relators.html",
+            "field": "author_role", 
+            "comment2": "Achtung: Einträge im SOLR nicht konsistent; Rollenkürzel, Ausschriften usw. / hier wohl nur Marc verwenden",
+            "alternatives": ["author2_role", "author_corporate_role"],
+            "type": "optional",
+            "fallback": {
+                "source": "marc",
+                "field": "100",
+                "subfield": "4",
+                "fallback": {
+                    "source": "marc",
+                    "field": "110",
+                    "subfield": "4",
+                    "fallback": {
+                        "source": "marc",
+                        "field": "700",
+                        "subfield": "4",
+                        "fallback": {
+                            "source": "marc",
+                            "field": "710",
+                            "subfield": "4",
+                            "fallback": {
+                                "source": "marc",
+                                "field": "711",
+                                "subfield": "4"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        {
+            "name": "Beteiligte (URI)", 
+            "source": "marc",
+            "field": "700",
+            "subfield": "0", 
+            "comment1": "# aber nur wenn Präfix DE-588",
+            "comment2": "mit Hash-URI arbeiten, um den Name-String (SOLR:author2 und author_corporate) als label unterzubringen",
+            "comment3": " siehe Verfasser (URI), Info bekommen wir nicht sauber aus dem SOLR",
+            "type": "optional"
+        },
+        {
+            "name": "Erscheinungsvermerk",
+            "comment": "kommt aus Marc 260abc:264abc (und 533) aber nach einem bestimmten Muster",
+            "source": "dict",
+            "graph": "http://rdaregistry.info/Elements/u/P60333",
+            "field": "imprint_str_mv",
+            "type": "optional"
+        },
+        {
+            "name": "Erscheinungssort",
+            "source": "dict",
+            "graph": "http://rdaregistry.info/Elements/u/P60163",
+            "field": "publishPlace",
+            "type": "optional",
+            "fallback": {
+                "source": "marc",
+                "field": "260",
+                "fields": ["260", "264"],
+                "subfield": "a"
+                }
+        },
+        {
+            "name": "Verlag",
+            "source": "dict",
+            "graph": "http://purl.org/dc/terms/publisher",
+            "field": "publisher",
+            "type": "optional",
+            "fallback": {
+                "source": "marc",
+                "field": "260:264",
+                "subfield": "b"
+                }
+        },
+        {
+            "name": "ISBD",
+            "source": "dict",
+            "graph": "http://iflastandards.info/ns/isbd/elements/P1053",
+            "field": "physical",
+            "type": "optional",
+            "fallback": {
+                "source": "marc",
+                "field": "300",
+                "subfield": "a"
+            }
+        },
+        {
+            "name": "Bibliographic Citation - A bibliographic reference for the resource.", 
+            "source": "dict",
+            "graph": "http://purl.org/dc/terms/bibliographicCitation",
+            "field": "container_title",
+            "type": "optional",
+            "comment": "# 773t:773s:773a, first"
+        },
+        {
+            "name": "Identifikation KXP @todo",
+            "source": "dict",
+            "graph": "http://purl.org/dc/terms/identifier",
+            "field": "kxp_id_str",
             "type": "optional"
         },
         {
@@ -89,38 +207,10 @@
             "type": "optional"
         },
         {
-            "name": "has publication statement",
-            "source": "dict",
-            "graph": "http://rdaregistry.info/Elements/u/P60333",
-            "field": "imprint_str_mv",
-            "type": "optional"
-        },
-        {
-            "name": "has place of publication",
-            "source": "dict",
-            "graph": "http://rdaregistry.info/Elements/u/P60163",
-            "field": "publishPlace",
-            "type": "optional"
-        },
-        {
-            "name": "Publisher",
-            "source": "dict",
-            "graph": "http://purl.org/dc/terms/publisher",
-            "field": "publisher",
-            "type": "optional"
-        },
-        {
             "name": "has dissertation or thesis information",
             "source": "dict",
             "graph": "http://rdaregistry.info/Elements/u/P60489",
             "field": "publisher",
-            "type": "optional"
-        },
-        {
-            "name": "ISBD",
-            "source": "dict",
-            "graph": "http://iflastandards.info/ns/isbd/elements/P1053",
-            "field": "physical",
             "type": "optional"
         },
         {
