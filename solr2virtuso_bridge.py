@@ -58,9 +58,10 @@ def load_config(file_path="config.json"):
 
 
 def load_from_json(file_path):
+    # TODO: give me actually helpful insights about the json here, especially where its wrong, validation and all
     try:
-        with open(file_path,mode='r') as rdf_file:
-            return json.load(rdf_file)
+        with open(file_path, mode='r') as file:
+            return json.load(file)
 
     except FileNotFoundError:
         send_error("nofile")
@@ -68,7 +69,6 @@ def load_from_json(file_path):
         send_error("json_parser")
     except:
         send_error("graph_parser")
-    # this looks like ripe for a finally block right? wrong, finally gets ALWAYS executed, we dont want that
     return False
 
 
@@ -188,7 +188,7 @@ def check_spcht_format_node(node, error_desc, out, is_root=False):
                     print(error_desc['alt_list_str'], file=out)
                     return False
     if is_dictkey(node, 'mapping'):
-        if not isinstance(node['mapping'], list):
+        if not isinstance(node['mapping'], dict):
             print(error_desc['map_dict'], file=out)
             return False
         else:  # ? again the thing with the else for comprehension, this comment is superfluous
@@ -232,13 +232,13 @@ def spcht_recursion_node(sub_dict, raw_dict, marc21_dict=None):
     elif sub_dict['source'] == "dict":
         print(colored("Source Dict", "yellow"))
         if is_dictkey(raw_dict, sub_dict['field']):  # main field name
-            return raw_dict[sub_dict['field']]
+            return spcht_node_mapping([sub_dict['field']], sub_dict.get('mapping'))
         # ? since i prime the sub_dict what is even the point for checking the existence of the key, its always there
         elif is_dictkey(sub_dict, 'alternatives') and sub_dict['alternatives'] is not None:  # traverse list of alternative field names
             print(colored("Alternatives", "yellow"))
             for entry in sub_dict['alternatives']:
                 if is_dictkey(raw_dict, entry):
-                    return raw_dict[entry]
+                    return spcht_node_mapping(raw_dict[entry], sub_dict.get('mapping'))
     elif sub_dict['source'] == "dictmap" and is_dictkey(raw_dict, sub_dict['field']):
         # the second check is the reason why this source type doesnt allow alternatives, although it would not be
         # impossible to check for those. dictmap ALWAYS returns something as long the raw_dict has the field
@@ -280,7 +280,7 @@ def spcht_node_mapping(value, mapping):
             return response_list
         elif len(response_list) <= 0 and is_dictkey(mapping, 'default') and mapping['default'] != "None":
             # * caveat here, if there is a list of unknown things there will be only one default
-            if mapping['default'] == INHERIT: # Heritage, you can passthrough the variable if needed
+            if mapping['default'] == INHERIT:  # Heritage, you can pass through the variable if needed
                 response_list.append(value)
             else:
                 response_list.append(mapping['default'])
@@ -367,7 +367,7 @@ def convertMapping(raw_dict, graph, marc21="fullrecord", marc21_source="dict"):
 
 
 # * other stuff that gets definitely deleted later on
-def other_fish():
+def other_bird():
     print(colored("Programmstart", "green"))
     data = load_from_json("2nd-entry.txt")
     sparql = fish_interpret(data)
@@ -388,11 +388,65 @@ def marc_test():
     print(json.dumps(marc2list(marctest.get('fullrecord')), indent=4))
 
 
+def load_spcht_descriptor_file(filename):
+    # returns None if something is amiss, returns the descriptors as dictionary
+    # ? turns out i had to add some complexity starting with the "include" mapping
+    descriptor = load_from_json(filename)
+    if isinstance(descriptor, bool):  # load json goes wrong if something is wrong with the json
+        return None
+    if not check_spcht_format(descriptor):
+        return None
+    # * goes through every mapping node and adds the reference files, which makes me basically rebuild the thing
+    # ? python iterations are not with pointers, so this will expose me as programming apprentice but this will work
+    new_node = []
+    for item in descriptor['nodes']:
+        a_node = load_spcht_ref_node(item)
+        if isinstance(a_node, bool):  # if something goes wrong we abort here
+            send_error("spcht_ref")
+            return None
+        new_node.append(a_node)
+    descriptor['nodes'] = new_node  # replaces the old node with the new, enriched ones
+    return descriptor
+
+
+def load_spcht_ref_node(node_dict):
+    # We are again in beautiful world of recursion. Each node can contain a mapping and each mapping can contain
+    # a reference to a mapping json. i am actually quite worried that this will lead to performance issues
+    # TODO: Research limits for dictionaries and performance bottlenecks
+    # so, this returns False and the actual loading operation returns None, this is cause i think, at this moment,
+    # that i can check for isinstance easier than for None, i might be wrong and i have not looked into the
+    # cost of that operation if that is ever a concern
+    if is_dictkey(node_dict, 'fallback'):
+        node_dict['fallback'] = load_spcht_ref_node(node_dict['fallback'])  # ! there it is again, the cursed recursion thing
+        if isinstance(node_dict['fallback'], bool):
+            return False
+    if is_dictkey(node_dict, 'mapping') and node_dict['mapping'].get('$ref') is not None:
+        file_path = node_dict['mapping']['$ref']  # ? does it always has to be a relative path?
+        try:
+            map_dict = load_from_json(file_path)
+            # iterate through the dict, if manual entries have the same key ignore
+            if not isinstance(map_dict, dict):  # we expect a simple, flat dictionary, nothing else
+                return False  # funnily enough, this also includes bool which happens when json loads fails
+            # ! this here is the actual logic that does the thing:
+            for key, value in map_dict.items():
+                if not isinstance(value, str):  # only flat dictionaries, no nodes
+                    send_error("spcht_map")
+                    return False
+                if not is_dictkey(node_dict['mapping'], key):  # existing keys have priority
+                    node_dict['mapping'][key] = value
+            del map_dict
+        except FileNotFoundError:
+            send_error(file_path, "file")
+            return False
+
+    return node_dict  # whether nothing has had changed or not, this holds true
+
+
 if __name__ == "__main__":
     load_config()
     test = load_from_json(TESTFOLDER+"1fromsolrs.json")
     # load spcht format
-    temp = load_from_json("default.spcht.json")
+    temp = load_spcht_descriptor_file("default.spcht.json")
     if check_spcht_format(temp):
         cprint("SPCHT Format o.k.", "green", attrs=["bold"])
         SPCHT = temp

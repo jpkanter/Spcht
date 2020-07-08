@@ -1,0 +1,9 @@
+{
+	"Article, E-Article": "http://purl.org/ontology/bibo/Article",
+	"Book, E-Book": "http://purl.org/ontology/bibo/Book",
+	"Journal, E-Journal": "http://purl.org/ontology/bibo/Periodical",
+	"Manuscript": "http://purl.org/ontology/bibo/Manuscript",
+	"Map": "http://purl.org/ontology/bibo/Map",
+	"Thesis": "http://purl.org/ontology/bibo/Thesis",
+	"Video": "http://purl.org/ontology/bibo/AudioVisualDocument"
+}

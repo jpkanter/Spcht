@@ -5,7 +5,10 @@
     "nofile": "Die angegebene Datei konnte nicht gefunden werden",
     "graph_parser": "Der Graph Parser konnte den Eingang nicht interpretieren",
     "json_parser": "Beim Interpretieren des JSON Eingangs wurde ein Irrigularität entdeckt.",
-    "@context": "Mapping unvollständig, unauflösbare Kurzform gefunden {}"
+    "@context": "Mapping unvollständig, unauflösbare Kurzform gefunden {}",
+    "file": "Die Datei {} konnte nicht gefunden werden",
+    "spcht_map": "Das Mapping muss eindimensional sein.",
+    "spcht_ref": "Fehler beim Laden der referenzierten Mappings"
   },
   "urls": {
     "solr": "http://172.18.85.143:8080/solr/biblio/select",

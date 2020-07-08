@@ -81,9 +81,17 @@ Lets get started with an example:
 
 The basic structure is a core entry for the graph and a list of dictionaries. Each dictionary contains the mapping for one data field that _can_ result in more than one graph-node.
 
-#### actual mapping:
+#### Node Mapping
 
-* Fields labeled with a prefix `id_` to be found in the head information respectively the root contain the basic informations about the graph we are trying to construct. It behaves in many ways the same as the node-dictionaries including the fall-back excluding only the need for a graph
+##### Special Head Node
+
+Outside of the `nodes` list is a special node that got the suffix`id_` instead of the actual names. It works exactly the same as the every other node but contains the id. It would be possible to build the SPCHT Format without the main node but its relevance is increased by the special position as its unique and should be treated with care.
+
+Every other node is mapped in the aforementioned `node` List. Its supposed to be a list of dictionaries which in turn contain a note each. The process will abort if no information for a mandatory node can be found.
+
+##### General Node Architecture
+
+Each Node contains at least a `source`, `graph` and `type` field which define the surrounding note. It can also contain a `fallback`, `filter` or `match` field. Every fall back can contain another fall back. You can add any other *non-protected* field name you desire to make it more readable. The Example file usually sports a `name` dictionary entry despite it not being in use.
 
 * `nodes` - this contains the description of all nodes. I renounced the idea of calling it *feathers*, a metaphor can only be stretched so far.
   
@@ -98,27 +106,46 @@ The basic structure is a core entry for the graph and a list of dictionaries. Ea
   * Values: `dict` and `marc`
   
 * `graph` - the actual mapping to linked data. Before sending sparql queries the script will shorten all entries accordingly. If you have multiple entries of the same source they will be grouped. I decided that for this kind of configuration file it is best to leave as many information to the bare eye as possible.
-  
   * Values: `a fully qualify graph descriptor string`
-  
-* `field`, `subfield` - describes in which linear data field the corresponding data can be found. `subfield` is only really needed if you work with a MARC21 entry. _The leading 0 of the MARC21 entry gets omitted, `020` equals `20`._
-  
-  * Value: `a string`
-  
-* `alternatives` - there is possibility that a specific data field isn't always available in your given database but you know there are other keys that might contain the desired data. `alternatives` is a list of different dictionary keys which will be tried in order of their appearance.
-  
-  * Values: `a list of strings [str, str, str]`
-  
-* `fallback` - if the current specified source isn't available you may describe an alternative. Currently only "_marc_" or "_dict_" are possible entries. You can use the same source with different fields to generate a fall-back order. _eg. if dict key "summer" isn't available the fall-back will also look into the dict but use the field "winter_ You may also just use `alternatives` for this.
+
+* `fallback` - if the current specified source isn't available you may describe an alternative. Currently only "_marc_" or "_dict_" are possible entries. You can use the same source with different fields to generate a fall-back order. _eg. if dict key "summer" isn't available the fall-back will also look into the dict but use the field "winter_ You may also just use `alternatives` for this if your source is **dict**.
   The sub-dictionary of `fallback` contains another dictionary descriptor. You may chain sub-dictionaries _ad infinitum_ (or the maximum dictionary depth of json)
   
-  * Values: `an entry dictionary {}`
+    * Values: `a "node" dictionary {}`
   
 * `type` - if everything fails, all fall backs are not to be found and all alternatives yield nothing and the `type` is set to mandatory the whole entry gets discarded, if some basic data could be gathered the list of errors gets a specific entry, otherwise there is only a counter of indescribable mapping errors being incremented by one. 
   
   * Values: `optional`, `mandatory`
   
 * other fields: the spcht descriptor format is meant to be a human readable configuration file, you can add any field you might like to make things more clear is not described to hold a function. For future extension it would be safest to stick to two particular dictionary-keys: `name` and `comment`
+  
+##### source: dict
+
+The primary use case for this program was the mapping or conversion of content from the library *Apache Solr* to a *linked data format*. The main way *solr* outputs data is as a list of dictionaries. If you don't have a *solr* based database the program might be still of use. The data just has to exists as a dictionary in some kind of listed value unit. The **source:dict** format is the most basic of the bunch. In its default state it will just create a graph connection for the entry found, if there is a list of entries in the described dictionary key it will create as many graphs. It also offers some basic processing for more complex data. If the `field` key cannot be found it will use `alternatives`, a list of dictionary keys before it goes to the fall-back node.
+
+It is possible to **map** the value of your dictionary key with the field `mapping`, it is supposed to contain a dictionary of entries. If there is a default mapping it will always return a value for each entry (if there is more than one), if no default is set it is possible to not get a graph at all. For more complex graph it is possible to use the special mapping dictionary key `$ref` to link to a local *json* file containing the mapping. You *can* mix a referenced mapping with additional entries. It is possible to default to the original value of the field with the special value `$inherited`
+
+* `field` - the key in the dictionary the program looks for data
+  * Values: `a string containing the dictionary key`
+* `mapping` - a dictionary describing the *translation* of the content of the specified field. If no `mapping` is defined the face value will be returned.
+  * Values: `a flat dictionary {"key": "value", ..}`
+* `alternatives` - there is possibility that a specific data field isn't always available in your given database but you know there are other keys that might contain the desired data. `alternatives` is a list of different dictionary keys which will be tried in order of their appearance.
+  * Values: `a list of strings [str, str, str]`
+
+#### actual mapping:
+
+
+* `field`, `subfield` - describes in which linear data field the corresponding data can be found. `subfield` is only really needed if you work with a MARC21 entry. _The leading 0 of the MARC21 entry gets omitted, `020` equals `20`._
+  
+  * Value: `a string`
+  
+
+  
+
+  
+
+  
+
 
 #### a basic mapping to copy and paste
 

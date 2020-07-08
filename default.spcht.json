@@ -237,24 +237,18 @@
         },
         {
             "name": "Typ der Dokument Art",
-            "source": "dictmap",
+            "source": "dict",
             "graph": "https://www.w3.org/TR/rdf-schema/#ch_type",
             "field": "format_finc",
             "type": "optional",
             "mapping": {
                 "default": "http://purl.org/ontology/bibo/Document",
-                "Article, E-Article": "http://purl.org/ontology/bibo/Article",
-                "Book, E-Book": "http://purl.org/ontology/bibo/Book",
-                "Journal, E-Journal": "http://purl.org/ontology/bibo/Periodical",
-                "Manuscript": "http://purl.org/ontology/bibo/Manuscript",
-                "Map": "http://purl.org/ontology/bibo/Map",
-                "Thesis": "http://purl.org/ontology/bibo/Thesis",
-                "Video": "http://purl.org/ontology/bibo/AudioVisualDocument"
+                "$ref": "./translation_maps/documents.json"
             }
         },
         {
             "name": "Medium des Objekts",
-            "source": "dictmap",
+            "source": "dict",
             "graph": "http://purl.org/dc/terms/medium",
             "field": "format_finc",
             "type": "optional",
