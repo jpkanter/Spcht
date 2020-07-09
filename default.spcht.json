@@ -258,6 +258,14 @@
                 "Microform": "http://rdaregistry.info/termList/RDAMediaType/1002",
                 "Notated Music": "http://rdaregistry.info/Elements/u/P60488"
             }
+        },
+         {
+            "name": "Sprache des Objects",
+            "source": "dict",
+            "graph": "http://id.loc.gov/vocabulary/iso639-2",
+            "type": "optional",
+            "field": "language",
+            "mapping": { "$ref": "./translation_maps/languages.json" }
         }
     ]
 }
