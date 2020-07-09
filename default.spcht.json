@@ -41,8 +41,8 @@
             "fallback": {
                 "source": "marc",
                 "field": "245",
-                "subfield": "concat",
-                "comment": "concat might not be the best source, marc:245 seems complex, TODO"
+                "subfield": "a",
+                "comment": "if possible, concat subfield b"
             }
         },
         {
