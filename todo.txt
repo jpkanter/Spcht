@@ -1,0 +1,11 @@
+* SPCHT
+    [x] Interpreter for mapping reference via mapping_setting
+    [ ] handling of $default entries in mapping_setting instead of mapping
+    [ ] make regex matching for mappings work
+    [ ] $inherit parameter actually inherting the value in $default
+* SPARQL
+    [ ] differenciate between graph and string that happens to be a link to somewhere
+    [ ] generation of valid sparql queries
+    [ ] shortening of queries with @prefix
+* EXPORT
+    [ ] export data directly to a .ttl file

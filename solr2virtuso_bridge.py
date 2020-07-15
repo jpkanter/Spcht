@@ -92,6 +92,71 @@ def init_graph_name(file_path="init_labels.json"):
     return sparqlQuery(all_sparql, URLS['virtuoso-write'], auth=URLS['sparql_user'], pwd=URLS['sparql_pw'])
 
 
+def load_spcht_descriptor_file(filename):
+    # returns None if something is amiss, returns the descriptors as dictionary
+    # ? turns out i had to add some complexity starting with the "include" mapping
+    descriptor = load_from_json(filename)
+    if isinstance(descriptor, bool):  # load json goes wrong if something is wrong with the json
+        return None
+    if not check_spcht_format(descriptor):
+        return None
+    # * goes through every mapping node and adds the reference files, which makes me basically rebuild the thing
+    # ? python iterations are not with pointers, so this will expose me as programming apprentice but this will work
+    new_node = []
+    for item in descriptor['nodes']:
+        a_node = load_spcht_ref_node(item)
+        if isinstance(a_node, bool):  # if something goes wrong we abort here
+            send_error("spcht_ref")
+            return None
+        new_node.append(a_node)
+    descriptor['nodes'] = new_node  # replaces the old node with the new, enriched ones
+    return descriptor
+
+
+def load_spcht_ref_node(node_dict):
+    # We are again in beautiful world of recursion. Each node can contain a mapping and each mapping can contain
+    # a reference to a mapping json. i am actually quite worried that this will lead to performance issues
+    # TODO: Research limits for dictionaries and performance bottlenecks
+    # so, this returns False and the actual loading operation returns None, this is cause i think, at this moment,
+    # that i can check for isinstance easier than for None, i might be wrong and i have not looked into the
+    # cost of that operation if that is ever a concern
+    if is_dictkey(node_dict, 'fallback'):
+        node_dict['fallback'] = load_spcht_ref_node(node_dict['fallback'])  # ! there it is again, the cursed recursion thing
+        if isinstance(node_dict['fallback'], bool):
+            return False
+    if is_dictkey(node_dict, 'mapping_settings') and node_dict['mapping_settings'].get('$ref') is not None:
+        file_path = node_dict['mapping_settings']['$ref']  # ? does it always has to be a relative path?
+        try:
+            map_dict = load_from_json(file_path)
+            # iterate through the dict, if manual entries have the same key ignore
+            if not isinstance(map_dict, dict):  # we expect a simple, flat dictionary, nothing else
+                return False  # funnily enough, this also includes bool which happens when json loads fails
+            # ! this here is the actual logic that does the thing:
+            # there might no mapping key at all
+            if not is_dictkey(node_dict, 'mapping'):
+                node_dict['mapping'] = {}
+            for key, value in map_dict.items():
+                if not isinstance(value, str):  # only flat dictionaries, no nodes
+                    send_error("spcht_map")
+                    return False
+                if not is_dictkey(node_dict['mapping'], key):  # existing keys have priority
+                    node_dict['mapping'][key] = value
+            del map_dict
+            # clean up mapping_settings node
+            del(node_dict['mapping_settings']['$ref'])
+            if len(node_dict['mapping_settings']) <= 0:
+                del(node_dict['mapping_settings'])  # if there are no other entries the entire mapping settings goes
+
+        except FileNotFoundError:
+            send_error(file_path, "file")
+            return False
+        except KeyError:
+            send_error("KeyError")
+            return False
+
+    return node_dict  # whether nothing has had changed or not, this holds true
+
+
 def check_spcht_format(spcht_dictionary, out=sys.stderr, i18n=None):
     # checks the format for any miss shaped data structures
     # * what it does not check for is illogical entries like having alternatives for a pure marc source
@@ -207,104 +272,6 @@ def check_spcht_format_node(node, error_desc, out, is_root=False):
     return True
 
 
-def spcht_recursion_node(sub_dict, raw_dict, marc21_dict=None):
-    # i do not like the general use of recursion, but for traversing trees this seems the best solution
-    # there is actually not so much overhead in python, its more one of those stupid feelings, i googled some
-    # random reddit thread: https://old.reddit.com/r/Python/comments/4hkds8/do_you_recommend_using_recursion_in_python_why_or/
-    # @param sub_dict = the part of the descriptor dictionary that is in ['fallback']
-    # @param raw_dict = the big raw dictionary that we are working with
-    # @param marc21_dict = an alternative marc21 dictionary, already cooked and ready
-    # the header/id field is special in some sense, therefore there is a separated function for it
-    # ! this can return anything, string, list, dictionary, it just takes the content, careful
-    if sub_dict['source'] == "marc":
-        if marc21_dict is None:
-            print(colored("No Marc", "yellow"))
-            pass
-        else:
-            print(colored("some Marc", "yellow"))
-            if is_dictkey(marc21_dict, sub_dict['field'].lstrip("0")):
-                if sub_dict['subfield'] == 'none':
-                    return marc21_dict[sub_dict['field']]
-                elif is_dictkey(marc21_dict[sub_dict['field'].lstrip("0")], sub_dict['subfield']):
-                    return marc21_dict[sub_dict['field'].lstrip("0")][sub_dict['subfield']]
-        # ! this handling of the marc format is probably too simply
-        # TODO: gather more samples of awful marc and process it
-    elif sub_dict['source'] == "dict":
-        print(colored("Source Dict", "yellow"))
-        if is_dictkey(raw_dict, sub_dict['field']):  # main field name
-            return spcht_node_mapping([sub_dict['field']], sub_dict.get('mapping'))
-        # ? since i prime the sub_dict what is even the point for checking the existence of the key, its always there
-        elif is_dictkey(sub_dict, 'alternatives') and sub_dict['alternatives'] is not None:  # traverse list of alternative field names
-            print(colored("Alternatives", "yellow"))
-            for entry in sub_dict['alternatives']:
-                if is_dictkey(raw_dict, entry):
-                    return spcht_node_mapping(raw_dict[entry], sub_dict.get('mapping'))
-    elif sub_dict['source'] == "dictmap" and is_dictkey(raw_dict, sub_dict['field']):
-        # the second check is the reason why this source type doesnt allow alternatives, although it would not be
-        # impossible to check for those. dictmap ALWAYS returns something as long the raw_dict has the field
-        # ? idea: make it so that you can inherit the mapping of the parent element
-        print(colored("Source DictMap", "yellow"))
-
-        # this has the simplicity that if always yields something if there is no fallback, the downside is
-        # that the default entry of the last fallback is what is returned
-
-    if is_dictkey(sub_dict, 'fallback') and sub_dict['fallback'] is not None:  # we only get here if everything else failed
-        # * this is it, the dreaded recursion, this might happen a lot of times, depending on how motivated the
-        # * librarian was who wrote the descriptor format
-        print(colored("Fallback triggered", "yellow"), sub_dict.get('fallback'))
-        return spcht_recursion_node(sub_dict['fallback'], raw_dict, marc21_dict)
-    else:
-        print(colored("absolutlty nothing", "yellow"))
-        return None  # usually i return false in these situations, but none seems appropriate
-# TODO: remove debug prints
-
-
-def spcht_node_mapping(value, mapping):
-    INHERIT = '$inherit' # this can be changed later if really needed
-    if not isinstance(mapping, dict) or mapping is None:
-        return value
-    # no big else block cause it would indent everything, i dont like that
-    if isinstance(value, list):  # ? repeated dictionary calls not good for performance?
-        # ? default is optional, if not is given there can be a discard of the value despite it being here
-        # TODO: make 'default': '$inherit' to an actual function
-        response_list = []
-        for item in value:
-            one_entry = mapping.get(item)
-            if one_entry is not None:
-                response_list.append(one_entry)
-            else:
-                if mapping['default'] == INHERIT:
-                    response_list.append(item)
-            del one_entry
-        if len(response_list) > 0:
-            return response_list
-        elif len(response_list) <= 0 and is_dictkey(mapping, 'default') and mapping['default'] != "None":
-            # * caveat here, if there is a list of unknown things there will be only one default
-            if mapping['default'] == INHERIT:  # Heritage, you can pass through the variable if needed
-                response_list.append(value)
-            else:
-                response_list.append(mapping['default'])
-            return response_list
-        else:  # if there is no response list but also no defined default, it crashes back to nothing
-            return None
-
-    elif isinstance(value, str):
-        # ! this here might be a bug, if there is no mapping but a fallback the fallback gets ignored
-        if is_dictkey(mapping, value):
-            return mapping.get(value, mapping['default'])
-        elif is_dictkey(mapping, 'default') and mapping['default'] != "None":
-            if mapping['default'] == INHERIT:
-                return value
-            else:
-                return mapping['default']
-        else:
-            return None
-            # ? i was contemplating whether it should return value or None. None is the better one i think
-            # ? cause if we no default is defined we probably have a reason for that right?
-    else:
-        print(colored("field contains a non-list, non-string: {}".format(type(value)), "red"))
-
-
 def convertMapping(raw_dict, graph, marc21="fullrecord", marc21_source="dict"):
     # takes a raw solr query and converts it to a list of sparql queries to be inserted in a triplestore
     # per default it assumes there is a marc entry in the solrdump but it can be provided directly
@@ -345,6 +312,7 @@ def convertMapping(raw_dict, graph, marc21="fullrecord", marc21_source="dict"):
                     return False  # cannot continue without mandatory fields
             elif isinstance(facet, str):
                 # list_of_sparql_inserts.append(bird_sparkle(graph + ressource, node['graph'], facet))
+                list_of_sparql_inserts.append(bird_sparkle(ressource, node['graph'], facet))
                 debug_list.append("{} - {}".format(node['graph'], facet))
             elif isinstance(facet, tuple):
                 print(colored("Tuple found", "red"), facet)
@@ -352,18 +320,119 @@ def convertMapping(raw_dict, graph, marc21="fullrecord", marc21_source="dict"):
                 for item in facet:
                     # list_of_sparql_inserts.append(bird_sparkle(graph + ressource, node['graph'], item))
                     debug_list.append("{} - {}".format(node['graph'], item))
+                    list_of_sparql_inserts.append(bird_sparkle(graph, node['graph'], item))
             else:
                 print(facet, colored("I cannot handle that for the moment", "magenta"))
     else:
         return False  # ? or none?
 
     # ! this is NOT final
-    return debug_list
+    #return debug_list
+    return list_of_sparql_inserts
 
 # TODO: Error logs for known error entries and total failures as statistic
 # TODO: Grouping of graph descriptors in an @context
 # TODO: remove debug prints
 # TODO: learn how to properly debug in python, i am quite sure print isn't the way to go
+
+
+def spcht_recursion_node(sub_dict, raw_dict, marc21_dict=None):
+    # i do not like the general use of recursion, but for traversing trees this seems the best solution
+    # there is actually not so much overhead in python, its more one of those stupid feelings, i googled some
+    # random reddit thread: https://old.reddit.com/r/Python/comments/4hkds8/do_you_recommend_using_recursion_in_python_why_or/
+    # @param sub_dict = the part of the descriptor dictionary that is in ['fallback']
+    # @param raw_dict = the big raw dictionary that we are working with
+    # @param marc21_dict = an alternative marc21 dictionary, already cooked and ready
+    # the header/id field is special in some sense, therefore there is a separated function for it
+    # ! this can return anything, string, list, dictionary, it just takes the content, careful
+    if sub_dict['source'] == "marc":
+        if marc21_dict is None:
+            print(colored("No Marc", "yellow"))
+            pass
+        else:
+            print(colored("some Marc", "yellow"))
+            if is_dictkey(marc21_dict, sub_dict['field'].lstrip("0")):
+                if sub_dict['subfield'] == 'none':
+                    return marc21_dict[sub_dict['field']]
+                elif is_dictkey(marc21_dict[sub_dict['field'].lstrip("0")], sub_dict['subfield']):
+                    return marc21_dict[sub_dict['field'].lstrip("0")][sub_dict['subfield']]
+        # ! this handling of the marc format is probably too simply
+        # TODO: gather more samples of awful marc and process it
+    elif sub_dict['source'] == "dict":
+        print(colored("Source Dict", "yellow"))
+        if is_dictkey(raw_dict, sub_dict['field']):  # main field name
+            return spcht_node_mapping(raw_dict[sub_dict['field']], sub_dict.get('mapping'))
+        # ? since i prime the sub_dict what is even the point for checking the existence of the key, its always there
+        elif is_dictkey(sub_dict, 'alternatives') and sub_dict['alternatives'] is not None:  # traverse list of alternative field names
+            print(colored("Alternatives", "yellow"))
+            for entry in sub_dict['alternatives']:
+                if is_dictkey(raw_dict, entry):
+                    return spcht_node_mapping(raw_dict[entry], sub_dict.get('mapping'))
+    elif sub_dict['source'] == "dictmap" and is_dictkey(raw_dict, sub_dict['field']):
+        # the second check is the reason why this source type doesnt allow alternatives, although it would not be
+        # impossible to check for those. dictmap ALWAYS returns something as long the raw_dict has the field
+        # ? idea: make it so that you can inherit the mapping of the parent element
+        print(colored("Source DictMap", "yellow"))
+
+        # this has the simplicity that if always yields something if there is no fallback, the downside is
+        # that the default entry of the last fallback is what is returned
+
+    if is_dictkey(sub_dict, 'fallback') and sub_dict['fallback'] is not None:  # we only get here if everything else failed
+        # * this is it, the dreaded recursion, this might happen a lot of times, depending on how motivated the
+        # * librarian was who wrote the descriptor format
+        print(colored("Fallback triggered", "yellow"), sub_dict.get('fallback'))
+        return spcht_recursion_node(sub_dict['fallback'], raw_dict, marc21_dict)
+    else:
+        print(colored("absolutlty nothing", "yellow"))
+        return None  # usually i return false in these situations, but none seems appropriate
+# TODO: remove debug prints
+
+
+def spcht_node_mapping(value, mapping):
+    print(colored(value, "green"))
+    INHERIT = '$inherit' # this can be changed later if really needed
+    if not isinstance(mapping, dict) or mapping is None:
+        return value
+    # no big else block cause it would indent everything, i dont like that
+    if isinstance(value, list):  # ? repeated dictionary calls not good for performance?
+        # ? default is optional, if not is given there can be a discard of the value despite it being here
+        # TODO: make 'default': '$inherit' to an actual function
+        response_list = []
+        for item in value:
+            one_entry = mapping.get(item)
+            if one_entry is not None:
+                response_list.append(one_entry)
+            else:
+                if mapping.get('default') == INHERIT:
+                    response_list.append(item)
+            del one_entry
+        if len(response_list) > 0:
+            return response_list
+        elif len(response_list) <= 0 and is_dictkey(mapping, 'default') and mapping['default'] != "None":
+            # * caveat here, if there is a list of unknown things there will be only one default
+            if mapping.get('default') == INHERIT:  # Heritage, you can pass through the variable if needed
+                response_list.append(value)
+            else:
+                response_list.append(mapping['default'])
+            return response_list
+        else:  # if there is no response list but also no defined default, it crashes back to nothing
+            return None
+
+    elif isinstance(value, str):
+        # ! this here might be a bug, if there is no mapping but a fallback the fallback gets ignored
+        if is_dictkey(mapping, value):
+            return mapping.get(value, mapping['default'])
+        elif is_dictkey(mapping, 'default') and mapping['default'] != "None":
+            if mapping['default'] == INHERIT:
+                return value
+            else:
+                return mapping['default']
+        else:
+            return None
+            # ? i was contemplating whether it should return value or None. None is the better one i think
+            # ? cause if we no default is defined we probably have a reason for that right?
+    else:
+        print(colored("field contains a non-list, non-string: {}".format(type(value)), "red"))
 
 
 # * other stuff that gets definitely deleted later on
@@ -386,60 +455,6 @@ def marc_test():
 
     print(colored(marctest, "yellow"))
     print(json.dumps(marc2list(marctest.get('fullrecord')), indent=4))
-
-
-def load_spcht_descriptor_file(filename):
-    # returns None if something is amiss, returns the descriptors as dictionary
-    # ? turns out i had to add some complexity starting with the "include" mapping
-    descriptor = load_from_json(filename)
-    if isinstance(descriptor, bool):  # load json goes wrong if something is wrong with the json
-        return None
-    if not check_spcht_format(descriptor):
-        return None
-    # * goes through every mapping node and adds the reference files, which makes me basically rebuild the thing
-    # ? python iterations are not with pointers, so this will expose me as programming apprentice but this will work
-    new_node = []
-    for item in descriptor['nodes']:
-        a_node = load_spcht_ref_node(item)
-        if isinstance(a_node, bool):  # if something goes wrong we abort here
-            send_error("spcht_ref")
-            return None
-        new_node.append(a_node)
-    descriptor['nodes'] = new_node  # replaces the old node with the new, enriched ones
-    return descriptor
-
-
-def load_spcht_ref_node(node_dict):
-    # We are again in beautiful world of recursion. Each node can contain a mapping and each mapping can contain
-    # a reference to a mapping json. i am actually quite worried that this will lead to performance issues
-    # TODO: Research limits for dictionaries and performance bottlenecks
-    # so, this returns False and the actual loading operation returns None, this is cause i think, at this moment,
-    # that i can check for isinstance easier than for None, i might be wrong and i have not looked into the
-    # cost of that operation if that is ever a concern
-    if is_dictkey(node_dict, 'fallback'):
-        node_dict['fallback'] = load_spcht_ref_node(node_dict['fallback'])  # ! there it is again, the cursed recursion thing
-        if isinstance(node_dict['fallback'], bool):
-            return False
-    if is_dictkey(node_dict, 'mapping') and node_dict['mapping'].get('$ref') is not None:
-        file_path = node_dict['mapping']['$ref']  # ? does it always has to be a relative path?
-        try:
-            map_dict = load_from_json(file_path)
-            # iterate through the dict, if manual entries have the same key ignore
-            if not isinstance(map_dict, dict):  # we expect a simple, flat dictionary, nothing else
-                return False  # funnily enough, this also includes bool which happens when json loads fails
-            # ! this here is the actual logic that does the thing:
-            for key, value in map_dict.items():
-                if not isinstance(value, str):  # only flat dictionaries, no nodes
-                    send_error("spcht_map")
-                    return False
-                if not is_dictkey(node_dict['mapping'], key):  # existing keys have priority
-                    node_dict['mapping'][key] = value
-            del map_dict
-        except FileNotFoundError:
-            send_error(file_path, "file")
-            return False
-
-    return node_dict  # whether nothing has had changed or not, this holds true
 
 
 if __name__ == "__main__":
@@ -476,11 +491,15 @@ if __name__ == "__main__":
     if SPCHT is not None:
         thetestset = load_from_json(TESTFOLDER+"thetestset.json")
         double_list = []
+        thesparqlset = []
         for entry in thetestset:
             temp = convertMapping(entry, URLS['graph'])
             if temp:
                 double_list.append("\n\n=== {} - {} ===\n".format(entry.get('id', "Unknown ID"), debug_dict.get(entry.get('id'))))
                 double_list += temp
+                # TODO Workeable Sparql
+                for fractal in temp:
+                    thesparqlset.append(fractal)
 
         my_debug_output = open("bridgeoutput.txt", "w")
         for line in double_list:
@@ -488,6 +507,14 @@ if __name__ == "__main__":
         my_debug_output.close()
 
     # TODO: trying all 15 Testsets every time
+        myfile = open(TESTFOLDER+"newsparql.txt", "w")
+        json.dump(thesparqlset, myfile, indent=2)
+        myfile.close()
+
+        temp = bird_sparkle_insert(URLS['graph'], thesparqlset)
+        myfile = open(TESTFOLDER+"testsetsparql.txt", "w")
+        myfile.write(temp)
+        myfile.close()
 
 
 # TODO: create real config example file without local/vpn data in it

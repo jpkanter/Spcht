@@ -1,0 +1,25 @@
+{
+  "errors": {
+    "urls": "Die Sammlung der Serveradressen konnte nicht gefunden werden. Vorgang wird abgebrochen",
+    "settings": "Die sonstigen Einstellungen konnten nicht gefunden werden. Vorgang wird abgebrochen",
+    "nofile": "Die angegebene Datei konnte nicht gefunden werden",
+    "graph_parser": "Der Graph Parser konnte den Eingang nicht interpretieren",
+    "json_parser": "Beim Interpretieren des JSON Eingangs wurde ein Irrigularität entdeckt.",
+    "@context": "Mapping unvollständig, unauflösbare Kurzform gefunden {}",
+    "file": "Die Datei {} konnte nicht gefunden werden",
+    "spcht_map": "Das Mapping muss eindimensional sein.",
+    "spcht_ref": "Fehler beim Laden der referenzierten Mappings"
+  },
+  "urls": {
+    "solr": "http://<fqdn>/solr/biblio/select",
+    "virtuoso-write": "http://<fqdn>/sparql-auth/",
+    "sparql_user": "<user>",
+    "sparql_pw": "<password>",
+    "virtuoso-read": "http://<fqdn>/sparql",
+    "graph": "<IRI>",
+    "graph_label": "<IRI><label>"
+  },
+  "settings": {
+    "workers": 8
+  }
+}
