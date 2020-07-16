@@ -1,11 +1,19 @@
 * SPCHT
     [x] Interpreter for mapping reference via mapping_setting
-    [ ] handling of $default entries in mapping_setting instead of mapping
+    [x] handling of $default entries in mapping_setting instead of mapping
     [ ] make regex matching for mappings work
-    [ ] $inherit parameter actually inherting the value in $default
+     #  probably to be realized in spcht_node_mapping()
+    [x] $inherit parameter actually inherting the value in $default
+    [ ] json error insights on load of file
+    [ ] possible performance bottlenecks
+    [ ] Filter Value for x
+    [ ] Remove Parts of the value string
+    [ ] Remove duplicated information # should not really matter but still
 * SPARQL
     [ ] differenciate between graph and string that happens to be a link to somewhere
     [ ] generation of valid sparql queries
     [ ] shortening of queries with @prefix
+    [ ] SPAQRL Escaping
 * EXPORT
     [ ] export data directly to a .ttl file
+

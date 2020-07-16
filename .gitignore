@@ -110,3 +110,4 @@ tests
 /debug.json
 /bridgeoutput.txt
 /testdata/
+/config.json

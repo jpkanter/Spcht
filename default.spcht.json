@@ -103,6 +103,10 @@
             "comment2": "Achtung: Einträge im SOLR nicht konsistent; Rollenkürzel, Ausschriften usw. / hier wohl nur Marc verwenden",
             "alternatives": ["author2_role", "author_corporate_role"],
             "type": "optional",
+            "mapping_settings": {
+                "$ref": "./translation_maps/roles.json",
+                "$default": true
+                },
             "fallback": {
                 "source": "marc",
                 "field": "100",
@@ -241,8 +245,8 @@
             "graph": "https://www.w3.org/TR/rdf-schema/#ch_type",
             "field": "format_finc",
             "type": "optional",
-            "mapping": {
-                "default": "http://purl.org/ontology/bibo/Document",
+            "mapping_settings": {
+                "$default": "http://purl.org/ontology/bibo/Document",
                 "$ref": "./translation_maps/documents.json"
             }
         },
@@ -253,7 +257,6 @@
             "field": "format_finc",
             "type": "optional",
             "mapping": {
-                "default": "None",
                 "Audio": "http://rdaregistry.info/termList/RDAMediaType/1001",
                 "Microform": "http://rdaregistry.info/termList/RDAMediaType/1002",
                 "Notated Music": "http://rdaregistry.info/Elements/u/P60488"
@@ -262,10 +265,10 @@
          {
             "name": "Sprache des Objects",
             "source": "dict",
-            "graph": "http://id.loc.gov/vocabulary/iso639-2",
+            "graph": "http://purl.org/dc/terms/language",
             "type": "optional",
             "field": "language",
-            "mapping": { "$ref": "./translation_maps/languages.json" }
+            "mapping_settings": { "$ref": "./translation_maps/languages_long.json" }
         }
     ]
 }

@@ -133,7 +133,7 @@ It is possible to **map** the value of your dictionary key with the field `mappi
   * Values: a flat dictionary with a number of pre-defined keys, additional information gets ignored
     * `$ref` - Reference to a local file that gets filled into the `mapping`
     * `$type` - can either be `regex` or `rigid`. *Rigid* matches only exact keys including cases, *regex* matches according to rules. Might be cpu intensive.
-    * `$defaut` - a default value that is set when there is no value present that matches a key/regex, can be set to `$inherit` to copy the initial value
+    * `$defaut` - a default value that is set when there is no value present that matches a key/regex, can be set to `True` to copy the initial value
 * `alternatives` - there is possibility that a specific data field isn't always available in your given database but you know there are other keys that might contain the desired data. `alternatives` is a list of different dictionary keys which will be tried in order of their appearance.
   * Values: `a list of strings [str, str, str]`
 

@@ -305,14 +305,14 @@ def convertMapping(raw_dict, graph, marc21="fullrecord", marc21_source="dict"):
     if ressource is not None:
         for node in spcht['nodes']:
             facet = spcht_recursion_node(node, raw_dict, marc21_record)
-            print(node.get('name'), colored(facet, "cyan"))
+            print(colored(facet, "green"))
             # ? maybe i want to output a more general s p o format? or rather only "p & o"
             if facet is None:
                 if node['type'] == "mandatory":
                     return False  # cannot continue without mandatory fields
             elif isinstance(facet, str):
                 # list_of_sparql_inserts.append(bird_sparkle(graph + ressource, node['graph'], facet))
-                list_of_sparql_inserts.append(bird_sparkle(ressource, node['graph'], facet))
+                list_of_sparql_inserts.append(bird_sparkle(graph+ressource, node['graph'], facet))
                 debug_list.append("{} - {}".format(node['graph'], facet))
             elif isinstance(facet, tuple):
                 print(colored("Tuple found", "red"), facet)
@@ -320,7 +320,7 @@ def convertMapping(raw_dict, graph, marc21="fullrecord", marc21_source="dict"):
                 for item in facet:
                     # list_of_sparql_inserts.append(bird_sparkle(graph + ressource, node['graph'], item))
                     debug_list.append("{} - {}".format(node['graph'], item))
-                    list_of_sparql_inserts.append(bird_sparkle(graph, node['graph'], item))
+                    list_of_sparql_inserts.append(bird_sparkle(graph+ressource, node['graph'], item))
             else:
                 print(facet, colored("I cannot handle that for the moment", "magenta"))
     else:
@@ -345,12 +345,13 @@ def spcht_recursion_node(sub_dict, raw_dict, marc21_dict=None):
     # @param marc21_dict = an alternative marc21 dictionary, already cooked and ready
     # the header/id field is special in some sense, therefore there is a separated function for it
     # ! this can return anything, string, list, dictionary, it just takes the content, careful
+    print(colored(sub_dict.get('name', ""), "blue"), end=" ")
     if sub_dict['source'] == "marc":
         if marc21_dict is None:
-            print(colored("No Marc", "yellow"))
+            print(colored("No Marc", "yellow"), end="|")
             pass
         else:
-            print(colored("some Marc", "yellow"))
+            print(colored("some Marc", "yellow"), end="-> ")
             if is_dictkey(marc21_dict, sub_dict['field'].lstrip("0")):
                 if sub_dict['subfield'] == 'none':
                     return marc21_dict[sub_dict['field']]
@@ -359,41 +360,40 @@ def spcht_recursion_node(sub_dict, raw_dict, marc21_dict=None):
         # ! this handling of the marc format is probably too simply
         # TODO: gather more samples of awful marc and process it
     elif sub_dict['source'] == "dict":
-        print(colored("Source Dict", "yellow"))
+        print(colored("Source Dict", "yellow"), end="-> ")
         if is_dictkey(raw_dict, sub_dict['field']):  # main field name
-            return spcht_node_mapping(raw_dict[sub_dict['field']], sub_dict.get('mapping'))
+            return spcht_node_mapping(raw_dict[sub_dict['field']], sub_dict.get('mapping'), sub_dict.get('mapping_settings'))
         # ? since i prime the sub_dict what is even the point for checking the existence of the key, its always there
         elif is_dictkey(sub_dict, 'alternatives') and sub_dict['alternatives'] is not None:  # traverse list of alternative field names
-            print(colored("Alternatives", "yellow"))
+            print(colored("Alternatives", "yellow"), end="-> ")
             for entry in sub_dict['alternatives']:
                 if is_dictkey(raw_dict, entry):
-                    return spcht_node_mapping(raw_dict[entry], sub_dict.get('mapping'))
-    elif sub_dict['source'] == "dictmap" and is_dictkey(raw_dict, sub_dict['field']):
-        # the second check is the reason why this source type doesnt allow alternatives, although it would not be
-        # impossible to check for those. dictmap ALWAYS returns something as long the raw_dict has the field
-        # ? idea: make it so that you can inherit the mapping of the parent element
-        print(colored("Source DictMap", "yellow"))
-
-        # this has the simplicity that if always yields something if there is no fallback, the downside is
-        # that the default entry of the last fallback is what is returned
+                    return spcht_node_mapping(raw_dict[entry], sub_dict.get('mapping'), sub_dict.get('mapping_settings'))
 
     if is_dictkey(sub_dict, 'fallback') and sub_dict['fallback'] is not None:  # we only get here if everything else failed
         # * this is it, the dreaded recursion, this might happen a lot of times, depending on how motivated the
         # * librarian was who wrote the descriptor format
-        print(colored("Fallback triggered", "yellow"), sub_dict.get('fallback'))
+        print(colored("Fallback triggered", "yellow"), sub_dict.get('fallback'), end="-> ")
         return spcht_recursion_node(sub_dict['fallback'], raw_dict, marc21_dict)
     else:
-        print(colored("absolutlty nothing", "yellow"))
+        print(colored("absolutlty nothing", "yellow"), end=" | ")
         return None  # usually i return false in these situations, but none seems appropriate
 # TODO: remove debug prints
 
 
-def spcht_node_mapping(value, mapping):
-    print(colored(value, "green"))
-    INHERIT = '$inherit' # this can be changed later if really needed
+def spcht_node_mapping(value, mapping, settings):
+    the_default = False
     if not isinstance(mapping, dict) or mapping is None:
         return value
-    # no big else block cause it would indent everything, i dont like that
+    if settings is not None and isinstance(settings, dict):
+        if is_dictkey(settings, '$default'):
+            the_default = settings['$default']
+            # if the value is boolean True it gets copied without mapping
+            # if the value is a str that is default, False does nothing but preserves the default state of default
+            # Python allows me to get three "boolean" states here done, value, yes and no. Yes is inheritance
+        if is_dictkey(settings, '$type'):
+            pass  # placeholder # TODO: regex or rigid matching
+    # no big else block cause it would indent everything, i dont like that, and this is best practice anyway right?
     if isinstance(value, list):  # ? repeated dictionary calls not good for performance?
         # ? default is optional, if not is given there can be a discard of the value despite it being here
         # TODO: make 'default': '$inherit' to an actual function
@@ -403,30 +403,30 @@ def spcht_node_mapping(value, mapping):
             if one_entry is not None:
                 response_list.append(one_entry)
             else:
-                if mapping.get('default') == INHERIT:
-                    response_list.append(item)
+                if isinstance(the_default, bool) and the_default is True:
+                    response_list.append(item)         # inherit the former value
+                elif isinstance(the_default, str):
+                    response_list.append(the_default)  # use default text
             del one_entry
         if len(response_list) > 0:
             return response_list
-        elif len(response_list) <= 0 and is_dictkey(mapping, 'default') and mapping['default'] != "None":
+        elif len(response_list) <= 0 and isinstance(the_default, str):
+            # ? i wonder when this even triggers? when giving an empty list? in any other case default is there
             # * caveat here, if there is a list of unknown things there will be only one default
-            if mapping.get('default') == INHERIT:  # Heritage, you can pass through the variable if needed
-                response_list.append(value)
-            else:
-                response_list.append(mapping['default'])
+            response_list.append(the_default)  # there is no inheritance here, i mean, what should be inherited? void?
             return response_list
         else:  # if there is no response list but also no defined default, it crashes back to nothing
             return None
 
     elif isinstance(value, str):
         # ! this here might be a bug, if there is no mapping but a fallback the fallback gets ignored
-        if is_dictkey(mapping, value):
-            return mapping.get(value, mapping['default'])
-        elif is_dictkey(mapping, 'default') and mapping['default'] != "None":
-            if mapping['default'] == INHERIT:
-                return value
-            else:
-                return mapping['default']
+        # that bug might be actually more on the SDF Writer than on me
+        if is_dictkey(mapping, value):  # rigid key mapping
+            return mapping.get(value)
+        elif isinstance(the_default, bool) and the_default is True:
+            return value
+        elif isinstance(the_default, str):
+            return the_default
         else:
             return None
             # ? i was contemplating whether it should return value or None. None is the better one i think
@@ -498,8 +498,7 @@ if __name__ == "__main__":
                 double_list.append("\n\n=== {} - {} ===\n".format(entry.get('id', "Unknown ID"), debug_dict.get(entry.get('id'))))
                 double_list += temp
                 # TODO Workeable Sparql
-                for fractal in temp:
-                    thesparqlset.append(fractal)
+                thesparqlset.append(bird_sparkle_insert(URLS['graph'], temp))
 
         my_debug_output = open("bridgeoutput.txt", "w")
         for line in double_list:
@@ -511,9 +510,12 @@ if __name__ == "__main__":
         json.dump(thesparqlset, myfile, indent=2)
         myfile.close()
 
-        temp = bird_sparkle_insert(URLS['graph'], thesparqlset)
+
         myfile = open(TESTFOLDER+"testsetsparql.txt", "w")
-        myfile.write(temp)
+        for fracta in thesparqlset:
+            # sparqlQuery(fracta, URLS['virtuoso-write'], auth=URLS['sparql_user'], pwd=URLS['sparql_pw'])
+            myfile.write(fracta)
+            myfile.write("\n\r")
         myfile.close()
 
 

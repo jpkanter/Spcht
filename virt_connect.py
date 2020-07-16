@@ -89,3 +89,9 @@ def sparqlQuery(sparql_query, base_url, get_format="application/json", **kwargs)
             return False
     except json.decoder.JSONDecodeError:
         return response.text
+
+
+def escape_sparql(string):
+    # replaces all the weird things we dont want to be unescaped in a sparql query
+    return string.replace('"', '\\"')
+

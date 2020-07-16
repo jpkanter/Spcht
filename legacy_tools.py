@@ -2,6 +2,7 @@ import sys
 
 from termcolor import colored
 from local_tools import is_dictkey
+from virt_connect import escape_sparql
 
 
 def fish_interpret(data):
@@ -61,12 +62,12 @@ def bird_longhandle(shorts, statement):
 
 def bird_sparkle(subject, predicate, object):
     # creates a simple sparkSQL query without any frills, not to be used in production
-    return "<{}> <{}> \"{}\" .\n".format(subject, predicate, object)
+    return "<{}> <{}> \"{}\" .\n".format(subject, predicate, escape_sparql(object))
 
 
 def bird_sparkle_insert(graph, insert_list):
     sparkle = "INSERT IN GRAPH <{}> {{\n".format(graph)
     for entry in insert_list:
         sparkle += entry
-    sparkle += "}}"
+    sparkle += "}"
     return sparkle
