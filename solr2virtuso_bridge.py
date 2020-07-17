@@ -2,8 +2,11 @@
 #  connect to solr database, retrieves data in chunks and inserts those via sparql into virtuoso
 
 # "global" variables for some things
+import copy
 import json
+import math
 import sys
+import time
 
 import pymarc
 
@@ -11,7 +14,7 @@ from local_tools import is_dictkey, is_dict, cprint_type
 from virt_connect import sparqlQuery
 from termcolor import colored, cprint
 from legacy_tools import bird_sparkle_insert, bird_sparkle, bird_longhandle, fish_interpret
-from solr_tools import marc2list, marc21_fixRecord
+from solr_tools import marc2list, marc21_fixRecord, load_remote_content, test_json, slice_header_json
 
 ERROR_TXT = {}
 URLS = {}
@@ -301,11 +304,11 @@ def convertMapping(raw_dict, graph, marc21="fullrecord", marc21_source="dict"):
         "fallback": spcht.get('id_fallback', None)
     }
     ressource = spcht_recursion_node(sub_dict, raw_dict, marc21_record)
-    print("Res", colored(ressource, "green"))
+    # print("Res", colored(ressource, "green"))
     if ressource is not None:
         for node in spcht['nodes']:
             facet = spcht_recursion_node(node, raw_dict, marc21_record)
-            print(colored(facet, "green"))
+            # print(colored(facet, "green"))
             # ? maybe i want to output a more general s p o format? or rather only "p & o"
             if facet is None:
                 if node['type'] == "mandatory":
@@ -345,13 +348,10 @@ def spcht_recursion_node(sub_dict, raw_dict, marc21_dict=None):
     # @param marc21_dict = an alternative marc21 dictionary, already cooked and ready
     # the header/id field is special in some sense, therefore there is a separated function for it
     # ! this can return anything, string, list, dictionary, it just takes the content, careful
-    print(colored(sub_dict.get('name', ""), "blue"), end=" ")
     if sub_dict['source'] == "marc":
         if marc21_dict is None:
-            print(colored("No Marc", "yellow"), end="|")
             pass
         else:
-            print(colored("some Marc", "yellow"), end="-> ")
             if is_dictkey(marc21_dict, sub_dict['field'].lstrip("0")):
                 if sub_dict['subfield'] == 'none':
                     return marc21_dict[sub_dict['field']]
@@ -360,12 +360,10 @@ def spcht_recursion_node(sub_dict, raw_dict, marc21_dict=None):
         # ! this handling of the marc format is probably too simply
         # TODO: gather more samples of awful marc and process it
     elif sub_dict['source'] == "dict":
-        print(colored("Source Dict", "yellow"), end="-> ")
         if is_dictkey(raw_dict, sub_dict['field']):  # main field name
             return spcht_node_mapping(raw_dict[sub_dict['field']], sub_dict.get('mapping'), sub_dict.get('mapping_settings'))
         # ? since i prime the sub_dict what is even the point for checking the existence of the key, its always there
         elif is_dictkey(sub_dict, 'alternatives') and sub_dict['alternatives'] is not None:  # traverse list of alternative field names
-            print(colored("Alternatives", "yellow"), end="-> ")
             for entry in sub_dict['alternatives']:
                 if is_dictkey(raw_dict, entry):
                     return spcht_node_mapping(raw_dict[entry], sub_dict.get('mapping'), sub_dict.get('mapping_settings'))
@@ -373,10 +371,8 @@ def spcht_recursion_node(sub_dict, raw_dict, marc21_dict=None):
     if is_dictkey(sub_dict, 'fallback') and sub_dict['fallback'] is not None:  # we only get here if everything else failed
         # * this is it, the dreaded recursion, this might happen a lot of times, depending on how motivated the
         # * librarian was who wrote the descriptor format
-        print(colored("Fallback triggered", "yellow"), sub_dict.get('fallback'), end="-> ")
         return spcht_recursion_node(sub_dict['fallback'], raw_dict, marc21_dict)
     else:
-        print(colored("absolutlty nothing", "yellow"), end=" | ")
         return None  # usually i return false in these situations, but none seems appropriate
 # TODO: remove debug prints
 
@@ -457,9 +453,10 @@ def marc_test():
     print(json.dumps(marc2list(marctest.get('fullrecord')), indent=4))
 
 
-if __name__ == "__main__":
+def main_test():
+    global URLS
     load_config()
-    test = load_from_json(TESTFOLDER+"1fromsolrs.json")
+    test = load_from_json(TESTFOLDER + "1fromsolrs.json")
     # load spcht format
     temp = load_spcht_descriptor_file("default.spcht.json")
     if check_spcht_format(temp):
@@ -489,13 +486,14 @@ if __name__ == "__main__":
         "0-279416644": "Karte"
     }
     if SPCHT is not None:
-        thetestset = load_from_json(TESTFOLDER+"thetestset.json")
+        thetestset = load_from_json(TESTFOLDER + "thetestset.json")
         double_list = []
         thesparqlset = []
         for entry in thetestset:
             temp = convertMapping(entry, URLS['graph'])
             if temp:
-                double_list.append("\n\n=== {} - {} ===\n".format(entry.get('id', "Unknown ID"), debug_dict.get(entry.get('id'))))
+                double_list.append(
+                    "\n\n=== {} - {} ===\n".format(entry.get('id', "Unknown ID"), debug_dict.get(entry.get('id'))))
                 double_list += temp
                 # TODO Workeable Sparql
                 thesparqlset.append(bird_sparkle_insert(URLS['graph'], temp))
@@ -505,13 +503,12 @@ if __name__ == "__main__":
             print(line, file=my_debug_output)
         my_debug_output.close()
 
-    # TODO: trying all 15 Testsets every time
-        myfile = open(TESTFOLDER+"newsparql.txt", "w")
+        # TODO: trying all 15 Testsets every time
+        myfile = open(TESTFOLDER + "newsparql.txt", "w")
         json.dump(thesparqlset, myfile, indent=2)
         myfile.close()
 
-
-        myfile = open(TESTFOLDER+"testsetsparql.txt", "w")
+        myfile = open(TESTFOLDER + "testsetsparql.txt", "w")
         for fracta in thesparqlset:
             # sparqlQuery(fracta, URLS['virtuoso-write'], auth=URLS['sparql_user'], pwd=URLS['sparql_pw'])
             myfile.write(fracta)
@@ -520,3 +517,73 @@ if __name__ == "__main__":
 
 
 # TODO: create real config example file without local/vpn data in it
+
+
+def full_process():
+    global URLS, SPCHT
+    load_config()
+    SPCHT = load_spcht_descriptor_file("default.spcht.json")
+    big_data = []
+    total_nodes = 0
+
+    req_rows = 50000
+    req_chunk = 1000
+    head_start = 50000
+    req_para = {'q': "*:*", 'rows': req_rows, 'wt': "json"}
+
+    stormwarden = open(TESTFOLDER + "times.log", "w")
+    start_time = time.time()
+    print("Starting Process - Time Zero: {}".format(start_time), file=stormwarden)
+
+    # mechanism to not load 50000 entries in one go but use chunks for it
+    n = math.floor(int(req_rows) / req_chunk) + 1
+    print("Solr Source is {}".format(URLS['solr']), file=stormwarden)
+    print("Target Triplestore is {}".format(URLS['virtuoso-write']), file=stormwarden)
+    print("Target Graph is {}".format(URLS['graph']), file=stormwarden)
+    print("Detected {} chunks of a total of {} entries with a chunk size of {}".format(n, req_rows, req_chunk), file=stormwarden)
+    print("Start Loading Remote chunks - {}".format(delta_now(start_time)), file=stormwarden)
+    temp_url_param = copy.deepcopy(req_para)  # otherwise dicts get copied by reference
+    print(("#" * n)[:0] + (" " * n)[:n], "{} / {}".format(0+1, n))
+    for i in range(0, n):
+        temp_url_param['start'] = i * req_chunk + head_start
+        print("New Chunk started: [{}/{}] - {} ms".format(i, n - 1, delta_now(start_time)), file=stormwarden)
+        if i + 1 != n:
+            temp_url_param['rows'] = req_chunk
+        else:
+            temp_url_param['rows'] = int(int(req_rows) % req_chunk)
+        print("\tUsing request URL: {}/{}".format(URLS['solr'], temp_url_param), file=stormwarden)
+        data = test_json(load_remote_content(URLS['solr'], temp_url_param))
+        if data:  # no else required, test_json already gives us an error if something fails
+            print("Chunk finished, using SPCHT - {}".format(delta_now(start_time)), file=stormwarden)
+            chunk_data = slice_header_json(data)
+            big_data += chunk_data
+            number = 0
+            # test 1 - chunkwise data import
+            inserts = []
+            for entry in chunk_data:
+                temp = convertMapping(entry, URLS['graph'])
+                if temp:
+                    number += len(temp)
+
+                    inserts.append(bird_sparkle_insert(URLS['graph'], temp))
+                    big_data.append(temp)
+            total_nodes += number
+            print("Pure Maping for current Chunk done, doing http sparql requests - {}".format(delta_now(start_time)),
+                  file=stormwarden)
+            for pnguin in inserts:
+                sparqlQuery(pnguin, URLS['virtuoso-write'], auth=URLS['sparql_user'], pwd=URLS['sparql_pw'])
+            print("SPARQL Requests finished total of {} entries - {}".format(number, delta_now(start_time)),
+                  file=stormwarden)
+        print(("#" * n)[:i] + (" " * n)[:(n - i)], "{} / {}".format(i+1, n), "- {}".format(delta_now(start_time)))
+    print("Overall Executiontime was {} seconds".format(delta_now(start_time, 3)), file=stormwarden)
+    print("Total size of all entries is {}".format(sys.getsizeof(big_data)), file=stormwarden)
+    print("There was a total of {} triples".format(total_nodes), file=stormwarden)
+    stormwarden.close()
+
+
+def delta_now(zero_time, rounding=2):
+    return str(round(time.time()-zero_time, rounding))
+
+
+if __name__ == "__main__":
+    full_process()
