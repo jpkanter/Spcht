@@ -2,6 +2,7 @@
 #  connect to solr database, retrieves data in chunks and inserts those via sparql into virtuoso
 
 # "global" variables for some things
+import argparse
 import copy
 import json
 import math
@@ -167,11 +168,11 @@ def check_spcht_format(spcht_dictionary, out=sys.stderr, i18n=None):
     error_desc = {
         "header_miss": "The main header informations [id_source, id_field, main] are missing, is this even the right file?",
         "header_mal": "The header information seems to be malformed",
-        "basic_struct": "Elements of the basic structure ( [source, field, type] ) are missing",
+        "basic_struct": "Elements of the basic structure ( [source, field, required] ) are missing",
         "marc_subfield": "Every marc entry needs a field AND a subfield item, cannot find subfield.",
         "field_str": "The field entry has to be a string",
-        "type_str": "The type entry has to be a string and contain either: 'mandatory' or 'optional",
-        "type_chk": "Type-String can only 'mandatory' or 'optional'. Maybe encoding error?",
+        "required_str": "The required entry has to be a string and contain either: 'mandatory' or 'optional",
+        "required_chk": "Required-String can only 'mandatory' or 'optional'. Maybe encoding error?",
         "alt_list": "Alternatives must be a list of strings, eg: ['item1', 'item2']",
         "alt_list_str": "Every entry in the alternatives list has to be a string",
         "map_dict": "Translation mapping must be a dictionary",
@@ -227,7 +228,7 @@ def check_spcht_format_node(node, error_desc, out, is_root=False):
     if not is_root and not is_dictkey(node, 'source', 'field'):
         print(error_desc['basic_struct'], file=out)
         return False
-    if is_root and not is_dictkey(node, 'source', 'field', 'type'):
+    if is_root and not is_dictkey(node, 'source', 'field', 'required'):
         print(error_desc['basic_struct'], file=out)
         return False
     if node['source'] == "marc":
@@ -240,11 +241,11 @@ def check_spcht_format_node(node, error_desc, out, is_root=False):
     # root node specific things
     # TODO: include dictmap for checking
     if is_root:
-        if not isinstance(node['type'], str):
-            print(error_desc['type_str'], file=out)
+        if not isinstance(node['required'], str):
+            print(error_desc['required_str'], file=out)
             return False
-        if node['type'] != "optional" and node['type'] != "mandatory":
-            print(error_desc['type_chk'], file=out)
+        if node['required'] != "optional" and node['required'] != "mandatory":
+            print(error_desc['required_chk'], file=out)
             return False
     if is_dictkey(node, 'alternatives'):
         if not isinstance(node['alternatives'], list):
@@ -311,7 +312,7 @@ def convertMapping(raw_dict, graph, marc21="fullrecord", marc21_source="dict"):
             # print(colored(facet, "green"))
             # ? maybe i want to output a more general s p o format? or rather only "p & o"
             if facet is None:
-                if node['type'] == "mandatory":
+                if node['required'] == "mandatory":
                     return False  # cannot continue without mandatory fields
             elif isinstance(facet, str):
                 # list_of_sparql_inserts.append(bird_sparkle(graph + ressource, node['graph'], facet))
@@ -348,10 +349,13 @@ def spcht_recursion_node(sub_dict, raw_dict, marc21_dict=None):
     # @param marc21_dict = an alternative marc21 dictionary, already cooked and ready
     # the header/id field is special in some sense, therefore there is a separated function for it
     # ! this can return anything, string, list, dictionary, it just takes the content, careful
+    print(colored(sub_dict.get('name', ""), "blue"), end=" ")
     if sub_dict['source'] == "marc":
         if marc21_dict is None:
+            print(colored("No Marc", "yellow"), end="|")
             pass
         else:
+            print(colored("some Marc", "yellow"), end="-> ")
             if is_dictkey(marc21_dict, sub_dict['field'].lstrip("0")):
                 if sub_dict['subfield'] == 'none':
                     return marc21_dict[sub_dict['field']]
@@ -360,10 +364,12 @@ def spcht_recursion_node(sub_dict, raw_dict, marc21_dict=None):
         # ! this handling of the marc format is probably too simply
         # TODO: gather more samples of awful marc and process it
     elif sub_dict['source'] == "dict":
+        print(colored("Source Dict", "yellow"), end="-> ")
         if is_dictkey(raw_dict, sub_dict['field']):  # main field name
             return spcht_node_mapping(raw_dict[sub_dict['field']], sub_dict.get('mapping'), sub_dict.get('mapping_settings'))
         # ? since i prime the sub_dict what is even the point for checking the existence of the key, its always there
         elif is_dictkey(sub_dict, 'alternatives') and sub_dict['alternatives'] is not None:  # traverse list of alternative field names
+            print(colored("Alternatives", "yellow"), end="-> ")
             for entry in sub_dict['alternatives']:
                 if is_dictkey(raw_dict, entry):
                     return spcht_node_mapping(raw_dict[entry], sub_dict.get('mapping'), sub_dict.get('mapping_settings'))
@@ -371,8 +377,10 @@ def spcht_recursion_node(sub_dict, raw_dict, marc21_dict=None):
     if is_dictkey(sub_dict, 'fallback') and sub_dict['fallback'] is not None:  # we only get here if everything else failed
         # * this is it, the dreaded recursion, this might happen a lot of times, depending on how motivated the
         # * librarian was who wrote the descriptor format
+        print(colored("Fallback triggered", "yellow"), sub_dict.get('fallback'), end="-> ")
         return spcht_recursion_node(sub_dict['fallback'], raw_dict, marc21_dict)
     else:
+        print(colored("absolutlty nothing", "yellow"), end=" | ")
         return None  # usually i return false in these situations, but none seems appropriate
 # TODO: remove debug prints
 
@@ -586,4 +594,10 @@ def delta_now(zero_time, rounding=2):
 
 
 if __name__ == "__main__":
-    full_process()
+    parser = argparse.ArgumentParser(description="LOD SPCHT Interpreter", epilog="Config File overwrites individual settings")
+    parser.add_argument('-configFile', type=str, help="Defines a (local) config file to load things from")
+    parser.add_argument('-TestMode', action="store_true", help="Executes some 'random', flavour of the day testscript")
+    args = parser.parse_args()
+    # TODO Insert Arg Interpretation here
+
+    main_test()

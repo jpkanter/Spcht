@@ -12,7 +12,7 @@
             "source": "dict",
             "graph": "http://schema.org/isbn",
             "field": "isbn",
-            "type": "optional",
+            "required": "optional",
             "fallback": {
                 "source": "marc",
                 "field": "020",
@@ -24,7 +24,7 @@
             "source": "dict",
             "graph":  "https://schema.org/issn",
             "field": "issn",
-            "type": "optional",
+            "required": "optional",
             "fallback": {
                 "source": "marc",
                 "field": "022",
@@ -37,7 +37,7 @@
             "graph": "http://purl.org/dc/terms/title",
             "field": "title",
             "alternatives": ["title_short"],
-            "type": "mandatory",
+            "required": "mandatory",
             "fallback": {
                 "source": "marc",
                 "field": "245",
@@ -50,7 +50,7 @@
             "source": "dict",
             "graph": "http://purl.org/dc/terms/alternative",
             "field": "title_alt",
-            "type": "optional"
+            "required": "optional"
         },
         {
             "name": "Zusatz zum Hauptsachtitel",
@@ -58,7 +58,7 @@
             "graph": "http://rdaregistry.info/Elements/u/P60493",
             "field": "title_sub",
             "alternatives": ["title_part"],
-            "type": "optional",
+            "required": "optional",
                 "fallback": {
                 "source": "marc",
                 "field": "245",
@@ -70,7 +70,7 @@
             "source": "dict",
             "graph": "http://umbel.org/umbel/isLike",
             "field": "url",
-            "type": "optional",
+            "required": "optional",
             "comment": "ohne Marc-Fallback; in den SOLR gelangen nur URNs nach einem bestimmten Muster aus 024a:037n:856u"
         },
         {
@@ -78,14 +78,14 @@
             "source": "dict",
             "graph": "http://rdaregistry.info/Elements/u/P60327",
             "field": "author",
-            "type": "optional"
+            "required": "optional"
         },
         {
             "name": "Verfasser (URI)", 
             "source": "dict",
             "graph": "http://purl.org/dc/terms/creator",
             "field": "names_id_str_mv", 
-            "type": "optional",
+            "required": "optional",
             "comment": "mit Hash-URI arbeiten, um den Name-String (SOLR:author) als label unterzubringen",
             "fallback": {
                 "source": "marc",
@@ -102,7 +102,7 @@
             "field": "author_role", 
             "comment2": "Achtung: Einträge im SOLR nicht konsistent; Rollenkürzel, Ausschriften usw. / hier wohl nur Marc verwenden",
             "alternatives": ["author2_role", "author_corporate_role"],
-            "type": "optional",
+            "required": "optional",
             "mapping_settings": {
                 "$ref": "./translation_maps/roles.json",
                 "$default": true
@@ -141,7 +141,7 @@
             "comment1": "# aber nur wenn Präfix DE-588",
             "comment2": "mit Hash-URI arbeiten, um den Name-String (SOLR:author2 und author_corporate) als label unterzubringen",
             "comment3": " siehe Verfasser (URI), Info bekommen wir nicht sauber aus dem SOLR",
-            "type": "optional"
+            "required": "optional"
         },
         {
             "name": "Erscheinungsvermerk",
@@ -149,14 +149,14 @@
             "source": "dict",
             "graph": "http://rdaregistry.info/Elements/u/P60333",
             "field": "imprint_str_mv",
-            "type": "optional"
+            "required": "optional"
         },
         {
             "name": "Erscheinungssort",
             "source": "dict",
             "graph": "http://rdaregistry.info/Elements/u/P60163",
             "field": "publishPlace",
-            "type": "optional",
+            "required": "optional",
             "fallback": {
                 "source": "marc",
                 "field": "260",
@@ -169,7 +169,7 @@
             "source": "dict",
             "graph": "http://purl.org/dc/terms/publisher",
             "field": "publisher",
-            "type": "optional",
+            "required": "optional",
             "fallback": {
                 "source": "marc",
                 "field": "260:264",
@@ -181,7 +181,7 @@
             "source": "dict",
             "graph": "http://iflastandards.info/ns/isbd/elements/P1053",
             "field": "physical",
-            "type": "optional",
+            "required": "optional",
             "fallback": {
                 "source": "marc",
                 "field": "300",
@@ -193,7 +193,7 @@
             "source": "dict",
             "graph": "http://purl.org/dc/terms/bibliographicCitation",
             "field": "container_title",
-            "type": "optional",
+            "required": "optional",
             "comment": "# 773t:773s:773a, first"
         },
         {
@@ -201,21 +201,21 @@
             "source": "dict",
             "graph": "http://purl.org/dc/terms/identifier",
             "field": "kxp_id_str",
-            "type": "optional"
+            "required": "optional"
         },
         {
             "name": "Author 2 - Teilhaber",
             "source": "dict",
             "graph": "http://purl.org/dc/terms/contributor",
             "field": "author2",
-            "type": "optional"
+            "required": "optional"
         },
         {
             "name": "has dissertation or thesis information",
             "source": "dict",
             "graph": "http://rdaregistry.info/Elements/u/P60489",
             "field": "publisher",
-            "type": "optional"
+            "required": "optional"
         },
         {
             "name": "Bibliographic Citation - A bibliographic reference for the resource.",
@@ -223,28 +223,28 @@
             "graph": "http://purl.org/dc/terms/bibliographicCitation",
             "field": "container_title",
             "alternatives": ["container_reference"],
-            "type": "optional"
+            "required": "optional"
         },
         {
             "name": "Identifikation SWB @todo",
             "source": "dict",
             "graph": "http://purl.org/dc/terms/identifier",
             "field": "swb_id_str",
-            "type": "optional"
+            "required": "optional"
         },
         {
             "name": "Identifikation KXP @todo",
             "source": "dict",
             "graph": "http://purl.org/dc/terms/identifier",
             "field": "kxp_id_str",
-            "type": "optional"
+            "required": "optional"
         },
         {
             "name": "Typ der Dokument Art",
             "source": "dict",
-            "graph": "https://www.w3.org/TR/rdf-schema/#ch_type",
+            "graph": "https://www.w3.org/TR/rdf-schema/#ch_required",
             "field": "format_finc",
-            "type": "optional",
+            "required": "optional",
             "mapping_settings": {
                 "$default": "http://purl.org/ontology/bibo/Document",
                 "$ref": "./translation_maps/documents.json"
@@ -255,7 +255,7 @@
             "source": "dict",
             "graph": "http://purl.org/dc/terms/medium",
             "field": "format_finc",
-            "type": "optional",
+            "required": "optional",
             "mapping": {
                 "Audio": "http://rdaregistry.info/termList/RDAMediaType/1001",
                 "Microform": "http://rdaregistry.info/termList/RDAMediaType/1002",
@@ -266,7 +266,7 @@
             "name": "Sprache des Objects",
             "source": "dict",
             "graph": "http://purl.org/dc/terms/language",
-            "type": "optional",
+            "required": "optional",
             "field": "language",
             "mapping_settings": { "$ref": "./translation_maps/languages_long.json" }
         }
