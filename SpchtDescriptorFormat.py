@@ -1,0 +1,563 @@
+import json
+import sys
+import pymarc
+from pymarc.exceptions import RecordLengthInvalid, RecordLeaderInvalid, BaseAddressNotFound, BaseAddressInvalid, \
+    RecordDirectoryInvalid, NoFieldsFound
+
+
+# the actual class
+
+class Spcht:
+    DESCRI = {}
+
+    def __init__(self, filename=None, check_format=False):
+        if filename is not None:
+            self.load_descriptor_file(filename)
+        #does absolutly nothing in itself
+
+    def __repr__(self):
+        if sys.getsizeof(self.DESCRI) > 0:
+            some_text = ""
+            for item in self.DESCRI['nodes']:
+                some_text+= "{}[{},{}] - ".format(item['field'], item['source'], item['required'])
+            return some_text[:-3]
+        else:
+            return "Empty Spcht"
+
+
+    @staticmethod
+    def load_json(filename):
+        try:
+            with open(filename, mode='r') as file:
+                return json.load(file)
+        except FileNotFoundError:
+            print("nofile", file=sys.stderr)
+            return False
+        except ValueError:
+            print("json_parser", file=sys.stderr)
+            return False
+        except:
+            print("graph_parser", file=sys.stderr)
+            return False
+
+    # other boiler plate, general stuff that is used to not write out a lot of code each time
+    @staticmethod
+    def is_dictkey(dictionary, *keys):
+        try:
+            for key in keys:
+                if not key in dictionary:
+                    return False
+            return True
+        except TypeError:
+            print("Non Dictionary provided", file=sys.stderr)
+
+    @staticmethod
+    def list_has_elements(iterable):
+        # technically this can check more than lists, but i use it to check some crude object on having objects or not
+        for item in iterable:
+            return True
+        return False
+
+    @staticmethod
+    def marc21_fixRecord(record="", record_id=0, validation=False, replace_method='decimal'):
+        # imported from the original finc2rdf.py
+        # its needed cause the marc21_fullrecord entry contains some information not in the other solr entries
+        # record id is only needed for the error text so its somewhat transparent where stuff went haywire
+        # i think what it does is replacing some characters in the response of solr, the "replace_method" variable
+        # was a clue.
+        replace_methods = {
+            'decimal': (('#29;', '#30;', '#31;'), ("\x1D", "\x1E", "\x1F")),
+            'unicode': (('\u001d', '\u001e', '\u001f'), ("\x1D", "\x1E", "\x1F")),
+            'hex': (('\x1D', '\x1E', '\x1F'), ("\x1D", "\x1E", "\x1F"))
+        }
+        marcFullRecordFixed = record
+        # replaces all three kinds of faults in the choosen method (decimal, unicode or hex)
+        # this method is written broader than necessary, reuseable?
+        for i in range(0, 3):
+            marcFullRecordFixed = marcFullRecordFixed.replace(replace_methods.get(replace_method)[0][i],
+                                                              replace_methods.get(replace_method)[1][i])
+        if validation:
+            try:
+                reader = pymarc.MARCReader(marcFullRecordFixed.encode('utf8'), utf8_handling='replace')
+                marcrecord = next(reader)  # what does this?
+            except (
+                    RecordLengthInvalid, RecordLeaderInvalid, BaseAddressNotFound, BaseAddressInvalid,
+                    RecordDirectoryInvalid,
+                    NoFieldsFound, UnicodeDecodeError) as e:
+                print("record id {0}:".format(record_id) + str(e), file=sys.stderr)
+                return False
+        return marcFullRecordFixed
+
+    @staticmethod
+    def marcleader2report(leader, output=sys.stdout):
+        # outputs human readable information about a marc leader
+        # text source: https://www.loc.gov/marc/bibliographic/bdleader.html
+        marc_leader_text = {
+            "05": {"label": "Record status",
+                   "a": "Increase in encoding level",
+                   "c": "Corrected or revised",
+                   "d": "Deleted",
+                   "n": "New",
+                   "p": "Increase in encoding level from prepublication"
+                   },
+            "06": {"label": "Type of record",
+                   "a": "Language material",
+                   "c": "Notated music",
+                   "d": "Manuscript notated music",
+                   "e": "Cartographic material",
+                   "f": "Manuscript cartographic material",
+                   "g": "Projected medium",
+                   "i": "Non-musical sound recording",
+                   "j": "Musical sound recourding",
+                   "k": "Two-dimensional non-projectable graphic",
+                   "m": "Computer file",
+                   "o": "Kit",
+                   "p": "Mixed Materials",
+                   "r": "Three-dimensional or naturally occurring object",
+                   "t": "Manuscript language material"
+                   },
+            "07": {"label": "Bibliographic level",
+                   "a": "Monographic component part",
+                   "b": "Serial component part",
+                   "c": "Collection",
+                   "d": "Subunit",
+                   "i": "Integrating resource",
+                   "m": "Monograph/Item",
+                   "s": "Serial"
+                   },
+            "08": {"label": "Type of control",
+                   " ": "No specified type",
+                   "a": "archival"
+                   },
+            "09": {"label": "Character coding scheme",
+                   " ": "MARC-8",
+                   "a": "UCS/Unicode"
+                   },
+            "18": {"label": "Descriptive cataloging form",
+                   " ": "Non-ISBD",
+                   "a": "AACR 2",
+                   "c": "ISBD punctuation omitted",
+                   "i": "ISBD punctuation included",
+                   "n": "Non-ISBD punctuation omitted",
+                   "u": "Unknown"
+                   }
+        }
+
+        for i in range(23):
+            if i < 4 or (12 <= i <= 15):
+                continue
+            if i == 5:  # special case one, length is on the fields 0-4
+                print("Record length: " + leader[0:5])
+                continue
+            if i == 16:
+                print("Leader & directory length " + leader[12:16])
+            if Spcht.is_dictkey(marc_leader_text, f'{i:02d}'):
+                print(marc_leader_text.get(f'{i:02d}').get('label') + ": " + marc_leader_text.get(f'{i:02d}').get(
+                    leader[i], "unknown"), file=output)
+
+    @staticmethod
+    def normalize_marcdict(a_so_called_dictionary):
+        # all this trouble cause for some reasons pymarc insists on being awful
+        # to explain it a bit further, this is the direct outout of .as_dict() for an example file
+        # {'leader': '02546cam a2200841   4500', 'fields': [{'001': '0-023500557'}, ...
+        # the leader is okay, but why are the fields a list of single dictionaries? i really dont get it
+        the_long_unnecessary_list = a_so_called_dictionary.get('fields', None)
+        an_actual_dictionary = {}
+        if the_long_unnecessary_list is not None:
+            for mini_dict in the_long_unnecessary_list:
+                key = next(iter(mini_dict))  # Python 3.7 feature
+                an_actual_dictionary[key] = mini_dict[key]
+            return an_actual_dictionary
+        return False
+
+    @staticmethod
+    def marc2list(marc_full_record, validation=True, replace_method='decimal'):
+        clean_marc = Spcht.marc21_fixRecord(marc_full_record, validation=validation, replace_method=replace_method)
+        if isinstance(clean_marc, str):  # would be boolean if something bad had happen
+            reader = pymarc.MARCReader(clean_marc.encode('utf-8'))
+            marc_list = []
+            for record in reader:
+                tempdict = {}
+                record_dict = Spcht.normalize_marcdict(record.as_dict())  # for some reason i cannot access all fields,
+                # also funny, i could probably use this to traverse the entire thing ,but better save than sorry i guess
+                # sticking to the standard in case pymarc changes in a way or another
+                for i in range(1000):
+                    if record[f'{i:03d}'] is not None:
+                        tempdict[i] = {}
+                        for item in record[f'{i:03d}']:
+                            # marc items are tuples, for title its basically 'a': 'Word', 'b': 'more Words'
+                            tempdict[i][item[0]] = item[1]
+                            if Spcht.is_dictkey(tempdict[i], "concat"):
+                                tempdict[i]['concat'] += " " + item[1]
+                            else:
+                                tempdict[i]['concat'] = item[1]
+                        if not Spcht.list_has_elements(record[f'{i:03d}']):
+                            tempdict[i] = record_dict.get(f'{i:03d}')
+                            # normal len doesnt work cause no method, flat element
+                marc_list.append(tempdict)
+            if 0 < len(marc_list) < 2:
+                return marc_list[0]
+            elif len(marc_list) > 1:
+                return marc_list
+            else:
+                return None
+        else:
+            return False
+        # i am astonished how diverse the return statement can be, False if something went wrong, None if nothing gets
+        # returned but everything else went fine, although, i am not sure if that even triggers and under what circumstances
+
+    def load_descriptor_file(self, filename):
+        # returns None if something is amiss, returns the descriptors as dictionary
+        # ? turns out i had to add some complexity starting with the "include" mapping
+        descriptor = self.load_json(filename)
+
+        if isinstance(descriptor, bool):  # load json goes wrong if something is wrong with the json
+            return None
+        if not Spcht.check_format(descriptor):
+            return None
+        # * goes through every mapping node and adds the reference files, which makes me basically rebuild the thing
+        # ? python iterations are not with pointers, so this will expose me as programming apprentice but this will work
+        new_node = []
+        for item in descriptor['nodes']:
+            a_node = self.load_ref_node(item)
+            if isinstance(a_node, bool):  # if something goes wrong we abort here
+                print("spcht_ref", file=sys.stderr)
+                return False
+            new_node.append(a_node)
+        descriptor['nodes'] = new_node  # replaces the old node with the new, enriched ones
+        self.DESCRI = descriptor
+        return True
+
+    @staticmethod
+    def load_ref_node(node_dict):
+        # We are again in beautiful world of recursion. Each node can contain a mapping and each mapping can contain
+        # a reference to a mapping json. i am actually quite worried that this will lead to performance issues
+        # TODO: Research limits for dictionaries and performance bottlenecks
+        # so, this returns False and the actual loading operation returns None, this is cause i think, at this moment,
+        # that i can check for isinstance easier than for None, i might be wrong and i have not looked into the
+        # cost of that operation if that is ever a concern
+        if Spcht.is_dictkey(node_dict, 'fallback'):
+            node_dict['fallback'] = Spcht.load_ref_node(node_dict['fallback'])  # ! there it is again, the cursed recursion thing
+            if isinstance(node_dict['fallback'], bool):
+                return False
+        if Spcht.is_dictkey(node_dict, 'mapping_settings') and node_dict['mapping_settings'].get('$ref') is not None:
+            file_path = node_dict['mapping_settings']['$ref']  # ? does it always has to be a relative path?
+            try:
+                map_dict = Spcht.load_json(file_path)
+                # iterate through the dict, if manual entries have the same key ignore
+                if not isinstance(map_dict, dict):  # we expect a simple, flat dictionary, nothing else
+                    return False  # funnily enough, this also includes bool which happens when json loads fails
+                # ! this here is the actual logic that does the thing:
+                # there might no mapping key at all
+                if not Spcht.is_dictkey(node_dict, 'mapping'):
+                    node_dict['mapping'] = {}
+                for key, value in map_dict.items():
+                    if not isinstance(value, str):  # only flat dictionaries, no nodes
+                        print("spcht_map", file=sys.stderr)
+                        return False
+                    if not Spcht.is_dictkey(node_dict['mapping'], key):  # existing keys have priority
+                        node_dict['mapping'][key] = value
+                del map_dict
+                # clean up mapping_settings node
+                del (node_dict['mapping_settings']['$ref'])
+                if len(node_dict['mapping_settings']) <= 0:
+                    del (node_dict['mapping_settings'])  # if there are no other entries the entire mapping settings goes
+
+            except FileNotFoundError:
+                print("file_path", "file", file=sys.stderr)
+                return False
+            except KeyError:
+                print("KeyError", file=sys.stderr)
+                return False
+
+        return node_dict  # whether nothing has had changed or not, this holds true
+
+    @staticmethod
+    def recursion_node(sub_dict, raw_dict, marc21_dict=None):
+        # i do not like the general use of recursion, but for traversing trees this seems the best solution
+        # there is actually not so much overhead in python, its more one of those stupid feelings, i googled some
+        # random reddit thread: https://old.reddit.com/r/Python/comments/4hkds8/do_you_recommend_using_recursion_in_python_why_or/
+        # @param sub_dict = the part of the descriptor dictionary that is in ['fallback']
+        # @param raw_dict = the big raw dictionary that we are working with
+        # @param marc21_dict = an alternative marc21 dictionary, already cooked and ready
+        # the header/id field is special in some sense, therefore there is a separated function for it
+        # ! this can return anything, string, list, dictionary, it just takes the content, careful
+        if sub_dict['source'] == "marc":
+            if marc21_dict is None:
+                pass
+            else:
+                if Spcht.is_dictkey(marc21_dict, sub_dict['field'].lstrip("0")):
+                    if sub_dict['subfield'] == 'none':
+                        return marc21_dict[sub_dict['field']]
+                    elif Spcht.is_dictkey(marc21_dict[sub_dict['field'].lstrip("0")], sub_dict['subfield']):
+                        return marc21_dict[sub_dict['field'].lstrip("0")][sub_dict['subfield']]
+            # ! this handling of the marc format is probably too simply
+            # TODO: gather more samples of awful marc and process it
+        elif sub_dict['source'] == "dict":
+            if Spcht.is_dictkey(raw_dict, sub_dict['field']):  # main field name
+                return Spcht.node_mapping(raw_dict[sub_dict['field']], sub_dict.get('mapping'), sub_dict.get('mapping_settings'))
+            # ? since i prime the sub_dict what is even the point for checking the existence of the key, its always there
+            elif Spcht.is_dictkey(sub_dict, 'alternatives') and sub_dict['alternatives'] is not None:  # traverse list of alternative field names
+                for entry in sub_dict['alternatives']:
+                    if Spcht.is_dictkey(raw_dict, entry):
+                        return Spcht.node_mapping(raw_dict[entry], sub_dict.get('mapping'),
+                                                  sub_dict.get('mapping_settings'))
+
+        if Spcht.is_dictkey(sub_dict, 'fallback') and sub_dict['fallback'] is not None:  # we only get here if everything else failed
+            # * this is it, the dreaded recursion, this might happen a lot of times, depending on how motivated the
+            # * librarian was who wrote the descriptor format
+            return Spcht.recursion_node(sub_dict['fallback'], raw_dict, marc21_dict)
+        else:
+            return None  # usually i return false in these situations, but none seems appropriate
+
+    @staticmethod
+    def node_mapping(value, mapping, settings):
+        the_default = False
+        if not isinstance(mapping, dict) or mapping is None:
+            return value
+        if settings is not None and isinstance(settings, dict):
+            if Spcht.is_dictkey(settings, '$default'):
+                the_default = settings['$default']
+                # if the value is boolean True it gets copied without mapping
+                # if the value is a str that is default, False does nothing but preserves the default state of default
+                # Python allows me to get three "boolean" states here done, value, yes and no. Yes is inheritance
+            if Spcht.is_dictkey(settings, '$type'):
+                pass  # placeholder # TODO: regex or rigid matching
+        # no big else block cause it would indent everything, i dont like that, and this is best practice anyway right?
+        if isinstance(value, list):  # ? repeated dictionary calls not good for performance?
+            # ? default is optional, if not is given there can be a discard of the value despite it being here
+            # TODO: make 'default': '$inherit' to an actual function
+            response_list = []
+            for item in value:
+                one_entry = mapping.get(item)
+                if one_entry is not None:
+                    response_list.append(one_entry)
+                else:
+                    if isinstance(the_default, bool) and the_default is True:
+                        response_list.append(item)  # inherit the former value
+                    elif isinstance(the_default, str):
+                        response_list.append(the_default)  # use default text
+                del one_entry
+            if len(response_list) > 0:
+                return response_list
+            elif len(response_list) <= 0 and isinstance(the_default, str):
+                # ? i wonder when this even triggers? when giving an empty list? in any other case default is there
+                # * caveat here, if there is a list of unknown things there will be only one default
+                response_list.append(
+                    the_default)  # there is no inheritance here, i mean, what should be inherited? void?
+                return response_list
+            else:  # if there is no response list but also no defined default, it crashes back to nothing
+                return None
+
+        elif isinstance(value, str):
+            # ! this here might be a bug, if there is no mapping but a fallback the fallback gets ignored
+            # that bug might be actually more on the SDF Writer than on me
+            if Spcht.is_dictkey(mapping, value):  # rigid key mapping
+                return mapping.get(value)
+            elif isinstance(the_default, bool) and the_default is True:
+                return value
+            elif isinstance(the_default, str):
+                return the_default
+            else:
+                return None
+                # ? i was contemplating whether it should return value or None. None is the better one i think
+                # ? cause if we no default is defined we probably have a reason for that right?
+        else:
+            print("field contains a non-list, non-string: {}".format(type(value)), file=sys.stderr)
+
+    def convertMapping(self, raw_dict, graph, marc21="fullrecord", marc21_source="dict"):
+        # takes a raw solr query and converts it to a list of sparql queries to be inserted in a triplestore
+        # per default it assumes there is a marc entry in the solrdump but it can be provided directly
+        # it also takes technically any dictionary with entries as input
+        # spcht descriptor format - sdf
+        # ! this is temporarily here, i am not sure how i want to handle the descriptor dictionary for now
+        # ! there might be a use case to have a different mapping file for every single call instead of a global one
+        # Preparation of Data to make it more handy in the further processing
+        marc21_record = None  # setting a default here
+        if marc21_source == "dict":
+            marc21_record = Spcht.marc2list(raw_dict.get(marc21))
+        elif marc21_source == "none":
+            pass  # this is more a nod to anyone reading this than actually doing anything
+        else:
+            return False  # TODO alternative marc source options
+            # ? what if there are just no marc data and we know that in advance?
+        list_of_sparql_inserts = []
+        debug_list = []
+        # generate core graph, i presume we already checked the spcht for being corredct
+        # ? instead of making one hard coded go i could insert a special round of the general loop right?
+        sub_dict = {
+            "source": self.DESCRI['id_source'],
+            # i want to throw this exceptions, but the format is checked anyway right?!
+            "field": self.DESCRI['id_field'],
+            "subfield": self.DESCRI.get('id_subfield', None),
+            # i am aware that .get returns none anyway, this is about you
+            "alternatives": self.DESCRI.get('id_alternatives', None),
+            "fallback": self.DESCRI.get('id_fallback', None)
+        }
+        ressource = Spcht.recursion_node(sub_dict, raw_dict, marc21_record)
+        # print("Res", colored(ressource, "green"))
+        if ressource is not None:
+            for node in self.DESCRI['nodes']:
+                facet = Spcht.recursion_node(node, raw_dict, marc21_record)
+                # print(colored(facet, "green"))
+                # ? maybe i want to output a more general s p o format? or rather only "p & o"
+                if facet is None:
+                    if node['required'] == "mandatory":
+                        return False  # cannot continue without mandatory fields
+                elif isinstance(facet, str):
+                    # list_of_sparql_inserts.append(bird_sparkle(graph + ressource, node['graph'], facet))
+                    list_of_sparql_inserts.append(bird_sparkle(graph + ressource, node['graph'], facet))
+                    debug_list.append("{} - {}".format(node['graph'], facet))
+                elif isinstance(facet, tuple):
+                    print("Tuple found", facet)
+                elif isinstance(facet, list):
+                    for item in facet:
+                        # list_of_sparql_inserts.append(bird_sparkle(graph + ressource, node['graph'], item))
+                        debug_list.append("{} - {}".format(node['graph'], item))
+                        list_of_sparql_inserts.append(bird_sparkle(graph + ressource, node['graph'], item))
+                else:
+                    print(facet, "I cannot handle that for the moment", "magenta", file=sys.stderr)
+        else:
+            return False  # ? or none?
+
+        # ! this is NOT final
+        # return debug_list
+        return list_of_sparql_inserts
+
+    # TODO: Error logs for known error entries and total failures as statistic
+    # TODO: Grouping of graph descriptors in an @context
+    # TODO: remove debug prints
+    # TODO: learn how to properly debug in python, i am quite sure print isn't the way to go
+
+    @staticmethod
+    def check_format(descriptor, out=sys.stderr, i18n=None):
+        # originally this wasnt a static method, but we want to use it to check ANY descriptor format, not just this
+        # checks the format for any miss shaped data structures
+        # * what it does not check for is illogical entries like having alternatives for a pure marc source
+        # for language stuff i give you now the ability to actually provide local languages
+        error_desc = {
+            "header_miss": "The main header informations [id_source, id_field, main] are missing, is this even the right file?",
+            "header_mal": "The header information seems to be malformed",
+            "basic_struct": "Elements of the basic structure ( [source, field, required] ) are missing",
+            "marc_subfield": "Every marc entry needs a field AND a subfield item, cannot find subfield.",
+            "field_str": "The field entry has to be a string",
+            "required_str": "The required entry has to be a string and contain either: 'mandatory' or 'optional",
+            "required_chk": "Required-String can only 'mandatory' or 'optional'. Maybe encoding error?",
+            "alt_list": "Alternatives must be a list of strings, eg: ['item1', 'item2']",
+            "alt_list_str": "Every entry in the alternatives list has to be a string",
+            "map_dict": "Translation mapping must be a dictionary",
+            "map_dict_str": "Every element of the mapping must be a string",
+            "maps_dict": "Settings for Mapping must be a dictionary",
+            "maps_dict_str": "Every element of the mapping settings must be a string",
+            "fallback": "-> structure of the fallback node contains errors",
+            "nodes": "-> error in structure of Node",
+            "fallback_dict": "Fallback structure must be an dictionary build like a regular node"
+        }
+        if isinstance(i18n, dict):
+            for key, value in error_desc.items():
+                if Spcht.is_dictkey(i18n, key) and isinstance(i18n[key], str):
+                    error_desc[key] = i18n[key]
+        # ? this should probably be in every reporting function which bears the question if its not possible in another way
+        # checks basic infos
+        if not Spcht.is_dictkey(descriptor, 'id_source', 'id_field', 'nodes'):
+            print(error_desc['header_miss'], file=out)
+            return False
+        # transforms header in a special node to avoid boiler plate code
+        header_node = {
+            "source": descriptor.get('id_source'),
+            "field": descriptor.get('id_field'),
+            "subfield": descriptor.get('id_subfield', None),
+            "fallback": descriptor.get('id_fallback', None)
+            # this main node doesnt contain alternatives or the required field
+        }  # ? there must be a better way for this mustn't it?
+        # a lot of things just to make sure the header node is correct, its almost like there is a better way
+        plop = []
+        for key, value in header_node.items():  # this removes the none existent entries cause i dont want to add more checks
+            if value is None:
+                plop.append(
+                    key)  # what you cant do with dictionaries you iterate through is removing keys while doing so
+        for key in plop:
+            header_node.pop(key, None)
+        del plop
+
+        # the actual header check
+        if not Spcht.check_format_node(header_node, error_desc, out):
+            print("header_mal", file=out)
+            return False
+        # end of header checks
+        for node in descriptor['nodes']:
+            if not Spcht.check_format_node(node, error_desc, out, True):
+                print(error_desc['nodes'], node.get('name', node.get('field', "unknown")), file=out)
+                return False
+        # ! make sure everything that has to be here is here
+        return True
+
+    @staticmethod
+    def check_format_node(node, error_desc, out, is_root=False):
+        # @param node - a dictionary with a single node in it
+        # @param error_desc - the entire flat dictionary of error texts
+        # * i am writing print & return a lot here, i really considered making a function so i can do "return funct()"
+        # * but what is the point? Another sub function to save one line of text each time and obfuscate the code more?
+        if not is_root and not Spcht.is_dictkey(node, 'source', 'field'):
+            print(error_desc['basic_struct'], file=out)
+            return False
+        if is_root and not Spcht.is_dictkey(node, 'source', 'field', 'required'):
+            print(error_desc['basic_struct'], file=out)
+            return False
+        if node['source'] == "marc":
+            if not Spcht.is_dictkey(node, 'subfield'):
+                print(error_desc['marc_subfield'], file=out)
+                return False
+        if not isinstance(node['field'], str):  # ? is a one character string a chr?
+            print(error_desc['field_str'], file=out)
+            return False
+        # root node specific things
+        # TODO: include dictmap for checking
+        if is_root:
+            if not isinstance(node['required'], str):
+                print(error_desc['required_str'], file=out)
+                return False
+            if node['required'] != "optional" and node['required'] != "mandatory":
+                print(error_desc['required_chk'], file=out)
+                return False
+        if Spcht.is_dictkey(node, 'alternatives'):
+            if not isinstance(node['alternatives'], list):
+                print(error_desc['alt_list'], file=out)
+                return False
+            else:  # this else is redundant, its here for you dear reader
+                for item in node['alternatives']:
+                    if not isinstance(item, str):
+                        print(error_desc['alt_list_str'], file=out)
+                        return False
+        if Spcht.is_dictkey(node, 'mapping'):
+            if not isinstance(node['mapping'], dict):
+                print(error_desc['map_dict'], file=out)
+                return False
+            else:  # ? again the thing with the else for comprehension, this comment is superfluous
+                for key, value in node['mapping'].items():
+                    if not isinstance(value, str):
+                        print(error_desc['map_dict_str'], file=out)
+                        return False
+        if Spcht.is_dictkey(node, "mapping_settings"):
+            if not isinstance(node['mapping_settings'], dict):
+                print(error_desc['maps_dict'], file=out)
+                return False
+            else:  # ? boilerplatze, boilerplate does whatever boilerplate does
+                for key, value in node['mapping_settings'].items():
+                    if not isinstance(value, str):
+                        # special cases upon special cases, here its the possibility of true or false for $default
+                        if isinstance(value, bool) and key == "$default":
+                            pass
+                        else:
+                            print(error_desc['maps_dict_str'], file=out)
+                            return False
+        if Spcht.is_dictkey(node, 'fallback'):
+            if isinstance(node['fallback'], dict):
+                if not Spcht.check_format_node(node['fallback'], error_desc, out):  # ! this is recursion
+                    print(error_desc['fallback'], file=out)
+                    return False
+            else:
+                print(error_desc['fallback_dict'], file=out)
+                return False
+        return True
+

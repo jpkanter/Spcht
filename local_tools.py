@@ -56,3 +56,4 @@ def list_has_elements(iterable):
     for item in iterable:
         return True
     return False
+

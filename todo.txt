@@ -20,3 +20,4 @@
     [ ] you dont need to technically request *, just all the things you need, that might be less
 * GENERAL
     [ ] command line interface
+    [ ] probably rewriting the entire SPCHT into a class

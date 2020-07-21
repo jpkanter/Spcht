@@ -8,6 +8,7 @@ import json
 import math
 import sys
 import time
+import SpchtDescriptorFormat
 
 import pymarc
 
@@ -177,6 +178,8 @@ def check_spcht_format(spcht_dictionary, out=sys.stderr, i18n=None):
         "alt_list_str": "Every entry in the alternatives list has to be a string",
         "map_dict": "Translation mapping must be a dictionary",
         "map_dict_str": "Every element of the mapping must be a string",
+        "maps_dict": "Settings for Mapping must be a dictionary",
+        "maps_dict_str": "Every element of the mapping settings must be a string",
         "fallback": "-> structure of the fallback node contains errors",
         "nodes": "-> error in structure of Node",
         "fallback_dict": "Fallback structure must be an dictionary build like a regular node"
@@ -196,7 +199,7 @@ def check_spcht_format(spcht_dictionary, out=sys.stderr, i18n=None):
         "field": spcht_dictionary.get('id_field'),
         "subfield": spcht_dictionary.get('id_subfield', None),
         "fallback": spcht_dictionary.get('id_fallback', None)
-        # this main node doesnt contain alternatives
+        # this main node doesnt contain alternatives or the required field
     }  # ? there must be a better way for this mustn't it?
     # a lot of things just to make sure the header node is correct, its almost like there is a better way
     plop = []
@@ -207,7 +210,7 @@ def check_spcht_format(spcht_dictionary, out=sys.stderr, i18n=None):
         header_node.pop(key, None)
     del plop
 
-    #the actual header check
+    # the actual header check
     if not check_spcht_format_node(header_node, error_desc, out):
         print("header_mal", file=out)
         return False
@@ -264,6 +267,15 @@ def check_spcht_format_node(node, error_desc, out, is_root=False):
             for key, value in node['mapping'].items():
                 if not isinstance(value, str):
                     print(error_desc['map_dict_str'], file=out)
+                    return False
+    if is_dictkey(node, "mapping_settings"):
+        if not isinstance(node['mapping_settings'], dict):
+            print(error_desc['maps_dict'], file=out)
+            return False
+        else:  # ? boilerplatze, boilerplate does whatever boilerplate does
+            for key, value in node['mapping_settings'].items():
+                if not isinstance(value, str):
+                    print(error_desc['maps_dict_str'], file=out)
                     return False
     if is_dictkey(node, 'fallback'):
         if isinstance(node['fallback'], dict):
@@ -462,7 +474,7 @@ def marc_test():
 
 
 def main_test():
-    global URLS
+    global URLS, SPCHT
     load_config()
     test = load_from_json(TESTFOLDER + "1fromsolrs.json")
     # load spcht format
@@ -599,5 +611,7 @@ if __name__ == "__main__":
     parser.add_argument('-TestMode', action="store_true", help="Executes some 'random', flavour of the day testscript")
     args = parser.parse_args()
     # TODO Insert Arg Interpretation here
-
-    main_test()
+    test = SpchtDescriptorFormat.Spcht()
+    test.load_descriptor_file("./default.spcht.json")
+    print(test)
+    # main_test()
