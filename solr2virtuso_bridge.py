@@ -476,7 +476,6 @@ def marc_test():
 def main_test():
     global URLS, SPCHT
     load_config()
-    test = load_from_json(TESTFOLDER + "1fromsolrs.json")
     # load spcht format
     temp = load_spcht_descriptor_file("default.spcht.json")
     if check_spcht_format(temp):
@@ -536,7 +535,61 @@ def main_test():
         myfile.close()
 
 
-# TODO: create real config example file without local/vpn data in it
+def spcht_object_test():
+    global URLS
+    load_config()
+    heinz = SpchtDescriptorFormat.Spcht("default.spcht.json", debug=True)
+    if heinz.DESCRI is not None:
+        debug_dict = {
+            "0-1172721416": "monographischer Band - Goethes Faust mit Illustrator",
+            "0-1172720975": "dazugehörige GA",
+            "0-1499736606": "Online-Ressource, Campuslizenz",
+            "0-1651221162": "E-Book; LFER, Teil einer gezählten Reihe",
+            "0-638069130": "+ dazugehörige Reihe",
+            "0-101017634X": "Zeitschrift",
+            "0-876618255": "Monographie",
+            "0-1575152746": "DVD",
+            "0-1353737586": "Handschrift, Hochschulschrift",
+            "0-1540394506": "Medienkombination",
+            "0-1588127508": "+ Band Medienkombi",
+            "0-1563786273": "Mikroform, Hochschulschrift",
+            "0-1465972943": "Objekt",
+            "0-016092031": "Noten",
+            "0-505985926": "CD",
+            "0-1648651445": "LFER, GA",
+            "0-1385933259": "LFER, dazugehöriger Band",
+            "0-1550117564": "japanische Schriftzeichen; Werktitelverknüpfung",
+            "0-1550115898": "+ zugehörige GA",
+            "0-279416644": "Karte"
+        }
+        thetestset = load_from_json(TESTFOLDER + "thetestset.json")
+        double_list = []
+        thesparqlset = []
+        for entry in thetestset:
+            temp = heinz.convertMapping(entry, URLS['graph'])
+            if temp:
+                double_list.append(
+                    "\n\n=== {} - {} ===\n".format(entry.get('id', "Unknown ID"), debug_dict.get(entry.get('id'))))
+                double_list += temp
+                # TODO Workeable Sparql
+                thesparqlset.append(bird_sparkle_insert(URLS['graph'], temp))
+
+        my_debug_output = open("bridgeoutput.txt", "w")
+        for line in double_list:
+            print(line, file=my_debug_output)
+        my_debug_output.close()
+
+        # TODO: trying all 15 Testsets every time
+        myfile = open(TESTFOLDER + "newsparql.txt", "w")
+        json.dump(thesparqlset, myfile, indent=2)
+        myfile.close()
+
+        myfile = open(TESTFOLDER + "testsetsparql.txt", "w")
+        for fracta in thesparqlset:
+            # sparqlQuery(fracta, URLS['virtuoso-write'], auth=URLS['sparql_user'], pwd=URLS['sparql_pw'])
+            myfile.write(fracta)
+            myfile.write("\n\r")
+        myfile.close()
 
 
 def full_process():
@@ -611,7 +664,6 @@ if __name__ == "__main__":
     parser.add_argument('-TestMode', action="store_true", help="Executes some 'random', flavour of the day testscript")
     args = parser.parse_args()
     # TODO Insert Arg Interpretation here
-    test = SpchtDescriptorFormat.Spcht()
-    test.load_descriptor_file("./default.spcht.json")
-    print(test)
+    spcht_object_test()
     # main_test()
+

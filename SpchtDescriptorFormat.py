@@ -3,17 +3,24 @@ import sys
 import pymarc
 from pymarc.exceptions import RecordLengthInvalid, RecordLeaderInvalid, BaseAddressNotFound, BaseAddressInvalid, \
     RecordDirectoryInvalid, NoFieldsFound
+from termcolor import colored # only needed for debug print
 
 
 # the actual class
 
 class Spcht:
     DESCRI = {}
+    # * i do all this to make it more customizable, maybe it will never be needed, but i like having options
+    std_out = sys.stdout
+    std_err = sys.stderr
+    debug_out = sys.stdout
+    debug = False
 
-    def __init__(self, filename=None, check_format=False):
+    def __init__(self, filename=None, check_format=False, debug=False):
         if filename is not None:
             self.load_descriptor_file(filename)
-        #does absolutly nothing in itself
+        self.debugmode(debug)
+        # does absolutely nothing in itself
 
     def __repr__(self):
         if sys.getsizeof(self.DESCRI) > 0:
@@ -24,6 +31,15 @@ class Spcht:
         else:
             return "Empty Spcht"
 
+    def debug_print(self, *args, end="\n"):
+        if self.debug is True:
+            print(args, file=self.debug_out, end=end)
+
+    def debugmode(self, status):
+        if not isinstance(status, bool) or status is False:
+            self.debug = False
+        else:
+            self.debug = True
 
     @staticmethod
     def load_json(filename):
@@ -221,15 +237,14 @@ class Spcht:
         for item in descriptor['nodes']:
             a_node = self.load_ref_node(item)
             if isinstance(a_node, bool):  # if something goes wrong we abort here
-                print("spcht_ref", file=sys.stderr)
+                print("spcht_ref", file=self.std_err)
                 return False
             new_node.append(a_node)
         descriptor['nodes'] = new_node  # replaces the old node with the new, enriched ones
         self.DESCRI = descriptor
         return True
 
-    @staticmethod
-    def load_ref_node(node_dict):
+    def load_ref_node(self, node_dict):
         # We are again in beautiful world of recursion. Each node can contain a mapping and each mapping can contain
         # a reference to a mapping json. i am actually quite worried that this will lead to performance issues
         # TODO: Research limits for dictionaries and performance bottlenecks
@@ -237,7 +252,7 @@ class Spcht:
         # that i can check for isinstance easier than for None, i might be wrong and i have not looked into the
         # cost of that operation if that is ever a concern
         if Spcht.is_dictkey(node_dict, 'fallback'):
-            node_dict['fallback'] = Spcht.load_ref_node(node_dict['fallback'])  # ! there it is again, the cursed recursion thing
+            node_dict['fallback'] = self.load_ref_node(node_dict['fallback'])  # ! there it is again, the cursed recursion thing
             if isinstance(node_dict['fallback'], bool):
                 return False
         if Spcht.is_dictkey(node_dict, 'mapping_settings') and node_dict['mapping_settings'].get('$ref') is not None:
@@ -253,7 +268,7 @@ class Spcht:
                     node_dict['mapping'] = {}
                 for key, value in map_dict.items():
                     if not isinstance(value, str):  # only flat dictionaries, no nodes
-                        print("spcht_map", file=sys.stderr)
+                        print("spcht_map", file=self.std_out)
                         return False
                     if not Spcht.is_dictkey(node_dict['mapping'], key):  # existing keys have priority
                         node_dict['mapping'][key] = value
@@ -264,16 +279,15 @@ class Spcht:
                     del (node_dict['mapping_settings'])  # if there are no other entries the entire mapping settings goes
 
             except FileNotFoundError:
-                print("file_path", "file", file=sys.stderr)
+                print("file_path", "file", file=self.std_err)
                 return False
             except KeyError:
-                print("KeyError", file=sys.stderr)
+                print("KeyError", file=self.std_err)
                 return False
 
         return node_dict  # whether nothing has had changed or not, this holds true
 
-    @staticmethod
-    def recursion_node(sub_dict, raw_dict, marc21_dict=None):
+    def recursion_node(self, sub_dict, raw_dict, marc21_dict=None):
         # i do not like the general use of recursion, but for traversing trees this seems the best solution
         # there is actually not so much overhead in python, its more one of those stupid feelings, i googled some
         # random reddit thread: https://old.reddit.com/r/Python/comments/4hkds8/do_you_recommend_using_recursion_in_python_why_or/
@@ -282,10 +296,13 @@ class Spcht:
         # @param marc21_dict = an alternative marc21 dictionary, already cooked and ready
         # the header/id field is special in some sense, therefore there is a separated function for it
         # ! this can return anything, string, list, dictionary, it just takes the content, careful
+        self.debug_print(colored(sub_dict.get('name', ""), "blue"), end=" ")
         if sub_dict['source'] == "marc":
             if marc21_dict is None:
+                self.debug_print(colored("No Marc", "yellow"), end="|")
                 pass
             else:
+                self.debug_print(colored("some Marc", "yellow"), end="-> ")
                 if Spcht.is_dictkey(marc21_dict, sub_dict['field'].lstrip("0")):
                     if sub_dict['subfield'] == 'none':
                         return marc21_dict[sub_dict['field']]
@@ -294,24 +311,27 @@ class Spcht:
             # ! this handling of the marc format is probably too simply
             # TODO: gather more samples of awful marc and process it
         elif sub_dict['source'] == "dict":
+            self.debug_print(colored("Source Dict", "yellow"), end="-> ")
             if Spcht.is_dictkey(raw_dict, sub_dict['field']):  # main field name
-                return Spcht.node_mapping(raw_dict[sub_dict['field']], sub_dict.get('mapping'), sub_dict.get('mapping_settings'))
+                return self.node_mapping(raw_dict[sub_dict['field']], sub_dict.get('mapping'), sub_dict.get('mapping_settings'))
             # ? since i prime the sub_dict what is even the point for checking the existence of the key, its always there
             elif Spcht.is_dictkey(sub_dict, 'alternatives') and sub_dict['alternatives'] is not None:  # traverse list of alternative field names
+                self.debug_print(colored("Alternatives", "yellow"), end="-> ")
                 for entry in sub_dict['alternatives']:
                     if Spcht.is_dictkey(raw_dict, entry):
-                        return Spcht.node_mapping(raw_dict[entry], sub_dict.get('mapping'),
+                        return self.node_mapping(raw_dict[entry], sub_dict.get('mapping'),
                                                   sub_dict.get('mapping_settings'))
 
         if Spcht.is_dictkey(sub_dict, 'fallback') and sub_dict['fallback'] is not None:  # we only get here if everything else failed
             # * this is it, the dreaded recursion, this might happen a lot of times, depending on how motivated the
             # * librarian was who wrote the descriptor format
-            return Spcht.recursion_node(sub_dict['fallback'], raw_dict, marc21_dict)
+            self.debug_print(colored("Fallback triggered", "yellow"), sub_dict.get('fallback'), end="-> ")
+            return self.recursion_node(sub_dict['fallback'], raw_dict, marc21_dict)
         else:
+            self.debug_print(colored("absolutlty nothing", "yellow"), end=" | ")
             return None  # usually i return false in these situations, but none seems appropriate
 
-    @staticmethod
-    def node_mapping(value, mapping, settings):
+    def node_mapping(self, value, mapping, settings):
         the_default = False
         if not isinstance(mapping, dict) or mapping is None:
             return value
@@ -363,7 +383,7 @@ class Spcht:
                 # ? i was contemplating whether it should return value or None. None is the better one i think
                 # ? cause if we no default is defined we probably have a reason for that right?
         else:
-            print("field contains a non-list, non-string: {}".format(type(value)), file=sys.stderr)
+            print("field contains a non-list, non-string: {}".format(type(value)), file=self.std_err)
 
     def convertMapping(self, raw_dict, graph, marc21="fullrecord", marc21_source="dict"):
         # takes a raw solr query and converts it to a list of sparql queries to be inserted in a triplestore
@@ -394,29 +414,29 @@ class Spcht:
             "alternatives": self.DESCRI.get('id_alternatives', None),
             "fallback": self.DESCRI.get('id_fallback', None)
         }
-        ressource = Spcht.recursion_node(sub_dict, raw_dict, marc21_record)
-        # print("Res", colored(ressource, "green"))
+        ressource = self.recursion_node(sub_dict, raw_dict, marc21_record)
+        self.debug_print("Res", colored(ressource, "green"))
         if ressource is not None:
             for node in self.DESCRI['nodes']:
-                facet = Spcht.recursion_node(node, raw_dict, marc21_record)
-                # print(colored(facet, "green"))
+                facet = self.recursion_node(node, raw_dict, marc21_record)
+                self.debug_print(colored(facet, "green"))
                 # ? maybe i want to output a more general s p o format? or rather only "p & o"
                 if facet is None:
                     if node['required'] == "mandatory":
                         return False  # cannot continue without mandatory fields
                 elif isinstance(facet, str):
                     # list_of_sparql_inserts.append(bird_sparkle(graph + ressource, node['graph'], facet))
-                    list_of_sparql_inserts.append(bird_sparkle(graph + ressource, node['graph'], facet))
+                    list_of_sparql_inserts.append("<{}> <{}> \"{}\" .\n".format(graph + ressource, node['graph'], facet))
                     debug_list.append("{} - {}".format(node['graph'], facet))
                 elif isinstance(facet, tuple):
-                    print("Tuple found", facet)
+                    self.debug_print("Tuple found", facet)
                 elif isinstance(facet, list):
                     for item in facet:
                         # list_of_sparql_inserts.append(bird_sparkle(graph + ressource, node['graph'], item))
                         debug_list.append("{} - {}".format(node['graph'], item))
-                        list_of_sparql_inserts.append(bird_sparkle(graph + ressource, node['graph'], item))
+                        list_of_sparql_inserts.append("<{}> <{}> \"{}\" .\n".format(graph + ressource, node['graph'], item))
                 else:
-                    print(facet, "I cannot handle that for the moment", "magenta", file=sys.stderr)
+                    print(facet, "I cannot handle that for the moment", "magenta", file=self.std_err)
         else:
             return False  # ? or none?
 
@@ -432,6 +452,7 @@ class Spcht:
     @staticmethod
     def check_format(descriptor, out=sys.stderr, i18n=None):
         # originally this wasnt a static method, but we want to use it to check ANY descriptor format, not just this
+        # for this reasons this has its own out target instead of using that of the instance
         # checks the format for any miss shaped data structures
         # * what it does not check for is illogical entries like having alternatives for a pure marc source
         # for language stuff i give you now the ability to actually provide local languages
