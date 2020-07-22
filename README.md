@@ -122,8 +122,10 @@ The primary use case for this program was the mapping or conversion of content f
 It is possible to **map** the value of your dictionary key with the field `mapping`, it is supposed to contain a dictionary of entries. If there is a default mapping it will always return a value for each entry (if there is more than one), if no default is set it is possible to not get a graph at all. For more complex graph it is possible to use the special mapping dictionary key `$ref` to link to a local *json* file containing the mapping. You *can* mix a referenced mapping with additional entries. It is possible to default to the original value of the field with the special value `$inherit`
 
 * `field` - the key in the dictionary the program looks for data
+  
   * Values: `a string containing the dictionary key`
 * `mapping` - a dictionary describing the *translation* of the content of the specified field. If no `mapping` is defined the face value will be returned.
+  
   * Values: `a flat dictionary {"key": "value", ..}`
 * `mapping_settings` - further settings or modifiers for the mapping, formerly it was all in the `mapping` parameter but that meant data and function were intermixed which could've resulted in problems further down the line, the additional complexity due an additional parameter is the price for that. `mapping` works completely without a corresponding `mapping_setting`, with the exception of the `$ref` option it does nothing on its own. The way `$ref` works is that mapping gets filled in preprocessing and then deleted
   * Values: a flat dictionary with a number of pre-defined keys, additional information gets ignored
@@ -131,7 +133,20 @@ It is possible to **map** the value of your dictionary key with the field `mappi
     * `$type` - can either be `regex` or `rigid`. *Rigid* matches only exact keys including cases, *regex* matches according to rules. Might be cpu intensive.
     * `$defaut` - a default value that is set when there is no value present that matches a key/regex, can be set to `True` to copy the initial value
 * `alternatives` - there is possibility that a specific data field isn't always available in your given database but you know there are other keys that might contain the desired data. `alternatives` is a list of different dictionary keys which will be tried in order of their appearance.
+  
   * Values: `a list of strings [str, str, str]`
+  
+##### source: marc
+
+As of now a marc datasource is inherently part of the main dictionary source, mostly to be found in a special, very big key. It contains the entire original *Marc21*-entry as received from another network. Usually it needs additional interpreting to be useful. The current source contains some methods to extract informations from the provided *Marc21* file. In its essence it just transform the *MARC21* information into a dictionary that follows the *MARC21*-structure.  There are minor differences in between *Marc21*-Data sources that might have to be handled with care and maybe additional preprocessing. The work on this part is not even nearly done.
+
+The following kinds of key are currently possible
+
+* `field`
+* `subfield`
+  * Value: a single string
+* `subfields` - 
+  * Value: a list of strings
 
 #### actual mapping:
 

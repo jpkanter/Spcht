@@ -316,13 +316,32 @@ class Spcht:
             if marc21_dict is None:
                 self.debug_print(colored("No Marc", "yellow"), end="|")
                 pass
+            elif not Spcht.is_dictkey(marc21_dict, sub_dict['field'].lstrip("0")):
+                self.debug_print(colored("Marc around but not field", "yellow"), end="|")
+                pass
             else:
                 self.debug_print(colored("some Marc", "yellow"), end="-> ")
-                if Spcht.is_dictkey(marc21_dict, sub_dict['field'].lstrip("0")):
-                    if sub_dict['subfield'] == 'none':
-                        return marc21_dict[sub_dict['field']]
-                    elif Spcht.is_dictkey(marc21_dict[sub_dict['field'].lstrip("0")], sub_dict['subfield']):
-                        return marc21_dict[sub_dict['field'].lstrip("0")][sub_dict['subfield']]
+                # Variant 1: a singular subfield is taken
+                if Spcht.is_dictkey(sub_dict, 'subfield'):
+                    if Spcht.is_dictkey(marc21_dict, sub_dict['field'].lstrip("0")):
+                        if sub_dict['subfield'] == 'none':
+                            return marc21_dict[sub_dict['field']]
+                        elif Spcht.is_dictkey(marc21_dict[sub_dict['field'].lstrip("0")], sub_dict['subfield']):
+                            return marc21_dict[sub_dict['field'].lstrip("0")][sub_dict['subfield']]
+                # Variant 2: a list of subfields is concat
+                if Spcht.is_dictkey(sub_dict, 'subfields'):
+                    # check for EVERY subfield to be around, abort this if not
+                    combined_string = ""  # ? this seems less than perfect
+                    for marc_key in sub_dict['subfields']:
+                        if not Spcht.is_dictkey(marc21_dict['field'], marc_key):
+                            combined_string = False
+                            break
+                        else:
+                            combined_string += marc21_dict[sub_dict['field'].lstrip("0")][marc_key] + sub_dict.get('concat', " ")
+                    if isinstance(combined_string, str):  # feels wrong, if its boolean something went AWOL
+                        # * this just deleted the last concat piece with a string[:1] where 1 can be the length of concat
+                        return combined_string[:len(sub_dict.get('concat', " "))]
+
             # ! this handling of the marc format is probably too simply
             # TODO: gather more samples of awful marc and process it
         elif sub_dict['source'] == "dict":
@@ -475,7 +494,10 @@ class Spcht:
             "header_miss": "The main header informations [id_source, id_field, main] are missing, is this even the right file?",
             "header_mal": "The header information seems to be malformed",
             "basic_struct": "Elements of the basic structure ( [source, field, required] ) are missing",
-            "marc_subfield": "Every marc entry needs a field AND a subfield item, cannot find subfield.",
+            "marc_subfield": "Every marc entry needs a field AND a subfield or subfield_s_ item, cannot find subfield/s.",
+            "marc_subfield_str": "The subfield key has to be a string value",
+            "marc_subfields_list": "The Value of the subfield*S* key has to be a list (of strings)",
+            "marc_subfields_str": "Every single element of the subfield*S* list has to be a string",
             "field_str": "The field entry has to be a string",
             "required_str": "The required entry has to be a string and contain either: 'mandatory' or 'optional",
             "required_chk": "Required-String can only 'mandatory' or 'optional'. Maybe encoding error?",
@@ -541,9 +563,22 @@ class Spcht:
             print(error_desc['basic_struct'], file=out)
             return False
         if node['source'] == "marc":
-            if not Spcht.is_dictkey(node, 'subfield'):
+            if not Spcht.is_dictkey(node, 'subfield') and not Spcht.is_dictkey(node, 'subfields') :
                 print(error_desc['marc_subfield'], file=out)
                 return False
+            if Spcht.is_dictkey(node, 'subfield') and not isinstance(node['subfield'], str):  # check subfield further
+                print(error_desc['marc_subfield_str'], file=out)
+                return False
+            if Spcht.is_dictkey(node, 'subfields'):  # more than one check for subfields
+                if not isinstance(node['subfields'], list):
+                    print(error_desc['marc_subfields_list'], file=out)
+                    return False
+                # we have established that we got a list, now we proceed
+                for singular_subfield in node['subfields']:
+                    if not isinstance(singular_subfield, str):
+                        print(error_desc['marc_subfields_str'], file=out)
+                        return False
+
         if not isinstance(node['field'], str):  # ? is a one character string a chr?
             print(error_desc['field_str'], file=out)
             return False
