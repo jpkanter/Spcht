@@ -9,12 +9,12 @@ from termcolor import colored # only needed for debug print
 # the actual class
 
 class Spcht:
-    DESCRI = {}
+    _DESCRI = {}  # the finally loaded descriptor file with all references solved
     # * i do all this to make it more customizable, maybe it will never be needed, but i like having options
     std_out = sys.stdout
     std_err = sys.stderr
     debug_out = sys.stdout
-    debug = False
+    _debug = False
 
     def __init__(self, filename=None, check_format=False, debug=False):
         if filename is not None:
@@ -23,23 +23,38 @@ class Spcht:
         # does absolutely nothing in itself
 
     def __repr__(self):
-        if sys.getsizeof(self.DESCRI) > 0:
+        if sys.getsizeof(self._DESCRI) > 0:
             some_text = ""
-            for item in self.DESCRI['nodes']:
+            for item in self._DESCRI['nodes']:
                 some_text+= "{}[{},{}] - ".format(item['field'], item['source'], item['required'])
             return some_text[:-3]
         else:
             return "Empty Spcht"
 
-    def debug_print(self, *args, end="\n"):
-        if self.debug is True:
-            print(args, file=self.debug_out, end=end)
+    def debug_print(self, *args, **kwargs):
+        # prints only text if debug flag is set, i wonder if it would have been easier to just set the out put for
+        # normal prints to None and be done with it. Is this better or worse? Probably no sense questioning this
+        if Spcht.is_dictkey(kwargs, "file"):
+            del kwargs['file']  # while handing through all the kwargs we have to make one exception, this seems to work
+        if self._debug is True:
+            print(*args, file=self.debug_out, **kwargs)
 
     def debugmode(self, status):
+        # a setter, i really dont like those
         if not isinstance(status, bool) or status is False:
-            self.debug = False
+            self._debug = False
         else:
-            self.debug = True
+            self._debug = True
+
+    def export_full_descriptor(self, filename, indent=3):
+        # exports the loaded descriptor datas structure, basically a compiled version
+        # i really dont know why i wrote this
+        try:
+            outfile = open(filename, "w")
+            json.dump(self._DESCRI, outfile, indent=indent)
+            outfile.close()
+        except Exception as e:
+            print("File Error", e, out=self.std_err)
 
     @staticmethod
     def load_json(filename):
@@ -235,16 +250,16 @@ class Spcht:
         # ? python iterations are not with pointers, so this will expose me as programming apprentice but this will work
         new_node = []
         for item in descriptor['nodes']:
-            a_node = self.load_ref_node(item)
+            a_node = self._load_ref_node(item)
             if isinstance(a_node, bool):  # if something goes wrong we abort here
                 print("spcht_ref", file=self.std_err)
                 return False
             new_node.append(a_node)
         descriptor['nodes'] = new_node  # replaces the old node with the new, enriched ones
-        self.DESCRI = descriptor
+        self._DESCRI = descriptor
         return True
 
-    def load_ref_node(self, node_dict):
+    def _load_ref_node(self, node_dict):
         # We are again in beautiful world of recursion. Each node can contain a mapping and each mapping can contain
         # a reference to a mapping json. i am actually quite worried that this will lead to performance issues
         # TODO: Research limits for dictionaries and performance bottlenecks
@@ -252,7 +267,7 @@ class Spcht:
         # that i can check for isinstance easier than for None, i might be wrong and i have not looked into the
         # cost of that operation if that is ever a concern
         if Spcht.is_dictkey(node_dict, 'fallback'):
-            node_dict['fallback'] = self.load_ref_node(node_dict['fallback'])  # ! there it is again, the cursed recursion thing
+            node_dict['fallback'] = self._load_ref_node(node_dict['fallback'])  # ! there it is again, the cursed recursion thing
             if isinstance(node_dict['fallback'], bool):
                 return False
         if Spcht.is_dictkey(node_dict, 'mapping_settings') and node_dict['mapping_settings'].get('$ref') is not None:
@@ -287,7 +302,7 @@ class Spcht:
 
         return node_dict  # whether nothing has had changed or not, this holds true
 
-    def recursion_node(self, sub_dict, raw_dict, marc21_dict=None):
+    def _recursion_node(self, sub_dict, raw_dict, marc21_dict=None):
         # i do not like the general use of recursion, but for traversing trees this seems the best solution
         # there is actually not so much overhead in python, its more one of those stupid feelings, i googled some
         # random reddit thread: https://old.reddit.com/r/Python/comments/4hkds8/do_you_recommend_using_recursion_in_python_why_or/
@@ -313,25 +328,25 @@ class Spcht:
         elif sub_dict['source'] == "dict":
             self.debug_print(colored("Source Dict", "yellow"), end="-> ")
             if Spcht.is_dictkey(raw_dict, sub_dict['field']):  # main field name
-                return self.node_mapping(raw_dict[sub_dict['field']], sub_dict.get('mapping'), sub_dict.get('mapping_settings'))
+                return self._node_mapping(raw_dict[sub_dict['field']], sub_dict.get('mapping'), sub_dict.get('mapping_settings'))
             # ? since i prime the sub_dict what is even the point for checking the existence of the key, its always there
             elif Spcht.is_dictkey(sub_dict, 'alternatives') and sub_dict['alternatives'] is not None:  # traverse list of alternative field names
                 self.debug_print(colored("Alternatives", "yellow"), end="-> ")
                 for entry in sub_dict['alternatives']:
                     if Spcht.is_dictkey(raw_dict, entry):
-                        return self.node_mapping(raw_dict[entry], sub_dict.get('mapping'),
+                        return self._node_mapping(raw_dict[entry], sub_dict.get('mapping'),
                                                   sub_dict.get('mapping_settings'))
 
         if Spcht.is_dictkey(sub_dict, 'fallback') and sub_dict['fallback'] is not None:  # we only get here if everything else failed
             # * this is it, the dreaded recursion, this might happen a lot of times, depending on how motivated the
             # * librarian was who wrote the descriptor format
             self.debug_print(colored("Fallback triggered", "yellow"), sub_dict.get('fallback'), end="-> ")
-            return self.recursion_node(sub_dict['fallback'], raw_dict, marc21_dict)
+            return self._recursion_node(sub_dict['fallback'], raw_dict, marc21_dict)
         else:
             self.debug_print(colored("absolutlty nothing", "yellow"), end=" | ")
             return None  # usually i return false in these situations, but none seems appropriate
 
-    def node_mapping(self, value, mapping, settings):
+    def _node_mapping(self, value, mapping, settings):
         the_default = False
         if not isinstance(mapping, dict) or mapping is None:
             return value
@@ -406,19 +421,19 @@ class Spcht:
         # generate core graph, i presume we already checked the spcht for being corredct
         # ? instead of making one hard coded go i could insert a special round of the general loop right?
         sub_dict = {
-            "source": self.DESCRI['id_source'],
+            "source": self._DESCRI['id_source'],
             # i want to throw this exceptions, but the format is checked anyway right?!
-            "field": self.DESCRI['id_field'],
-            "subfield": self.DESCRI.get('id_subfield', None),
+            "field": self._DESCRI['id_field'],
+            "subfield": self._DESCRI.get('id_subfield', None),
             # i am aware that .get returns none anyway, this is about you
-            "alternatives": self.DESCRI.get('id_alternatives', None),
-            "fallback": self.DESCRI.get('id_fallback', None)
+            "alternatives": self._DESCRI.get('id_alternatives', None),
+            "fallback": self._DESCRI.get('id_fallback', None)
         }
-        ressource = self.recursion_node(sub_dict, raw_dict, marc21_record)
+        ressource = self._recursion_node(sub_dict, raw_dict, marc21_record)
         self.debug_print("Res", colored(ressource, "green"))
         if ressource is not None:
-            for node in self.DESCRI['nodes']:
-                facet = self.recursion_node(node, raw_dict, marc21_record)
+            for node in self._DESCRI['nodes']:
+                facet = self._recursion_node(node, raw_dict, marc21_record)
                 self.debug_print(colored(facet, "green"))
                 # ? maybe i want to output a more general s p o format? or rather only "p & o"
                 if facet is None:
@@ -502,19 +517,19 @@ class Spcht:
         del plop
 
         # the actual header check
-        if not Spcht.check_format_node(header_node, error_desc, out):
+        if not Spcht._check_format_node(header_node, error_desc, out):
             print("header_mal", file=out)
             return False
         # end of header checks
         for node in descriptor['nodes']:
-            if not Spcht.check_format_node(node, error_desc, out, True):
+            if not Spcht._check_format_node(node, error_desc, out, True):
                 print(error_desc['nodes'], node.get('name', node.get('field', "unknown")), file=out)
                 return False
         # ! make sure everything that has to be here is here
         return True
 
     @staticmethod
-    def check_format_node(node, error_desc, out, is_root=False):
+    def _check_format_node(node, error_desc, out, is_root=False):
         # @param node - a dictionary with a single node in it
         # @param error_desc - the entire flat dictionary of error texts
         # * i am writing print & return a lot here, i really considered making a function so i can do "return funct()"
@@ -574,7 +589,7 @@ class Spcht:
                             return False
         if Spcht.is_dictkey(node, 'fallback'):
             if isinstance(node['fallback'], dict):
-                if not Spcht.check_format_node(node['fallback'], error_desc, out):  # ! this is recursion
+                if not Spcht._check_format_node(node['fallback'], error_desc, out):  # ! this is recursion
                     print(error_desc['fallback'], file=out)
                     return False
             else:
