@@ -82,56 +82,29 @@
         },
         {
             "name": "Verfasser (URI)", 
-            "source": "dict",
+            "source": "marc",
             "graph": "http://purl.org/dc/terms/creator",
-            "field": "names_id_str_mv", 
+            "field": "100",
+            "subfield": "0"
             "required": "optional",
-            "comment": "mit Hash-URI arbeiten, um den Name-String (SOLR:author) als label unterzubringen",
-            "fallback": {
-                "source": "marc",
-                "field": "100",
-                "subfield": "0", 
-                "comment": "aber nur wenn Präfix DE-588, TODO: Filter?"
-            }
+            "comment": "nur wenn Präfix DE-588",
         },
         {
             "name": "Verfasserrolle (URI)",
-            "comment": " # todo - Zuordnung!",
-            "source": "dict",
+            "comment": "kann mehrfach vergeben sein",
+            "source": "marc",
             "graph": "http://id.loc.gov/vocabulary/relators.html",
-            "field": "author_role", 
-            "comment2": "Achtung: Einträge im SOLR nicht konsistent; Rollenkürzel, Ausschriften usw. / hier wohl nur Marc verwenden",
-            "alternatives": ["author2_role", "author_corporate_role"],
+            "field": "100",
+            "subfield": "4",
+                "fallback": {
+                    "source": "marc",
+                    "field": "700",
+                    "subfield": "4"},
             "required": "optional",
             "mapping_settings": {
                 "$ref": "./translation_maps/roles.json",
                 "$default": true
-                },
-            "fallback": {
-                "source": "marc",
-                "field": "100",
-                "subfield": "4",
-                "fallback": {
-                    "source": "marc",
-                    "field": "110",
-                    "subfield": "4",
-                    "fallback": {
-                        "source": "marc",
-                        "field": "700",
-                        "subfield": "4",
-                        "fallback": {
-                            "source": "marc",
-                            "field": "710",
-                            "subfield": "4",
-                            "fallback": {
-                                "source": "marc",
-                                "field": "711",
-                                "subfield": "4"
-                            }
-                        }
-                    }
                 }
-            }
         },
         {
             "name": "Beteiligte (URI)", 
@@ -139,7 +112,6 @@
             "field": "700",
             "subfield": "0", 
             "comment1": "# aber nur wenn Präfix DE-588",
-            "comment2": "mit Hash-URI arbeiten, um den Name-String (SOLR:author2 und author_corporate) als label unterzubringen",
             "comment3": " siehe Verfasser (URI), Info bekommen wir nicht sauber aus dem SOLR",
             "required": "optional"
         },
@@ -160,7 +132,7 @@
             "fallback": {
                 "source": "marc",
                 "field": "260",
-                "fields": ["260", "264"],
+                "alternatives": "264",
                 "subfield": "a"
                 }
         },
@@ -172,7 +144,8 @@
             "required": "optional",
             "fallback": {
                 "source": "marc",
-                "field": "260:264",
+                "field": "260",
+                "alternatives": "264",
                 "subfield": "b"
                 }
         },
@@ -197,25 +170,20 @@
             "comment": "# 773t:773s:773a, first"
         },
         {
-            "name": "Identifikation KXP @todo",
-            "source": "dict",
-            "graph": "http://purl.org/dc/terms/identifier",
-            "field": "kxp_id_str",
-            "required": "optional"
-        },
-        {
-            "name": "Author 2 - Teilhaber",
-            "source": "dict",
+            "name": "Beteiligte (URI)",
+            "source": "marc",
             "graph": "http://purl.org/dc/terms/contributor",
-            "field": "author2",
+            "field": "700",
+            "subfield": "0"
             "required": "optional"
         },
         {
             "name": "has dissertation or thesis information",
             "source": "dict",
             "graph": "http://rdaregistry.info/Elements/u/P60489",
-            "field": "publisher",
+            "field": "",
             "required": "optional"
+            "comment": "TODO"
         },
         {
             "name": "Bibliographic Citation - A bibliographic reference for the resource.",
@@ -223,20 +191,6 @@
             "graph": "http://purl.org/dc/terms/bibliographicCitation",
             "field": "container_title",
             "alternatives": ["container_reference"],
-            "required": "optional"
-        },
-        {
-            "name": "Identifikation SWB @todo",
-            "source": "dict",
-            "graph": "http://purl.org/dc/terms/identifier",
-            "field": "swb_id_str",
-            "required": "optional"
-        },
-        {
-            "name": "Identifikation KXP @todo",
-            "source": "dict",
-            "graph": "http://purl.org/dc/terms/identifier",
-            "field": "kxp_id_str",
             "required": "optional"
         },
         {
