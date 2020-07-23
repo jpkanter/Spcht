@@ -138,15 +138,24 @@ It is possible to **map** the value of your dictionary key with the field `mappi
   
 ##### source: marc
 
-As of now a marc datasource is inherently part of the main dictionary source, mostly to be found in a special, very big key. It contains the entire original *Marc21*-entry as received from another network. Usually it needs additional interpreting to be useful. The current source contains some methods to extract informations from the provided *Marc21* file. In its essence it just transform the *MARC21* information into a dictionary that follows the *MARC21*-structure.  There are minor differences in between *Marc21*-Data sources that might have to be handled with care and maybe additional preprocessing. The work on this part is not even nearly done.
+As of now a *Marc21* data source is inherently part of the main dictionary source, mostly to be found in a special, very big key. It contains the entire original *Marc21*-entry as received from another network. Usually it needs additional interpreting to be useful. The current source contains some methods to extract informations from the provided *Marc21* file. In its essence it just transform the *MARC21* information into a dictionary that follows the *MARC21*-structure.  There are minor differences in between *Marc21*-Data sources that might have to be handled with care and maybe additional preprocessing. The work on this part is not even nearly done.
 
 The following kinds of key are currently possible
 
-* `field`
-* `subfield`
-  * Value: a single string
+* `field` - analogue to the way it works with **source:dict** this is a mandatory field for the `Marc21` Source, its usually limited to the numbers 1 to 999, the actual value is arbitrarily but non-numerical values will not make sense. The background script transforms the actual raw `Marc21` Data into a dictionary that will be accesses very similarly to the **source:dict** one.
+  
+  * Value: `a singular string (str)`
+* `subfield` - every  **source:marc** requires *either* a `subfield` or a `subfields` entry. If both are present `subfield` takes the priority (for being first in the list of used parameters which in turn ignores the following parameter subfields). 
+  *While it makes little sense to have both subfield and subfields it will not break the* SPCHT *format but when the format checker will throw a warning cause this is likely the result of an accident.*
+  
+  * Value: `a single string (str)`
 * `subfields` - 
-  * Value: a list of strings
+  
+  * Value: `a list of strings [str, str, str]`
+  
+    *Note: a list of Strings means that even a singular element has to be wrapped in a list with length 1, example: `['b-field']`, you can, in theory, always use subfields instead of subfield with singular item lists. Although the example files have some use cases for subfield='none' where there is actually no subfields and just a value for the field itself, those wouldn't be accessible with subfields*
+  
+* subfields_mode - strict, default: flex
 
 #### actual mapping:
 
