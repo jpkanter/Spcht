@@ -22,3 +22,4 @@
 * GENERAL
     [ ] command line interface
     [ ] probably rewriting the entire SPCHT into a class
+    [ ] format checking is inconclusive, alternatives check not properly working

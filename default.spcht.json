@@ -85,9 +85,9 @@
             "source": "marc",
             "graph": "http://purl.org/dc/terms/creator",
             "field": "100",
-            "subfield": "0"
+            "subfield": "0",
             "required": "optional",
-            "comment": "nur wenn Präfix DE-588",
+            "comment": "nur wenn Präfix DE-588"
         },
         {
             "name": "Verfasserrolle (URI)",
@@ -132,9 +132,13 @@
             "fallback": {
                 "source": "marc",
                 "field": "260",
-                "alternatives": "264",
-                "subfield": "a"
+                "subfield": "a",
+                "fallback": {
+                        "source": "marc",
+                        "field": "264",
+                        "subfield": "a"
                 }
+            }
         },
         {
             "name": "Verlag",
@@ -145,9 +149,13 @@
             "fallback": {
                 "source": "marc",
                 "field": "260",
-                "alternatives": "264",
-                "subfield": "b"
+                "subfield": "b",
+                "fallback": {
+                    "source": "marc",
+                    "field": "264",
+                    "subfield": "b"
                 }
+            }
         },
         {
             "name": "ISBD",
@@ -174,7 +182,7 @@
             "source": "marc",
             "graph": "http://purl.org/dc/terms/contributor",
             "field": "700",
-            "subfield": "0"
+            "subfield": "0",
             "required": "optional"
         },
         {
@@ -182,7 +190,7 @@
             "source": "dict",
             "graph": "http://rdaregistry.info/Elements/u/P60489",
             "field": "",
-            "required": "optional"
+            "required": "optional",
             "comment": "TODO"
         },
         {

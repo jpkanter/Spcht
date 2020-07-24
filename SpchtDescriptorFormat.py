@@ -23,7 +23,7 @@ class Spcht:
         # does absolutely nothing in itself
 
     def __repr__(self):
-        if sys.getsizeof(self._DESCRI) > 0:
+        if len(self._DESCRI) > 0:
             some_text = ""
             for item in self._DESCRI['nodes']:
                 some_text+= "{}[{},{}] - ".format(item['field'], item['source'], item['required'])
@@ -50,25 +50,26 @@ class Spcht:
         # exports the loaded descriptor datas structure, basically a compiled version
         # i really dont know why i wrote this
         try:
-            outfile = open(filename, "w")
-            json.dump(self._DESCRI, outfile, indent=indent)
-            outfile.close()
+            with open(filename, "w") as outfile:
+                json.dump(self._DESCRI, outfile, indent=indent)
         except Exception as e:
-            print("File Error", e, out=self.std_err)
+            print("File Error", e, file=self.std_err)
 
-    @staticmethod
-    def load_json(filename):
+    def load_json(self, filename):
         try:
             with open(filename, mode='r') as file:
                 return json.load(file)
         except FileNotFoundError:
-            print("nofile", file=sys.stderr)
+            print("nofile", file=self.std_err)
             return False
         except ValueError:
-            print("json_parser", file=sys.stderr)
+            print("json_parser", file=self.std_err)
             return False
-        except:
-            print("graph_parser", file=sys.stderr)
+        except KeyError:
+            print("KeyError", file=self.std_err)
+            return False
+        except Exception as e:
+            print("Unexpected Exception:", e.args, file=self.std_err)
             return False
 
     # other boiler plate, general stuff that is used to not write out a lot of code each time
@@ -272,33 +273,26 @@ class Spcht:
                 return False
         if Spcht.is_dictkey(node_dict, 'mapping_settings') and node_dict['mapping_settings'].get('$ref') is not None:
             file_path = node_dict['mapping_settings']['$ref']  # ? does it always has to be a relative path?
-            try:
-                map_dict = Spcht.load_json(file_path)
-                # iterate through the dict, if manual entries have the same key ignore
-                if not isinstance(map_dict, dict):  # we expect a simple, flat dictionary, nothing else
-                    return False  # funnily enough, this also includes bool which happens when json loads fails
-                # ! this here is the actual logic that does the thing:
-                # there might no mapping key at all
-                if not Spcht.is_dictkey(node_dict, 'mapping'):
-                    node_dict['mapping'] = {}
-                for key, value in map_dict.items():
-                    if not isinstance(value, str):  # only flat dictionaries, no nodes
-                        print("spcht_map", file=self.std_out)
-                        return False
-                    if not Spcht.is_dictkey(node_dict['mapping'], key):  # existing keys have priority
-                        node_dict['mapping'][key] = value
-                del map_dict
-                # clean up mapping_settings node
-                del (node_dict['mapping_settings']['$ref'])
-                if len(node_dict['mapping_settings']) <= 0:
-                    del (node_dict['mapping_settings'])  # if there are no other entries the entire mapping settings goes
 
-            except FileNotFoundError:
-                print("file_path", "file", file=self.std_err)
-                return False
-            except KeyError:
-                print("KeyError", file=self.std_err)
-                return False
+            map_dict = self.load_json(file_path)
+            # iterate through the dict, if manual entries have the same key ignore
+            if not isinstance(map_dict, dict):  # we expect a simple, flat dictionary, nothing else
+                return False  # funnily enough, this also includes bool which happens when json loads fails
+            # ! this here is the actual logic that does the thing:
+            # there might no mapping key at all
+            if not Spcht.is_dictkey(node_dict, 'mapping'):
+                node_dict['mapping'] = {}
+            for key, value in map_dict.items():
+                if not isinstance(value, str):  # only flat dictionaries, no nodes
+                    print("spcht_map", file=self.std_out)
+                    return False
+                if not Spcht.is_dictkey(node_dict['mapping'], key):  # existing keys have priority
+                    node_dict['mapping'][key] = value
+            del map_dict
+            # clean up mapping_settings node
+            del (node_dict['mapping_settings']['$ref'])
+            if len(node_dict['mapping_settings']) <= 0:
+                del (node_dict['mapping_settings'])  # if there are no other entries the entire mapping settings goes
 
         return node_dict  # whether nothing has had changed or not, this holds true
 
@@ -397,8 +391,7 @@ class Spcht:
             elif len(response_list) <= 0 and isinstance(the_default, str):
                 # ? i wonder when this even triggers? when giving an empty list? in any other case default is there
                 # * caveat here, if there is a list of unknown things there will be only one default
-                response_list.append(
-                    the_default)  # there is no inheritance here, i mean, what should be inherited? void?
+                response_list.append(the_default)  # there is no inheritance here, i mean, what should be inherited? void?
                 return response_list
             else:  # if there is no response list but also no defined default, it crashes back to nothing
                 return None
@@ -532,8 +525,7 @@ class Spcht:
         plop = []
         for key, value in header_node.items():  # this removes the none existent entries cause i dont want to add more checks
             if value is None:
-                plop.append(
-                    key)  # what you cant do with dictionaries you iterate through is removing keys while doing so
+                plop.append(key)  # what you cant do with dictionaries you iterate through is removing keys while doing so
         for key in plop:
             header_node.pop(key, None)
         del plop
