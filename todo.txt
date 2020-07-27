@@ -10,6 +10,7 @@
     [ ] Remove Parts of the value string
     [ ] Remove duplicated information # should not really matter but still
     [ ] MARC mutli Value for authors
+    [ ] Check Regex Entries for faults
 * SPARQL
     [ ] differenciate between graph and string that happens to be a link to somewhere
     [ ] generation of valid sparql queries
@@ -23,3 +24,4 @@
     [ ] command line interface
     [ ] probably rewriting the entire SPCHT into a class
     [ ] format checking is inconclusive, alternatives check not properly working
+

@@ -1,4 +1,5 @@
 import json
+import re
 import sys
 import pymarc
 from pymarc.exceptions import RecordLengthInvalid, RecordLeaderInvalid, BaseAddressNotFound, BaseAddressInvalid, \
@@ -70,6 +71,12 @@ class Spcht:
             return False
         except Exception as e:
             print("Unexpected Exception:", e.args, file=self.std_err)
+            return False
+
+    def descri_status(self):
+        if self._DESCRI is not None:
+            return True
+        else:
             return False
 
     # other boiler plate, general stuff that is used to not write out a lot of code each time
@@ -341,14 +348,19 @@ class Spcht:
         elif sub_dict['source'] == "dict":
             self.debug_print(colored("Source Dict", "yellow"), end="-> ")
             if Spcht.is_dictkey(raw_dict, sub_dict['field']):  # main field name
-                return self._node_mapping(raw_dict[sub_dict['field']], sub_dict.get('mapping'), sub_dict.get('mapping_settings'))
+                    temp_value = raw_dict[sub_dict['field']]  # the raw value
+                    temp_value = Spcht._node_preprocessing(temp_value, sub_dict) # filters out entries
+                    if temp_value is not None and len(temp_value) > 0:
+                        temp_value = self._node_mapping(temp_value, sub_dict.get('mapping'), sub_dict.get('mapping_settings'))
+                        return Spcht._node_postprocessing(temp_value, sub_dict)
             # ? since i prime the sub_dict what is even the point for checking the existence of the key, its always there
             elif Spcht.is_dictkey(sub_dict, 'alternatives') and sub_dict['alternatives'] is not None:  # traverse list of alternative field names
                 self.debug_print(colored("Alternatives", "yellow"), end="-> ")
                 for entry in sub_dict['alternatives']:
                     if Spcht.is_dictkey(raw_dict, entry):
-                        return self._node_mapping(raw_dict[entry], sub_dict.get('mapping'),
+                        temp_value = self._node_mapping(raw_dict[entry], sub_dict.get('mapping'),
                                                   sub_dict.get('mapping_settings'))
+                        return Spcht._node_postprocessing(temp_value, sub_dict)
 
         if Spcht.is_dictkey(sub_dict, 'fallback') and sub_dict['fallback'] is not None:  # we only get here if everything else failed
             # * this is it, the dreaded recursion, this might happen a lot of times, depending on how motivated the
@@ -358,6 +370,34 @@ class Spcht:
         else:
             self.debug_print(colored("absolutlty nothing", "yellow"), end=" | ")
             return None  # usually i return false in these situations, but none seems appropriate
+
+    @staticmethod
+    def _node_preprocessing(value, sub_dict):
+        # if there is a match-filter, this filters out the entry or all entries not matching
+        if not Spcht.is_dictkey(sub_dict, "match"):
+            return value  # the nothing happens clause
+        if isinstance(value, str):
+            pass
+        elif isinstance(value, list):
+            list_of_returns = []
+            for item in value:
+                finding = re.search(sub_dict['match'], item)
+                if finding is not None:
+                    list_of_returns.append(finding.string)
+            if 0 < len(list_of_returns) < 2:
+                return list_of_returns[0]  # if there is only one surviving element there is no point in returning a list
+            elif len(list_of_returns) > 1:
+                return list_of_returns
+            else:
+                return None
+        else:  # fallback if its anything else i dont intended to handle with this
+            return value
+
+    @staticmethod
+    def _node_postprocessing(value, sub_dict):
+        # after having found a value for a given key and done the appropriate mapping the value gets transformed
+        # once more to change it to the provided pattern
+        return value
 
     def _node_mapping(self, value, mapping, settings):
         the_default = False

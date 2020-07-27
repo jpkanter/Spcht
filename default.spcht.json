@@ -90,6 +90,15 @@
             "comment": "nur wenn Präfix DE-588"
         },
         {
+            "name" : "Verfasser 2",
+            "source": "dict",
+            "graph": "http://purl.org/dc/terms/creator",
+            "field": "names_id_str_mv",
+            "required": "optional",
+            "match": "(\\(DE-588\\))[0-9]*",
+            "cut": "(\\(DE-588\\))"
+        },
+        {
             "name": "Verfasserrolle (URI)",
             "comment": "kann mehrfach vergeben sein",
             "source": "marc",

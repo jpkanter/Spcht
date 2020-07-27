@@ -125,7 +125,7 @@ def spcht_object_test():
     global URLS
     load_config()
     heinz = SpchtDescriptorFormat.Spcht("default.spcht.json", debug=True)
-    if heinz._DESCRI is not None:
+    if heinz.descri_status():
         debug_dict = {
             "0-1172721416": "monographischer Band - Goethes Faust mit Illustrator",
             "0-1172720975": "dazugehörige GA",

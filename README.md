@@ -109,8 +109,9 @@ Each Node contains at least a `source`, `graph` and `type` field which define th
     * Values: `a "node" dictionary {}`
 * `required` - if everything fails, all fall backs are not to be found and all alternatives yield nothing and the `required` is set to mandatory the whole entry gets discarded, if some basic data could be gathered the list of errors gets a specific entry, otherwise there is only a counter of indescribable mapping errors being incremented by one. 
   * Values: `optional`, `mandatory`
-* filter
-* match
+* filter 
+* match - this uses a regex match to filter out the content of an entry, the field value is matched against the value of the `match` entry, if it does not get at least one match the value gets ignored and no triple is created
+  * Values: `str` of any Regex-valid term
 * type - per default each entry that is found is interpreted as if it would be a literal value. Due Mapping and the manual building of entries its entirely possible that some entries are actually another triple. in that case this has to be announced so that the sparql interpreter can take appropriate steps.
   * Values: `literal` *(Default*), `triple`
 * other fields: the spcht descriptor format is meant to be a human readable configuration file, you can add any field you might like to make things more clear is not described to hold a function. For future extension it would be safest to stick to two particular dictionary-keys: `name` and `comment`
