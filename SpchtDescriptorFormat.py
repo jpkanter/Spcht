@@ -377,7 +377,11 @@ class Spcht:
         if not Spcht.is_dictkey(sub_dict, "match"):
             return value  # the nothing happens clause
         if isinstance(value, str):
-            pass
+            finding = re.search(sub_dict['match'], value)
+            if finding is not None:
+                return finding.string
+            else:
+                return None
         elif isinstance(value, list):
             list_of_returns = []
             for item in value:
@@ -397,7 +401,26 @@ class Spcht:
     def _node_postprocessing(value, sub_dict):
         # after having found a value for a given key and done the appropriate mapping the value gets transformed
         # once more to change it to the provided pattern
-        return value
+
+        if not Spcht.is_dictkey(sub_dict, "cut"):
+            return value  # the nothing happens clause, again
+        if isinstance(value, str):
+            return sub_dict.get('prepend', "") + \
+                   re.sub(sub_dict['cut'], sub_dict.get("replace", ""), value) + \
+                   sub_dict.get('append', "")
+        elif isinstance(value, list):
+            list_of_returns = []
+            for item in value:
+                rest_str = sub_dict.get('prepend', "") + \
+                   re.sub(sub_dict['cut'], sub_dict.get("replace", ""), item) + \
+                   sub_dict.get('append', "")
+                list_of_returns.append(rest_str)
+            if len(list_of_returns) == 1:
+                return list_of_returns[0]  # we are handling lists later anyway, but i am cleaning here a bit
+            else:
+                return list_of_returns # there should always be elements, even if they are empty, we are staying faithful here
+        else:  # fallback if its anything else i dont intended to handle with this
+            return value
 
     def _node_mapping(self, value, mapping, settings):
         the_default = False
@@ -493,7 +516,11 @@ class Spcht:
                         return False  # cannot continue without mandatory fields
                 elif isinstance(facet, str):
                     # list_of_sparql_inserts.append(bird_sparkle(graph + ressource, node['graph'], facet))
-                    list_of_sparql_inserts.append("<{}> <{}> \"{}\" .\n".format(graph + ressource, node['graph'], facet))
+                    if node.get('type', "literal") != "triple":
+                        list_of_sparql_inserts.append("<{}> <{}> \"{}\" .\n".format(graph + ressource, node['graph'], facet))
+                    else:
+                        list_of_sparql_inserts.append(
+                            "<{}> <{}> <{}> .\n".format(graph + ressource, node['graph'], facet))
                     debug_list.append("{} - {}".format(node['graph'], facet))
                 elif isinstance(facet, tuple):
                     self.debug_print("Tuple found", facet)
@@ -501,7 +528,11 @@ class Spcht:
                     for item in facet:
                         # list_of_sparql_inserts.append(bird_sparkle(graph + ressource, node['graph'], item))
                         debug_list.append("{} - {}".format(node['graph'], item))
-                        list_of_sparql_inserts.append("<{}> <{}> \"{}\" .\n".format(graph + ressource, node['graph'], item))
+                        if node.get('type', "literal") != "triple":
+                            list_of_sparql_inserts.append("<{}> <{}> \"{}\" .\n".format(graph + ressource, node['graph'], item))
+                        else:
+                            list_of_sparql_inserts.append(
+                                "<{}> <{}> <{}> .\n".format(graph + ressource, node['graph'], item))
                 else:
                     print(facet, "I cannot handle that for the moment", "magenta", file=self.std_err)
         else:

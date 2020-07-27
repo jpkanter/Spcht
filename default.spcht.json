@@ -90,13 +90,32 @@
             "comment": "nur wenn Präfix DE-588"
         },
         {
-            "name" : "Verfasser 2",
+            "name" : "Teilhaber",
             "source": "dict",
-            "graph": "http://purl.org/dc/terms/creator",
+            "graph": "http://purl.org/dc/terms/contributor",
             "field": "names_id_str_mv",
             "required": "optional",
+            "type": "triple",
+            "prepend": "http://d-nb.info/gnd/",
             "match": "(\\(DE-588\\))[0-9]*",
             "cut": "(\\(DE-588\\))"
+        },
+        {
+            "name": "Beteiligte (URI)",
+            "source": "marc",
+            "graph": "http://purl.org/dc/terms/contributor",
+            "field": "700",
+            "subfield": "0",
+            "required": "optional"
+        },
+        {
+            "name": "Beteiligte (URI)", 
+            "source": "marc",
+            "field": "700",
+            "subfield": "0", 
+            "comment1": "# aber nur wenn Präfix DE-588",
+            "comment3": " siehe Verfasser (URI), Info bekommen wir nicht sauber aus dem SOLR",
+            "required": "optional"
         },
         {
             "name": "Verfasserrolle (URI)",
@@ -114,15 +133,6 @@
                 "$ref": "./translation_maps/roles.json",
                 "$default": true
                 }
-        },
-        {
-            "name": "Beteiligte (URI)", 
-            "source": "marc",
-            "field": "700",
-            "subfield": "0", 
-            "comment1": "# aber nur wenn Präfix DE-588",
-            "comment3": " siehe Verfasser (URI), Info bekommen wir nicht sauber aus dem SOLR",
-            "required": "optional"
         },
         {
             "name": "Erscheinungsvermerk",
@@ -187,14 +197,6 @@
             "comment": "# 773t:773s:773a, first"
         },
         {
-            "name": "Beteiligte (URI)",
-            "source": "marc",
-            "graph": "http://purl.org/dc/terms/contributor",
-            "field": "700",
-            "subfield": "0",
-            "required": "optional"
-        },
-        {
             "name": "has dissertation or thesis information",
             "source": "dict",
             "graph": "http://rdaregistry.info/Elements/u/P60489",
@@ -216,6 +218,7 @@
             "graph": "https://www.w3.org/TR/rdf-schema/#ch_required",
             "field": "format_finc",
             "required": "optional",
+            "type": "triple",
             "mapping_settings": {
                 "$default": "http://purl.org/ontology/bibo/Document",
                 "$ref": "./translation_maps/documents.json"
@@ -227,6 +230,7 @@
             "graph": "http://purl.org/dc/terms/medium",
             "field": "format_finc",
             "required": "optional",
+            "type": "triple",
             "mapping": {
                 "Audio": "http://rdaregistry.info/termList/RDAMediaType/1001",
                 "Microform": "http://rdaregistry.info/termList/RDAMediaType/1002",
@@ -239,6 +243,7 @@
             "graph": "http://purl.org/dc/terms/language",
             "required": "optional",
             "field": "language",
+            "type": "triple",
             "mapping_settings": { "$ref": "./translation_maps/languages_long.json" }
         }
     ]
