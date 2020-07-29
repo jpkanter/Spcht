@@ -63,8 +63,8 @@ class Spcht:
         except FileNotFoundError:
             print("nofile", file=self.std_err)
             return False
-        except ValueError:
-            print("json_parser", file=self.std_err)
+        except ValueError as error:
+            print(colored("Error while parsing JSON:\n\r", "red"), error, file=self.std_err)
             return False
         except KeyError:
             print("KeyError", file=self.std_err)
@@ -339,6 +339,7 @@ class Spcht:
                 # Variant 1: a singular subfield is taken
                 if Spcht.is_dictkey(sub_dict, 'subfield'):
                     if Spcht.is_dictkey(marc21_dict, sub_dict['field'].lstrip("0")):
+                        self.debug_print(" ", colored(marc21_dict[sub_dict['field'].lstrip("0")], "yellow"), " ", end="")
                         if sub_dict['subfield'] == 'none':
                             return marc21_dict[sub_dict['field']]
                         elif Spcht.is_dictkey(marc21_dict[sub_dict['field'].lstrip("0")], sub_dict['subfield']):

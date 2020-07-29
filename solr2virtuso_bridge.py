@@ -180,6 +180,40 @@ def spcht_object_test():
         myfile.close()
 
 
+def marc21_display():
+    # short test of things
+    global URLS
+    load_config()
+    thetestset = load_from_json(TESTFOLDER + "thetestset.json")
+    for entry in thetestset:
+        if entry.get('fullrecord') is not None:
+            clean_marc21 = Spcht.marc2list(entry.get('fullrecord'))
+            spacers = {}
+            for key, value in clean_marc21.items():
+                if isinstance(value, dict):
+                    position = 0
+                    for subkey, subvalue in value.items():
+                        if subkey == "concat":
+                            continue
+                        if spacers.get(position, 0) < len(str(subvalue)):
+                            spacers[position] = len(str(subvalue)) + 1
+                        position += 1
+            for key, value in clean_marc21.items():
+                if isinstance(value, str):
+                    print(colored((" "*4)[len(str(key)):] + str(key) + " ", "magenta"), colored(value, "cyan"), end="")
+                if isinstance(value, dict):
+                    print(colored((" "*4)[len(str(key)):] + str(key) + " ", "magenta"), end=" ")
+                    position = 0
+                    for subkey, subvalue in value.items():
+                        if subkey == "concat":
+                            continue
+                        print(colored(subkey, "yellow"), end=" ")
+                        print(colored(subvalue, "cyan") + (" "*spacers.get(position, 0))[len(str(subvalue)):], end="║")
+                        position += 1
+                print("\n", end="")
+        print("═"*200)
+
+
 def full_process():
     global URLS, SPCHT
     load_config()
@@ -250,6 +284,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="LOD SPCHT Interpreter", epilog="Config File overwrites individual settings")
     parser.add_argument('-configFile', type=str, help="Defines a (local) config file to load things from")
     parser.add_argument('-TestMode', action="store_true", help="Executes some 'random', flavour of the day testscript")
+    parser.add_argument('-MarcView', action="store_true", help="Marc21 Display test")
     parser.add_argument('-checkSpcht', type=str, help="Tries to load and validate the specified Spcht JSON File")
     args = parser.parse_args()
     print(args)
@@ -269,7 +304,8 @@ if __name__ == "__main__":
     # +++ Daily Debugging +++
     if args.TestMode:
         spcht_object_test()
-
+    if args.MarcView:
+        marc21_display()
     # TODO Insert Arg Interpretation here
     #
     # main_test()

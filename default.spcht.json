@@ -102,13 +102,6 @@
             "graph": "http://purl.org/dc/terms/contributor",
             "field": "700",
             "subfield": "0",
-            "required": "optional"
-        },
-        {
-            "name": "Beteiligte (URI)", 
-            "source": "marc",
-            "field": "700",
-            "subfield": "0", 
             "comment1": "# aber nur wenn Präfix DE-588",
             "comment3": " siehe Verfasser (URI), Info bekommen wir nicht sauber aus dem SOLR",
             "required": "optional"
@@ -129,7 +122,7 @@
         {
             "name": "Beteiligte",
             "source": "dict",
-            "graph": "UNKNOWN",
+            "graph": "http://purl.org/dc/terms/contributor",
             "field": "author2",
             "alternatives": ["author_corporate2"],
             "required": "optional",
