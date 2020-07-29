@@ -13,6 +13,7 @@
             "graph": "http://schema.org/isbn",
             "field": "isbn",
             "required": "optional",
+            "comment": "abweichend von DINI-KIM-Empfehlung schema.org statt bibo",
             "fallback": {
                 "source": "marc",
                 "field": "020",
@@ -25,6 +26,7 @@
             "graph":  "https://schema.org/issn",
             "field": "issn",
             "required": "optional",
+            "comment": "abweichend von DINI-KIM-Empfehlung schema.org statt bibo",
             "fallback": {
                 "source": "marc",
                 "field": "022",
@@ -38,6 +40,7 @@
             "field": "title",
             "alternatives": ["title_short"],
             "required": "mandatory",
+            "comment": "es gibt tatsächlich knapp 3000 Records ohne Titel für DE-15 im Solr; daher evtl. auf optional ändern?",
             "fallback": {
                 "source": "marc",
                 "field": "245",
@@ -74,20 +77,13 @@
             "comment": "ohne Marc-Fallback; in den SOLR gelangen nur URNs nach einem bestimmten Muster aus 024a:037n:856u"
         },
         {
-            "name": "Verfasser (string)",
+            "name": "Verfasser", 
             "source": "dict",
-            "graph": "http://rdaregistry.info/Elements/u/P60327",
-            "field": "author",
-            "required": "optional"
-        },
-        {
-            "name": "Verfasser (URI)", 
-            "source": "marc",
             "graph": "http://purl.org/dc/terms/creator",
-            "field": "100",
-            "subfield": "0",
+            "field": "author",
+            "alternatives": "author_corporate",
             "required": "optional",
-            "comment": "nur wenn Präfix DE-588"
+            "comment": "Empfehlung URI, string ist aber möglich"
         },
         {
             "name" : "Teilhaber",
@@ -118,16 +114,12 @@
             "required": "optional"
         },
         {
-            "name": "Verfasserrolle (URI)",
-            "comment": "kann mehrfach vergeben sein",
-            "source": "marc",
+            "name": "Verfasserrolle",
+            "comment": "nicht immer vergeben, kann aber auch mehrfach vergeben sein",
+            "source": "dict",
             "graph": "http://id.loc.gov/vocabulary/relators.html",
-            "field": "100",
-            "subfield": "4",
-                "fallback": {
-                    "source": "marc",
-                    "field": "700",
-                    "subfield": "4"},
+            "field": "author_role",
+            "alternatives": ["author_corporate_role", "author2_role", "author_corporate2_role"],
             "required": "optional",
             "mapping_settings": {
                 "$ref": "./translation_maps/roles.json",
@@ -135,12 +127,20 @@
                 }
         },
         {
+            "name": "Beteiligte", 
+            "source": "dict",
+            "field": "author2",
+            "alternatives": "author_corporate2",
+            "required": "optional",
+            "comment": "Empfehlung URI, string ist aber möglich"
+        },
+        {
             "name": "Erscheinungsvermerk",
-            "comment": "kommt aus Marc 260abc:264abc (und 533) aber nach einem bestimmten Muster",
             "source": "dict",
             "graph": "http://rdaregistry.info/Elements/u/P60333",
             "field": "imprint_str_mv",
-            "required": "optional"
+            "required": "optional",
+            "comment": "ohne fallback; kommt aus Marc 260abc:264abc (und 533) aber nach einem bestimmten Muster"
         },
         {
             "name": "Erscheinungssort",
@@ -177,6 +177,25 @@
             }
         },
         {
+            "name": "Erscheinungsjahr",
+            "source": "dict",
+            "graph": "http://purl.org/dc/terms/issued",
+            "field": "publishDate",
+            "alternatives": ["publishDateSort"],
+            "required": "optional",
+            "comment": "ggf. nur publishDateSort (normalisiertes Datum) verwenden, ohne bibliographische Feinheiten und damit auch ohne Klammern, Kreuze etc.?",
+            "fallback": {
+                "source": "marc",
+                "field": "260",
+                "subfield": "c",
+                "fallback": {
+                    "source": "marc",
+                    "field": "264",
+                    "subfield": "c"
+                }
+            }
+        },
+        {
             "name": "ISBD",
             "source": "dict",
             "graph": "http://iflastandards.info/ns/isbd/elements/P1053",
@@ -189,28 +208,25 @@
             }
         },
         {
-            "name": "Bibliographic Citation - A bibliographic reference for the resource.", 
-            "source": "dict",
-            "graph": "http://purl.org/dc/terms/bibliographicCitation",
-            "field": "container_title",
-            "required": "optional",
-            "comment": "# 773t:773s:773a, first"
-        },
-        {
-            "name": "has dissertation or thesis information",
-            "source": "dict",
-            "graph": "http://rdaregistry.info/Elements/u/P60489",
-            "field": "",
-            "required": "optional",
-            "comment": "TODO"
-        },
-        {
-            "name": "Bibliographic Citation - A bibliographic reference for the resource.",
+            "name": "Übergeordnetes Werk", 
             "source": "dict",
             "graph": "http://purl.org/dc/terms/bibliographicCitation",
             "field": "container_title",
             "alternatives": ["container_reference"],
-            "required": "optional"
+            "required": "optional",
+            "comment": "# 773t:773s:773a, first"
+        },
+        {
+            "name": "Hochschulschriftenvermerk",
+            "source": "dict",
+            "graph": "http://rdaregistry.info/Elements/u/P60489",
+            "field": "dissertation_note",
+            "required": "optional",
+            "comment": "Neu: das Solr-Feld dissertation_note wird inzwischen nicht mehr befüllt",
+            "fallback": {
+                "source": "marc",
+                "field": "502",
+                "subfield": "a"
         },
         {
             "name": "Typ der Dokument Art",
@@ -218,6 +234,7 @@
             "graph": "https://www.w3.org/TR/rdf-schema/#ch_required",
             "field": "format_finc",
             "required": "optional",
+            "comment": "TODO",
             "type": "triple",
             "mapping_settings": {
                 "$default": "http://purl.org/ontology/bibo/Document",
@@ -230,13 +247,14 @@
             "graph": "http://purl.org/dc/terms/medium",
             "field": "format_finc",
             "required": "optional",
+            "comment": "TODO",
             "type": "triple",
             "mapping": {
                 "Audio": "http://rdaregistry.info/termList/RDAMediaType/1001",
                 "Microform": "http://rdaregistry.info/termList/RDAMediaType/1002",
                 "Notated Music": "http://rdaregistry.info/Elements/u/P60488"
             }
-        },
+         },
          {
             "name": "Sprache des Objects",
             "source": "dict",
