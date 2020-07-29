@@ -109,10 +109,15 @@ Each Node contains at least a `source`, `graph` and `type` field which define th
     * Values: `a "node" dictionary {}`
 * `required` - if everything fails, all fall backs are not to be found and all alternatives yield nothing and the `required` is set to mandatory the whole entry gets discarded, if some basic data could be gathered the list of errors gets a specific entry, otherwise there is only a counter of indescribable mapping errors being incremented by one. 
   * Values: `optional`, `mandatory`
-* filter
-* match
-* type - per default each entry that is found is interpreted as if it would be a literal value. Due Mapping and the manual building of entries its entirely possible that some entries are actually another triple. in that case this has to be announced so that the sparql interpreter can take appropriate steps.
+* `type` - per default each entry that is found is interpreted as if it would be a literal value. Due Mapping and the manual building of entries its entirely possible that some entries are actually another triple. in that case this has to be announced so that the sparql interpreter can take appropriate steps.
+  **Do notice that type applies to all fall backs and alternatives, any match will be handled as either triple or literal, the parameter has to be specified in the top level of the node**
   * Values: `literal` *(Default*), `triple`
+* `cut` - removes a part of the final value after mapping and filtering has taken place but before anything gets pre- or appended to the resulting value
+  * Values: `str` of any Regex Valid term, properly escaped, Example: `(\\(DE-588\\))`, removes "(DE-588)" of `(DE-588)132140349` and returns just `132140349`
+* `match` - this uses a regex match to filter out the content of an entry, the field value is matched against the value of the `match` entry, if it does not get at least one match the value gets ignored and no triple is created
+  * Values: `str` of any Regex-valid term, properly escape, Example: `(\\(DE-588\\))[0-9]*` matches Value `(DE-588)132140349`
+* `prepend` & `append`: both add literal text to the beginning and the end of any give value. This is the last step that gets applied to any given value regardless of source
+  * Values: any `str` 
 * other fields: the spcht descriptor format is meant to be a human readable configuration file, you can add any field you might like to make things more clear is not described to hold a function. For future extension it would be safest to stick to two particular dictionary-keys: `name` and `comment`
   
 ##### source: dict

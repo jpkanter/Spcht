@@ -1,4 +1,5 @@
 import json
+import re
 import sys
 import pymarc
 from pymarc.exceptions import RecordLengthInvalid, RecordLeaderInvalid, BaseAddressNotFound, BaseAddressInvalid, \
@@ -9,7 +10,7 @@ from termcolor import colored # only needed for debug print
 # the actual class
 
 class Spcht:
-    _DESCRI = {}  # the finally loaded descriptor file with all references solved
+    _DESCRI = None  # the finally loaded descriptor file with all references solved
     # * i do all this to make it more customizable, maybe it will never be needed, but i like having options
     std_out = sys.stdout
     std_err = sys.stderr
@@ -72,6 +73,12 @@ class Spcht:
             print("Unexpected Exception:", e.args, file=self.std_err)
             return False
 
+    def descri_status(self):
+        if self._DESCRI is not None:
+            return True
+        else:
+            return False
+
     # other boiler plate, general stuff that is used to not write out a lot of code each time
     @staticmethod
     def is_dictkey(dictionary, *keys):
@@ -89,6 +96,17 @@ class Spcht:
         for item in iterable:
             return True
         return False
+
+    @staticmethod
+    def validate_regex(regex_str):
+        # another of those super basic function where i am not sure if there isn't an easier way
+        try:
+            re.compile(regex_str)
+            return True
+        except re.error:
+            return False
+        except TypeError: # for the string not beeing one
+            return False
 
     @staticmethod
     def marc21_fixRecord(record="", record_id=0, validation=False, replace_method='decimal'):
@@ -304,8 +322,11 @@ class Spcht:
         # @param raw_dict = the big raw dictionary that we are working with
         # @param marc21_dict = an alternative marc21 dictionary, already cooked and ready
         # the header/id field is special in some sense, therefore there is a separated function for it
-        # ! this can return anything, string, list, dictionary, it just takes the content, careful
-        self.debug_print(colored(sub_dict.get('name', ""), "blue"), end=" ")
+        # ! this can return anything, string, list, dictionary, it just takes the content and relays, careful
+        if sub_dict.get('name', "") == "$Identifier$":
+            self.debug_print(colored("ID Source:", "red"), end=" ")
+        else:
+            self.debug_print(colored(sub_dict.get('name', ""), "blue"), end=" ")
         if sub_dict['source'] == "marc":
             if marc21_dict is None:
                 self.debug_print(colored("No Marc", "yellow"), end="|")
@@ -341,14 +362,19 @@ class Spcht:
         elif sub_dict['source'] == "dict":
             self.debug_print(colored("Source Dict", "yellow"), end="-> ")
             if Spcht.is_dictkey(raw_dict, sub_dict['field']):  # main field name
-                return self._node_mapping(raw_dict[sub_dict['field']], sub_dict.get('mapping'), sub_dict.get('mapping_settings'))
+                    temp_value = raw_dict[sub_dict['field']]  # the raw value
+                    temp_value = Spcht._node_preprocessing(temp_value, sub_dict) # filters out entries
+                    if temp_value is not None and len(temp_value) > 0:
+                        temp_value = self._node_mapping(temp_value, sub_dict.get('mapping'), sub_dict.get('mapping_settings'))
+                        return Spcht._node_postprocessing(temp_value, sub_dict)
             # ? since i prime the sub_dict what is even the point for checking the existence of the key, its always there
             elif Spcht.is_dictkey(sub_dict, 'alternatives') and sub_dict['alternatives'] is not None:  # traverse list of alternative field names
                 self.debug_print(colored("Alternatives", "yellow"), end="-> ")
                 for entry in sub_dict['alternatives']:
                     if Spcht.is_dictkey(raw_dict, entry):
-                        return self._node_mapping(raw_dict[entry], sub_dict.get('mapping'),
+                        temp_value = self._node_mapping(raw_dict[entry], sub_dict.get('mapping'),
                                                   sub_dict.get('mapping_settings'))
+                        return Spcht._node_postprocessing(temp_value, sub_dict)
 
         if Spcht.is_dictkey(sub_dict, 'fallback') and sub_dict['fallback'] is not None:  # we only get here if everything else failed
             # * this is it, the dreaded recursion, this might happen a lot of times, depending on how motivated the
@@ -358,6 +384,57 @@ class Spcht:
         else:
             self.debug_print(colored("absolutlty nothing", "yellow"), end=" | ")
             return None  # usually i return false in these situations, but none seems appropriate
+
+    @staticmethod
+    def _node_preprocessing(value, sub_dict):
+        # if there is a match-filter, this filters out the entry or all entries not matching
+        if not Spcht.is_dictkey(sub_dict, "match"):
+            return value  # the nothing happens clause
+        if isinstance(value, str):
+            finding = re.search(sub_dict['match'], value)
+            if finding is not None:
+                return finding.string
+            else:
+                return None
+        elif isinstance(value, list):
+            list_of_returns = []
+            for item in value:
+                finding = re.search(sub_dict['match'], item)
+                if finding is not None:
+                    list_of_returns.append(finding.string)
+            if 0 < len(list_of_returns) < 2:
+                return list_of_returns[0]  # if there is only one surviving element there is no point in returning a list
+            elif len(list_of_returns) > 1:
+                return list_of_returns
+            else:
+                return None
+        else:  # fallback if its anything else i dont intended to handle with this
+            return value
+
+    @staticmethod
+    def _node_postprocessing(value, sub_dict):
+        # after having found a value for a given key and done the appropriate mapping the value gets transformed
+        # once more to change it to the provided pattern
+
+        if not Spcht.is_dictkey(sub_dict, "cut"):
+            return value  # the nothing happens clause, again
+        if isinstance(value, str):
+            return sub_dict.get('prepend', "") + \
+                   re.sub(sub_dict['cut'], sub_dict.get("replace", ""), value) + \
+                   sub_dict.get('append', "")
+        elif isinstance(value, list):
+            list_of_returns = []
+            for item in value:
+                rest_str = sub_dict.get('prepend', "") + \
+                   re.sub(sub_dict['cut'], sub_dict.get("replace", ""), item) + \
+                   sub_dict.get('append', "")
+                list_of_returns.append(rest_str)
+            if len(list_of_returns) == 1:
+                return list_of_returns[0]  # we are handling lists later anyway, but i am cleaning here a bit
+            else:
+                return list_of_returns # there should always be elements, even if they are empty, we are staying faithful here
+        else:  # fallback if its anything else i dont intended to handle with this
+            return value
 
     def _node_mapping(self, value, mapping, settings):
         the_default = False
@@ -412,7 +489,7 @@ class Spcht:
         else:
             print("field contains a non-list, non-string: {}".format(type(value)), file=self.std_err)
 
-    def convertMapping(self, raw_dict, graph, marc21="fullrecord", marc21_source="dict"):
+    def processData(self, raw_dict, graph, marc21="fullrecord", marc21_source="dict"):
         # takes a raw solr query and converts it to a list of sparql queries to be inserted in a triplestore
         # per default it assumes there is a marc entry in the solrdump but it can be provided directly
         # it also takes technically any dictionary with entries as input
@@ -433,6 +510,7 @@ class Spcht:
         # generate core graph, i presume we already checked the spcht for being corredct
         # ? instead of making one hard coded go i could insert a special round of the general loop right?
         sub_dict = {
+            "name": "$Identifier$",  # this does nothing functional but gives the debug text a non-empty string
             "source": self._DESCRI['id_source'],
             # i want to throw this exceptions, but the format is checked anyway right?!
             "field": self._DESCRI['id_field'],
@@ -453,7 +531,11 @@ class Spcht:
                         return False  # cannot continue without mandatory fields
                 elif isinstance(facet, str):
                     # list_of_sparql_inserts.append(bird_sparkle(graph + ressource, node['graph'], facet))
-                    list_of_sparql_inserts.append("<{}> <{}> \"{}\" .\n".format(graph + ressource, node['graph'], facet))
+                    if node.get('type', "literal") != "triple":
+                        list_of_sparql_inserts.append("<{}> <{}> \"{}\" .\n".format(graph + ressource, node['graph'], facet))
+                    else:
+                        list_of_sparql_inserts.append(
+                            "<{}> <{}> <{}> .\n".format(graph + ressource, node['graph'], facet))
                     debug_list.append("{} - {}".format(node['graph'], facet))
                 elif isinstance(facet, tuple):
                     self.debug_print("Tuple found", facet)
@@ -461,7 +543,11 @@ class Spcht:
                     for item in facet:
                         # list_of_sparql_inserts.append(bird_sparkle(graph + ressource, node['graph'], item))
                         debug_list.append("{} - {}".format(node['graph'], item))
-                        list_of_sparql_inserts.append("<{}> <{}> \"{}\" .\n".format(graph + ressource, node['graph'], item))
+                        if node.get('type', "literal") != "triple":
+                            list_of_sparql_inserts.append("<{}> <{}> \"{}\" .\n".format(graph + ressource, node['graph'], item))
+                        else:
+                            list_of_sparql_inserts.append(
+                                "<{}> <{}> <{}> .\n".format(graph + ressource, node['graph'], item))
                 else:
                     print(facet, "I cannot handle that for the moment", "magenta", file=self.std_err)
         else:
@@ -487,6 +573,7 @@ class Spcht:
             "header_miss": "The main header informations [id_source, id_field, main] are missing, is this even the right file?",
             "header_mal": "The header information seems to be malformed",
             "basic_struct": "Elements of the basic structure ( [source, field, required] ) are missing",
+            "regex": "The provided regex is not correct",
             "marc_subfield": "Every marc entry needs a field AND a subfield or subfield_s_ item, cannot find subfield/s.",
             "marc_subfield_str": "The subfield key has to be a string value",
             "marc_subfields_list": "The Value of the subfield*S* key has to be a list (of strings)",
@@ -500,6 +587,7 @@ class Spcht:
             "map_dict_str": "Every element of the mapping must be a string",
             "maps_dict": "Settings for Mapping must be a dictionary",
             "maps_dict_str": "Every element of the mapping settings must be a string",
+            "must_str": "The value of the {} key must be a string",
             "fallback": "-> structure of the fallback node contains errors",
             "nodes": "-> error in structure of Node",
             "fallback_dict": "Fallback structure must be an dictionary build like a regular node"
@@ -554,6 +642,11 @@ class Spcht:
         if is_root and not Spcht.is_dictkey(node, 'source', 'field', 'required'):
             print(error_desc['basic_struct'], file=out)
             return False
+
+        if not isinstance(node['field'], str):  # ? is a one character string a chr?
+            print(error_desc['field_str'], file=out)
+            return False
+
         if node['source'] == "marc":
             if not Spcht.is_dictkey(node, 'subfield') and not Spcht.is_dictkey(node, 'subfields') :
                 print(error_desc['marc_subfield'], file=out)
@@ -571,9 +664,38 @@ class Spcht:
                         print(error_desc['marc_subfields_str'], file=out)
                         return False
 
-        if not isinstance(node['field'], str):  # ? is a one character string a chr?
-            print(error_desc['field_str'], file=out)
-            return False
+        if node['source'] == "dict":
+            if Spcht.is_dictkey(node, 'alternatives'):
+                if not isinstance(node['alternatives'], list):
+                    print(error_desc['alt_list'], file=out)
+                    return False
+                else:  # this else is redundant, its here for you dear reader
+                    for item in node['alternatives']:
+                        if not isinstance(item, str):
+                            print(error_desc['alt_list_str'], file=out)
+                            return False
+            if Spcht.is_dictkey(node, 'mapping'):
+                if not isinstance(node['mapping'], dict):
+                    print(error_desc['map_dict'], file=out)
+                    return False
+                else:  # ? again the thing with the else for comprehension, this comment is superfluous
+                    for key, value in node['mapping'].items():
+                        if not isinstance(value, str):
+                            print(error_desc['map_dict_str'], file=out)
+                            return False
+            if Spcht.is_dictkey(node, "mapping_settings"):
+                if not isinstance(node['mapping_settings'], dict):
+                    print(error_desc['maps_dict'], file=out)
+                    return False
+                else:  # ? boilerplatze, boilerplate does whatever boilerplate does
+                    for key, value in node['mapping_settings'].items():
+                        if not isinstance(value, str):
+                            # special cases upon special cases, here its the possibility of true or false for $default
+                            if isinstance(value, bool) and key == "$default":
+                                pass
+                            else:
+                                print(error_desc['maps_dict_str'], file=out)
+                                return False
         # root node specific things
         # TODO: include dictmap for checking
         if is_root:
@@ -583,37 +705,26 @@ class Spcht:
             if node['required'] != "optional" and node['required'] != "mandatory":
                 print(error_desc['required_chk'], file=out)
                 return False
-        if Spcht.is_dictkey(node, 'alternatives'):
-            if not isinstance(node['alternatives'], list):
-                print(error_desc['alt_list'], file=out)
+            # checks for correct data types, its pretty much 4 time the same code but there might be a case
+            # where i want to change the datatype so i let it be split for later handling
+            if Spcht.is_dictkey(node, 'cut') and not isinstance(node['cut'], str):
+                print(error_desc['must_str'].format("cut"), file=out)
                 return False
-            else:  # this else is redundant, its here for you dear reader
-                for item in node['alternatives']:
-                    if not isinstance(item, str):
-                        print(error_desc['alt_list_str'], file=out)
-                        return False
-        if Spcht.is_dictkey(node, 'mapping'):
-            if not isinstance(node['mapping'], dict):
-                print(error_desc['map_dict'], file=out)
+            if Spcht.is_dictkey(node, 'match') and not isinstance(node['cut'], str):
+                print(error_desc['must_str'].format("match"), file=out)
                 return False
-            else:  # ? again the thing with the else for comprehension, this comment is superfluous
-                for key, value in node['mapping'].items():
-                    if not isinstance(value, str):
-                        print(error_desc['map_dict_str'], file=out)
-                        return False
-        if Spcht.is_dictkey(node, "mapping_settings"):
-            if not isinstance(node['mapping_settings'], dict):
-                print(error_desc['maps_dict'], file=out)
+
+            if not Spcht.validate_regex(node.get('match', r"")) or not Spcht.validate_regex(node.get('cut', r"")):
+                print(error_desc['regex'], file=out)
                 return False
-            else:  # ? boilerplatze, boilerplate does whatever boilerplate does
-                for key, value in node['mapping_settings'].items():
-                    if not isinstance(value, str):
-                        # special cases upon special cases, here its the possibility of true or false for $default
-                        if isinstance(value, bool) and key == "$default":
-                            pass
-                        else:
-                            print(error_desc['maps_dict_str'], file=out)
-                            return False
+
+            if Spcht.is_dictkey(node, 'prepend') and not isinstance(node['cut'], str):
+                print(error_desc['must_str'].format("prepend"), file=out)
+                return False
+            if Spcht.is_dictkey(node, 'append') and not isinstance(node['cut'], str):
+                print(error_desc['must_str'].format("append"), file=out)
+                return False
+
         if Spcht.is_dictkey(node, 'fallback'):
             if isinstance(node['fallback'], dict):
                 if not Spcht._check_format_node(node['fallback'], error_desc, out):  # ! this is recursion
