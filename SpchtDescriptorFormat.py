@@ -311,8 +311,11 @@ class Spcht:
         # @param raw_dict = the big raw dictionary that we are working with
         # @param marc21_dict = an alternative marc21 dictionary, already cooked and ready
         # the header/id field is special in some sense, therefore there is a separated function for it
-        # ! this can return anything, string, list, dictionary, it just takes the content, careful
-        self.debug_print(colored(sub_dict.get('name', ""), "blue"), end=" ")
+        # ! this can return anything, string, list, dictionary, it just takes the content and relays, careful
+        if sub_dict.get('name', "") == "$Identifier$":
+            self.debug_print(colored("ID Source:", "red"), end=" ")
+        else:
+            self.debug_print(colored(sub_dict.get('name', ""), "blue"), end=" ")
         if sub_dict['source'] == "marc":
             if marc21_dict is None:
                 self.debug_print(colored("No Marc", "yellow"), end="|")
@@ -475,7 +478,7 @@ class Spcht:
         else:
             print("field contains a non-list, non-string: {}".format(type(value)), file=self.std_err)
 
-    def convertMapping(self, raw_dict, graph, marc21="fullrecord", marc21_source="dict"):
+    def processData(self, raw_dict, graph, marc21="fullrecord", marc21_source="dict"):
         # takes a raw solr query and converts it to a list of sparql queries to be inserted in a triplestore
         # per default it assumes there is a marc entry in the solrdump but it can be provided directly
         # it also takes technically any dictionary with entries as input
@@ -496,6 +499,7 @@ class Spcht:
         # generate core graph, i presume we already checked the spcht for being corredct
         # ? instead of making one hard coded go i could insert a special round of the general loop right?
         sub_dict = {
+            "name": "$Identifier$",  # this does nothing functional but gives the debug text a non-empty string
             "source": self._DESCRI['id_source'],
             # i want to throw this exceptions, but the format is checked anyway right?!
             "field": self._DESCRI['id_field'],
@@ -571,6 +575,7 @@ class Spcht:
             "map_dict_str": "Every element of the mapping must be a string",
             "maps_dict": "Settings for Mapping must be a dictionary",
             "maps_dict_str": "Every element of the mapping settings must be a string",
+            "must_str": "The value of the {} key must be a string",
             "fallback": "-> structure of the fallback node contains errors",
             "nodes": "-> error in structure of Node",
             "fallback_dict": "Fallback structure must be an dictionary build like a regular node"
@@ -653,6 +658,20 @@ class Spcht:
                 return False
             if node['required'] != "optional" and node['required'] != "mandatory":
                 print(error_desc['required_chk'], file=out)
+                return False
+            # checks for correct data types, its pretty much 4 time the same code but there might be a case
+            # where i want to change the datatype so i let it be split for later handling
+            if Spcht.is_dictkey(node, 'cut') and not isinstance(node['cut'], str):
+                print(error_desc['must_str'].format("cut"), file=out)
+                return False
+            if Spcht.is_dictkey(node, 'match') and not isinstance(node['cut'], str):
+                print(error_desc['must_str'].format("match"), file=out)
+                return False
+            if Spcht.is_dictkey(node, 'prepend') and not isinstance(node['cut'], str):
+                print(error_desc['must_str'].format("prepend"), file=out)
+                return False
+            if Spcht.is_dictkey(node, 'append') and not isinstance(node['cut'], str):
+                print(error_desc['must_str'].format("append"), file=out)
                 return False
         if Spcht.is_dictkey(node, 'alternatives'):
             if not isinstance(node['alternatives'], list):

@@ -8,15 +8,16 @@ import json
 import math
 import sys
 import time
-import SpchtDescriptorFormat
 
 import pymarc
 
 from local_tools import is_dictkey, is_dict, cprint_type
+from os import path
 from virt_connect import sparqlQuery
 from termcolor import colored, cprint
 from legacy_tools import bird_sparkle_insert, bird_sparkle, bird_longhandle, fish_interpret
 from solr_tools import marc2list, marc21_fixRecord, load_remote_content, test_json, slice_header_json
+from SpchtDescriptorFormat import Spcht
 
 ERROR_TXT = {}
 URLS = {}
@@ -29,10 +30,7 @@ def send_error(message, error_name=None):
     # custom error handling to use the texts provided by the settings
     global ERROR_TXT
     if error_name is None:
-        if is_dictkey(ERROR_TXT, message):  # if there is a short handle for the error simply use that one
-            sys.stderr.write(ERROR_TXT[message])
-        else:
-            sys.stderr.write(message)
+        sys.stderr.write(ERROR_TXT.get(message, message))
     else:
         if is_dictkey(ERROR_TXT, error_name):
             sys.stderr.write(ERROR_TXT[error_name].format(message))
@@ -43,23 +41,29 @@ def send_error(message, error_name=None):
 def load_config(file_path="config.json"):
     # loads json file with all the config settings, uses defaults when possible
     global ERROR_TXT, URLS, SETTINGS
+    if not path.exists(file_path):
+        return False
     with open(file_path) as json_file:
         data = json.load(json_file)
         try:
             ERROR_TXT = data['errors']
         except KeyError:
             send_error("Cannot find 'error' Listings in {} File".format(file_path))  # in this there is not error field
-            sys.exit()
+            ERROR_TXT = None
+            return False
         try:
             URLS = data['urls']
         except KeyError:
             send_error("urls")
-            sys.exit()  #  maybe to harsh,
+            URLS = None
+            return False
         try:
             SETTINGS = data['settings']
         except KeyError:
             send_error("SETTINGS")
-            sys.exit()
+            SETTINGS = None
+            return False
+    return True
 
 
 def load_from_json(file_path):
@@ -119,12 +123,10 @@ def marc_test():
     print(json.dumps(marc2list(marctest.get('fullrecord')), indent=4))
 
 
-
-
 def spcht_object_test():
     global URLS
     load_config()
-    heinz = SpchtDescriptorFormat.Spcht("default.spcht.json", debug=True)
+    heinz = Spcht("default.spcht.json", debug=True)
     if heinz.descri_status():
         debug_dict = {
             "0-1172721416": "monographischer Band - Goethes Faust mit Illustrator",
@@ -152,7 +154,7 @@ def spcht_object_test():
         double_list = []
         thesparqlset = []
         for entry in thetestset:
-            temp = heinz.convertMapping(entry, URLS['graph'])
+            temp = heinz.processData(entry, URLS['graph'])
             if temp:
                 double_list.append(
                     "\n\n=== {} - {} ===\n".format(entry.get('id', "Unknown ID"), debug_dict.get(entry.get('id'))))
@@ -248,8 +250,27 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="LOD SPCHT Interpreter", epilog="Config File overwrites individual settings")
     parser.add_argument('-configFile', type=str, help="Defines a (local) config file to load things from")
     parser.add_argument('-TestMode', action="store_true", help="Executes some 'random', flavour of the day testscript")
+    parser.add_argument('-checkSpcht', type=str, help="Tries to load and validate the specified Spcht JSON File")
     args = parser.parse_args()
+    print(args)
+    # +++ CONFIG FILE +++
+    if args.configFile:
+        cfg_status = load_config(args.configFile)
+    else:
+        cfg_status = load_config() # if that fails everything gets set to None
+    if not cfg_status:
+        print("Config Loading failed, default Values will be None, proceed with caution")
+        del cfg_status
+
+    # +++ SPCHT Checker +++
+    if args.checkSpcht:
+        Spcht.check_format(args.checkSpcht)
+
+    # +++ Daily Debugging +++
+    if args.TestMode:
+        spcht_object_test()
+
     # TODO Insert Arg Interpretation here
-    spcht_object_test()
+    #
     # main_test()
 

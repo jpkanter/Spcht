@@ -6,11 +6,12 @@
     [x] $inherit parameter actually inherting the value in $default
     [ ] json error insights on load of file
     [ ] possible performance bottlenecks
-    [ ] Filter Value for x
-    [ ] Remove Parts of the value string
+    [x] Filter Value for x
+    [x] Remove Parts of the value string
     [ ] Remove duplicated information # should not really matter but still
     [ ] MARC mutli Value for authors
     [ ] Check Regex Entries for faults
+    [ ] Escape pre and append texts
 * SPARQL
     [ ] differenciate between graph and string that happens to be a link to somewhere
     [ ] generation of valid sparql queries
