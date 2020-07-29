@@ -572,7 +572,7 @@ class Spcht:
         error_desc = {
             "header_miss": "The main header informations [id_source, id_field, main] are missing, is this even the right file?",
             "header_mal": "The header information seems to be malformed",
-            "basic_struct": "Elements of the basic structure ( [source, field, required] ) are missing",
+            "basic_struct": "Elements of the basic structure ( [source, field, required, graph] ) are missing",
             "regex": "The provided regex is not correct",
             "marc_subfield": "Every marc entry needs a field AND a subfield or subfield_s_ item, cannot find subfield/s.",
             "marc_subfield_str": "The subfield key has to be a string value",
@@ -639,7 +639,7 @@ class Spcht:
         if not is_root and not Spcht.is_dictkey(node, 'source', 'field'):
             print(error_desc['basic_struct'], file=out)
             return False
-        if is_root and not Spcht.is_dictkey(node, 'source', 'field', 'required'):
+        if is_root and not Spcht.is_dictkey(node, 'source', 'field', 'required', 'graph'):
             print(error_desc['basic_struct'], file=out)
             return False
 

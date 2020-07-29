@@ -81,7 +81,7 @@
             "source": "dict",
             "graph": "http://purl.org/dc/terms/creator",
             "field": "author",
-            "alternatives": "author_corporate",
+            "alternatives": ["author_corporate"],
             "required": "optional",
             "comment": "Empfehlung URI, string ist aber möglich"
         },
@@ -127,10 +127,11 @@
                 }
         },
         {
-            "name": "Beteiligte", 
+            "name": "Beteiligte",
             "source": "dict",
+            "graph": "UNKNOWN",
             "field": "author2",
-            "alternatives": "author_corporate2",
+            "alternatives": ["author_corporate2"],
             "required": "optional",
             "comment": "Empfehlung URI, string ist aber möglich"
         },
@@ -227,6 +228,7 @@
                 "source": "marc",
                 "field": "502",
                 "subfield": "a"
+            }
         },
         {
             "name": "Typ der Dokument Art",
