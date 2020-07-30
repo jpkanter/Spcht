@@ -189,6 +189,7 @@ def marc21_display():
         if entry.get('fullrecord') is not None:
             clean_marc21 = Spcht.marc2list(entry.get('fullrecord'))
             spacers = {}
+            mll = 40  # max line length
             for key, value in clean_marc21.items():
                 if isinstance(value, dict):
                     position = 0
@@ -197,6 +198,8 @@ def marc21_display():
                             continue
                         if spacers.get(position, 0) < len(str(subvalue)):
                             spacers[position] = len(str(subvalue)) + 1
+                            if len(str(subvalue)) >= mll:
+                                spacers[position] = mll
                         position += 1
             for key, value in clean_marc21.items():
                 if isinstance(value, str):
@@ -208,7 +211,9 @@ def marc21_display():
                         if subkey == "concat":
                             continue
                         print(colored(subkey, "yellow"), end=" ")
-                        print(colored(subvalue, "cyan") + (" "*spacers.get(position, 0))[len(str(subvalue)):], end="║")
+                        print(colored(subvalue[:mll-3], "cyan") +
+                              colored("..."[:(len(subvalue)-mll)], "blue") +
+                              (" "*spacers.get(position, 0))[len(str(subvalue)):], end="║")
                         position += 1
                 print("\n", end="")
         print("═"*200)

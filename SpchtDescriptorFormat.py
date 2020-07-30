@@ -11,6 +11,7 @@ from termcolor import colored # only needed for debug print
 
 class Spcht:
     _DESCRI = None  # the finally loaded descriptor file with all references solved
+    _SAVEAS = {}
     # * i do all this to make it more customizable, maybe it will never be needed, but i like having options
     std_out = sys.stdout
     std_err = sys.stderr
@@ -78,6 +79,20 @@ class Spcht:
             return True
         else:
             return False
+
+    def getSaveAs(self, key=None):
+        if key is None:
+            return self._SAVEAS
+        if Spcht.is_dictkey(self._SAVEAS, key):
+            return self._SAVEAS[key]
+        else:
+            return None
+
+    def cleanSaveaAs(self):
+        # i originally had this in the "getSaveAs" function, but maybe you have for some reasons the need to do this
+        # manually or not at all. i dont know how expensive set to list is. We will find out
+        for key in self._SAVEAS:
+            self._SAVEAS[key] = list(set(self._SAVEAS[key]))
 
     # other boiler plate, general stuff that is used to not write out a lot of code each time
     @staticmethod
@@ -363,19 +378,20 @@ class Spcht:
         elif sub_dict['source'] == "dict":
             self.debug_print(colored("Source Dict", "yellow"), end="-> ")
             if Spcht.is_dictkey(raw_dict, sub_dict['field']):  # main field name
-                    temp_value = raw_dict[sub_dict['field']]  # the raw value
-                    temp_value = Spcht._node_preprocessing(temp_value, sub_dict) # filters out entries
-                    if temp_value is not None and len(temp_value) > 0:
-                        temp_value = self._node_mapping(temp_value, sub_dict.get('mapping'), sub_dict.get('mapping_settings'))
-                        return Spcht._node_postprocessing(temp_value, sub_dict)
+                temp_value = raw_dict[sub_dict['field']]  # the raw value
+                temp_value = Spcht._node_preprocessing(temp_value, sub_dict) # filters out entries
+                if temp_value is not None and len(temp_value) > 0:
+                    temp_value = self._node_mapping(temp_value, sub_dict.get('mapping'), sub_dict.get('mapping_settings'))
+                    return self._node_postprocessing(temp_value, sub_dict)
             # ? since i prime the sub_dict what is even the point for checking the existence of the key, its always there
             elif Spcht.is_dictkey(sub_dict, 'alternatives') and sub_dict['alternatives'] is not None:  # traverse list of alternative field names
                 self.debug_print(colored("Alternatives", "yellow"), end="-> ")
                 for entry in sub_dict['alternatives']:
                     if Spcht.is_dictkey(raw_dict, entry):
-                        temp_value = self._node_mapping(raw_dict[entry], sub_dict.get('mapping'),
+                        temp_value = Spcht._node_preprocessing(raw_dict[entry], sub_dict)
+                        temp_value = self._node_mapping(temp_value, sub_dict.get('mapping'),
                                                   sub_dict.get('mapping_settings'))
-                        return Spcht._node_postprocessing(temp_value, sub_dict)
+                        return self._node_postprocessing(temp_value, sub_dict)
 
         if Spcht.is_dictkey(sub_dict, 'fallback') and sub_dict['fallback'] is not None:  # we only get here if everything else failed
             # * this is it, the dreaded recursion, this might happen a lot of times, depending on how motivated the
@@ -412,23 +428,22 @@ class Spcht:
         else:  # fallback if its anything else i dont intended to handle with this
             return value
 
-    @staticmethod
-    def _node_postprocessing(value, sub_dict):
+    def _node_postprocessing(self, value, sub_dict):
         # after having found a value for a given key and done the appropriate mapping the value gets transformed
         # once more to change it to the provided pattern
 
         if not Spcht.is_dictkey(sub_dict, "cut"):
             return value  # the nothing happens clause, again
         if isinstance(value, str):
-            return sub_dict.get('prepend', "") + \
-                   re.sub(sub_dict['cut'], sub_dict.get("replace", ""), value) + \
-                   sub_dict.get('append', "")
+            pure_filter = re.sub(sub_dict['cut'], sub_dict.get("replace", ""), value)
+            self._addToSaveAs(pure_filter, sub_dict)
+            return sub_dict.get('prepend', "") + pure_filter + sub_dict.get('append', "")
         elif isinstance(value, list):
             list_of_returns = []
             for item in value:
-                rest_str = sub_dict.get('prepend', "") + \
-                   re.sub(sub_dict['cut'], sub_dict.get("replace", ""), item) + \
-                   sub_dict.get('append', "")
+                pure_filter = re.sub(sub_dict['cut'], sub_dict.get("replace", ""), item)
+                self._addToSaveAs(pure_filter, sub_dict)
+                rest_str = sub_dict.get('prepend', "") + pure_filter + sub_dict.get('append', "")
                 list_of_returns.append(rest_str)
             if len(list_of_returns) == 1:
                 return list_of_returns[0]  # we are handling lists later anyway, but i am cleaning here a bit
@@ -436,6 +451,14 @@ class Spcht:
                 return list_of_returns # there should always be elements, even if they are empty, we are staying faithful here
         else:  # fallback if its anything else i dont intended to handle with this
             return value
+
+    def _addToSaveAs(self, value, sub_dict):
+        # this was originally 3 lines of boilerplate inside postprocessing, i am not really sure if i shouldn't have
+        # left it that way, i kinda dislike those mini functions, it divides the code
+        if Spcht.is_dictkey(sub_dict, "saveas"):
+            if self._SAVEAS.get(sub_dict['saveas'], None) is None:
+                self._SAVEAS[sub_dict['saveas']] = []
+            self._SAVEAS[sub_dict['saveas']].append(value)
 
     def _node_mapping(self, value, mapping, settings):
         the_default = False
