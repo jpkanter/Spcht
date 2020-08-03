@@ -338,10 +338,14 @@ class Spcht:
         # @param marc21_dict = an alternative marc21 dictionary, already cooked and ready
         # the header/id field is special in some sense, therefore there is a separated function for it
         # ! this can return anything, string, list, dictionary, it just takes the content and relays, careful
+        # UPDATE 03.08.2020 : i made it so that this returns a tuple of the named graph and the actual value
+        # this is so cause i rised the need for manipulating the used named graph for that specific object via
+        # mappings, it seemed most forward to change all the output in one central place, and that is here
         if sub_dict.get('name', "") == "$Identifier$":
             self.debug_print(colored("ID Source:", "red"), end=" ")
         else:
             self.debug_print(colored(sub_dict.get('name', ""), "blue"), end=" ")
+
         if sub_dict['source'] == "marc":
             if marc21_dict is None:
                 self.debug_print(colored("No Marc", "yellow"), end="|")
@@ -356,9 +360,9 @@ class Spcht:
                     if Spcht.is_dictkey(marc21_dict, sub_dict['field'].lstrip("0")):
                         self.debug_print(" ", colored(marc21_dict[sub_dict['field'].lstrip("0")], "yellow"), " ", end="")
                         if sub_dict['subfield'] == 'none':
-                            return marc21_dict[sub_dict['field']]
+                            return sub_dict['graph'], marc21_dict[sub_dict['field']]
                         elif Spcht.is_dictkey(marc21_dict[sub_dict['field'].lstrip("0")], sub_dict['subfield']):
-                            return marc21_dict[sub_dict['field'].lstrip("0")][sub_dict['subfield']]
+                            return sub_dict['graph'], [sub_dict['field'].lstrip("0")][sub_dict['subfield']]
                 # Variant 2: a list of subfields is concat
                 if Spcht.is_dictkey(sub_dict, 'subfields'):
                     # check for EVERY subfield to be around, abort this if not
@@ -371,33 +375,45 @@ class Spcht:
                             combined_string += marc21_dict[sub_dict['field'].lstrip("0")][marc_key] + sub_dict.get('concat', " ")
                     if isinstance(combined_string, str):  # feels wrong, if its boolean something went AWOL
                         # * this just deleted the last concat piece with a string[:1] where 1 can be the length of concat
-                        return combined_string[:len(sub_dict.get('concat', " "))]
+                        return sub_dict['graph'], combined_string[:len(sub_dict.get('concat', " "))]
 
             # ! this handling of the marc format is probably too simply
             # TODO: gather more samples of awful marc and process it
         elif sub_dict['source'] == "dict":
             self.debug_print(colored("Source Dict", "yellow"), end="-> ")
-            if Spcht.is_dictkey(raw_dict, sub_dict['field']):  # main field name
+            # graph_field matching - some additional checks necessary
+            # the existence of graph_field invalidates the rest if graph field does not match
+            if Spcht.is_dictkey(sub_dict, "graph_field"):
+                # ? i really hope this works like intended, if there is graph_field, do nothing of the normal matching
+                graph_value = self._graph_map(raw_dict, sub_dict)
+                if graph_value is not None:
+                    return graph_value
+            # normal field matching
+            elif Spcht.is_dictkey(raw_dict, sub_dict['field']):  # main field name
                 temp_value = raw_dict[sub_dict['field']]  # the raw value
                 temp_value = Spcht._node_preprocessing(temp_value, sub_dict) # filters out entries
                 if temp_value is not None and len(temp_value) > 0:
                     temp_value = self._node_mapping(temp_value, sub_dict.get('mapping'), sub_dict.get('mapping_settings'))
-                    return self._node_postprocessing(temp_value, sub_dict)
+                    return sub_dict['graph'], self._node_postprocessing(temp_value, sub_dict)
             # ? since i prime the sub_dict what is even the point for checking the existence of the key, its always there
+            # alternatives matching, like field but as a list of alternatives
             elif Spcht.is_dictkey(sub_dict, 'alternatives') and sub_dict['alternatives'] is not None:  # traverse list of alternative field names
                 self.debug_print(colored("Alternatives", "yellow"), end="-> ")
                 for entry in sub_dict['alternatives']:
                     if Spcht.is_dictkey(raw_dict, entry):
                         temp_value = Spcht._node_preprocessing(raw_dict[entry], sub_dict)
-                        temp_value = self._node_mapping(temp_value, sub_dict.get('mapping'),
-                                                  sub_dict.get('mapping_settings'))
-                        return self._node_postprocessing(temp_value, sub_dict)
+                        if temp_value is not None and len(temp_value) > 0:
+                            temp_value = self._node_mapping(temp_value, sub_dict.get('mapping'),
+                                                      sub_dict.get('mapping_settings'))
+                            return sub_dict['graph'], self._node_postprocessing(temp_value, sub_dict)
 
         if Spcht.is_dictkey(sub_dict, 'fallback') and sub_dict['fallback'] is not None:  # we only get here if everything else failed
             # * this is it, the dreaded recursion, this might happen a lot of times, depending on how motivated the
             # * librarian was who wrote the descriptor format
             self.debug_print(colored("Fallback triggered", "yellow"), sub_dict.get('fallback'), end="-> ")
-            return self._recursion_node(sub_dict['fallback'], raw_dict, marc21_dict)
+            recursion_node = copy.deepcopy(sub_dict['fallback'])
+            recursion_node['graph'] = sub_dict['graph']
+            return self._recursion_node(recursion_node, raw_dict, marc21_dict)
         else:
             self.debug_print(colored("absolutlty nothing", "yellow"), end=" | ")
             return None  # usually i return false in these situations, but none seems appropriate
@@ -498,8 +514,6 @@ class Spcht:
                 return None
 
         elif isinstance(value, str):
-            # ! this here might be a bug, if there is no mapping but a fallback the fallback gets ignored
-            # that bug might be actually more on the SDF Writer than on me
             if Spcht.is_dictkey(mapping, value):  # rigid key mapping
                 return mapping.get(value)
             elif isinstance(the_default, bool) and the_default is True:
@@ -512,6 +526,60 @@ class Spcht:
                 # ? cause if we no default is defined we probably have a reason for that right?
         else:
             print("field contains a non-list, non-string: {}".format(type(value)), file=self.std_err)
+
+    def _graph_map(self, raw_dict, sub_dict):
+        # originally i had this as part of the node_recursion function, but i encountered the problem
+        # where i had to perform a lot of checks till i can actually do anything which in the structure i had
+        # would have resulted in a very nested if chain, as a seperate function i can do this more neatly and readable
+        if not Spcht.is_dictkey(raw_dict, sub_dict['graph_field'], sub_dict['field']):
+            return None
+        field = raw_dict[sub_dict['field']]  # this is just here cause i was tired of typing the full thing every time
+        graph_field = raw_dict[sub_dict['graph_field']]
+        if isinstance(field, list) and not isinstance(graph_field, list):
+            self.debug_print(colored("GraphMap: list and non-list", "red"), end=" ")
+            return None
+        if isinstance(field, str) and not isinstance(graph_field, str):
+            self.debug_print(colored("GraphMap: str and non-str", "red"), end=" ")
+            return None
+        if not isinstance(field, str) and not isinstance(field, list):
+            self.debug_print(colored("GraphMap: not-str, non-list", "red"), end=" ")
+            return None
+        if isinstance(field, list) and len(field) != len(graph_field):
+            self.debug_print(colored("GraphMap: len difference", "red"), end=" ")
+            return None
+        # if type(raw_dict[sub_dict['field']]) != type(raw_dict[sub_dict['graph_field']]): # technically possible
+
+        if isinstance(field, str):  # simple variant, a singular string
+            temp_value = raw_dict[sub_dict['field']]  # the raw value
+            temp_value = Spcht._node_preprocessing(temp_value, sub_dict)  # filters out entries
+            if temp_value is not None and len(temp_value) > 0:
+                temp_value = self._node_mapping(temp_value, sub_dict.get('mapping'), sub_dict.get('mapping_settings'))
+                graph = self._node_mapping(graph_field, sub_dict.get("graph_map"), {"$default": sub_dict['graph']})
+                return graph, self._node_postprocessing(temp_value, sub_dict)
+            else:
+                return None
+        if isinstance(field, list): # more complex, two lists that are connected to each other
+            result_list = []
+            for i in range(0, len(field)):
+                if (not isinstance(raw_dict[sub_dict['field']][i], str) or
+                        not isinstance(raw_dict[sub_dict['graph_field']][i], str)):
+                    continue  # we cannot work of non strings, although, what about numbers?
+                temp_value = raw_dict[sub_dict['field']][i]  # the raw value
+                temp_value = Spcht._node_preprocessing(temp_value, sub_dict)  # filters out entries
+                if temp_value is not None and len(temp_value) > 0:
+                    temp_value = self._node_mapping(temp_value, sub_dict.get('mapping'),
+                                                    sub_dict.get('mapping_settings'))
+                    graph = self._node_mapping(raw_dict[sub_dict['graph_field']][i], sub_dict.get("graph_map"),
+                                               {"$default": sub_dict['graph']})
+                    # danger here, if the graph_map is none, it will return graph_field instead of default, hrrr
+                    if sub_dict.get("graph_map") is None:
+                        graph = sub_dict['graph']
+                    result_list.append((graph, self._node_postprocessing(temp_value, sub_dict)))  # a tuple
+                else:
+                    continue
+            if len(result_list) > 0:
+                return result_list
+        return None
 
     def processData(self, raw_dict, graph, marc21="fullrecord", marc21_source="dict"):
         # takes a raw solr query and converts it to a list of sparql queries to be inserted in a triplestore
@@ -536,6 +604,7 @@ class Spcht:
         sub_dict = {
             "name": "$Identifier$",  # this does nothing functional but gives the debug text a non-empty string
             "source": self._DESCRI['id_source'],
+            "graph": "none",  # recursion node presumes a graph but we dont have that for the root, this is a dummy
             # i want to throw this exceptions, but the format is checked anyway right?!
             "field": self._DESCRI['id_field'],
             "subfield": self._DESCRI.get('id_subfield', None),
@@ -543,37 +612,47 @@ class Spcht:
             "alternatives": self._DESCRI.get('id_alternatives', None),
             "fallback": self._DESCRI.get('id_fallback', None)
         }
-        ressource = self._recursion_node(sub_dict, raw_dict, marc21_record)
+        ressource = self._recursion_node(sub_dict, raw_dict, marc21_record)[1]
         self.debug_print("Res", colored(ressource, "green"))
         if ressource is not None:
             for node in self._DESCRI['nodes']:
                 facet = self._recursion_node(node, raw_dict, marc21_record)
-                self.debug_print(colored(facet, "green"))
+                # ? debug printings
+                if isinstance(facet, tuple):
+                    if facet[0] != node['graph']:
+                        self.debug_print(colored("GRAPH: " + facet[0], "yellow"), end=" ")
+                    self.debug_print(colored(facet[1], "green"))
+                else:
+                    self.debug_print(colored("None", "red"))
+                # graph manipulation, i rather had it in the recursion node thing, but that would mean i had to change
+                # everything, the way it is now makes it so that graph_map only works for top level nodes
+                # worse, it would actually trigger if you find a fallback, maybe i should add a check that makes it
+                # either fallback or graph_map
                 # ? maybe i want to output a more general s p o format? or rather only "p & o"
-                if facet is None:
+                if facet is None or facet[1] is None:
                     if node['required'] == "mandatory":
                         return False  # cannot continue without mandatory fields
-                elif isinstance(facet, str):
+                elif isinstance(facet[1], str):
                     # list_of_sparql_inserts.append(bird_sparkle(graph + ressource, node['graph'], facet))
                     if node.get('type', "literal") != "triple":
-                        list_of_sparql_inserts.append("<{}> <{}> \"{}\" .\n".format(graph + ressource, node['graph'], facet))
+                        list_of_sparql_inserts.append("<{}> <{}> \"{}\" .\n".format(graph + ressource, facet[0], facet[1]))
                     else:
                         list_of_sparql_inserts.append(
                             "<{}> <{}> <{}> .\n".format(graph + ressource, node['graph'], facet))
-                    debug_list.append("{} - {}".format(node['graph'], facet))
-                elif isinstance(facet, tuple):
-                    self.debug_print("Tuple found", facet)
-                elif isinstance(facet, list):
-                    for item in facet:
+                    debug_list.append(f"{facet[0]} - {facet[1]}")
+                elif isinstance(facet[1], tuple):
+                    self.debug_print("Tuple found", facet[1])
+                elif isinstance(facet[1], list):
+                    for item in facet[1]:
                         # list_of_sparql_inserts.append(bird_sparkle(graph + ressource, node['graph'], item))
-                        debug_list.append("{} - {}".format(node['graph'], item))
+                        debug_list.append(f"{facet[0]} - {item}".format(facet[0], item))
                         if node.get('type', "literal") != "triple":
-                            list_of_sparql_inserts.append("<{}> <{}> \"{}\" .\n".format(graph + ressource, node['graph'], item))
+                            list_of_sparql_inserts.append("<{}> <{}> \"{}\" .\n".format(graph + ressource, facet[0], item))
                         else:
                             list_of_sparql_inserts.append(
-                                "<{}> <{}> <{}> .\n".format(graph + ressource, node['graph'], item))
+                                "<{}> <{}> <{}> .\n".format(graph + ressource, facet[0], item))
                 else:
-                    print(facet, "I cannot handle that for the moment", "magenta", file=self.std_err)
+                    print(facet, colored("I cannot handle that for the moment", "magenta"), file=self.std_err)
         else:
             return False  # ? or none?
 

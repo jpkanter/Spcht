@@ -129,6 +129,20 @@
             "comment": "Empfehlung URI, string ist aber möglich"
         },
         {
+            "name": "Experimentell: definitive Authoren - literal",
+            "source": "dict",
+            "graph": "http://purl.org/dc/terms/contributor",
+            "comment1": "for this graph is the mandatory default",
+            "graph_map": {
+                "aus": "http://purl.org/dc/elements/1.1/creator",
+                "aut": "http://purl.org/dc/elements/1.1/creator"
+                },
+            "graph_field": "author2_role",
+            "field": "author2",
+            "required": "optional",
+            "comment2": "graph_field replaces throwback due technical limitations"
+        },
+        {
             "name": "Erscheinungsvermerk",
             "source": "dict",
             "graph": "http://rdaregistry.info/Elements/u/P60333",
