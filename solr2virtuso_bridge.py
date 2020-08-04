@@ -152,32 +152,40 @@ def spcht_object_test():
         }
         thetestset = load_from_json(TESTFOLDER + "thetestset.json")
         double_list = []
+        jsoned_list = []
         thesparqlset = []
         for entry in thetestset:
+            print(colored(debug_dict.get(entry.get('id')), "white", attrs=["bold"]))
             temp = heinz.processData(entry, URLS['graph'])
-            if temp:
+            if isinstance(temp, list):
                 double_list.append(
                     "\n\n=== {} - {} ===\n".format(entry.get('id', "Unknown ID"), debug_dict.get(entry.get('id'))))
-                double_list += temp
+                jsoned_list += temp
                 # TODO Workeable Sparql
-                thesparqlset.append(bird_sparkle_insert(URLS['graph'], temp))
+                tmp_sparql_set = []
+                for each in temp:
+                    if each[3] == 0:
+                        tmp_sparql = f"<{each[0]}> <{each[1]}> \"{each[2]}\" . \n"
+                    else: # "<{}> <{}> <{}> .\n".format(graph + ressource, node['graph'], facet))
+                        tmp_sparql = f"<{each[0]}> <{each[1]}> <{each[2]}> . \n"
+                    double_list.append(f"{each[1]} - {each[2]} - [{each[3]}]")
+                    tmp_sparql_set.append(tmp_sparql)
+                thesparqlset.append(bird_sparkle_insert(URLS['graph'], tmp_sparql_set))
+                del tmp_sparql_set
 
-        my_debug_output = open("bridgeoutput.txt", "w")
-        for line in double_list:
-            print(line, file=my_debug_output)
-        my_debug_output.close()
+        with open(TESTFOLDER + "bridge_lines.txt", "w") as my_debug_output:
+            for line in double_list:
+                print(line, file=my_debug_output)
 
         # TODO: trying all 15 Testsets every time
-        myfile = open(TESTFOLDER + "newsparql.txt", "w")
-        json.dump(thesparqlset, myfile, indent=2)
-        myfile.close()
+        with open(TESTFOLDER + "bridge_jsondata.txt", "w") as myfile:
+            json.dump(jsoned_list, myfile, indent=2)
 
-        myfile = open(TESTFOLDER + "testsetsparql.txt", "w")
-        for fracta in thesparqlset:
-            # sparqlQuery(fracta, URLS['virtuoso-write'], auth=URLS['sparql_user'], pwd=URLS['sparql_pw'])
-            myfile.write(fracta)
-            myfile.write("\n\r")
-        myfile.close()
+        with open(TESTFOLDER + "bridge_sparql.txt", "w") as myfile:
+            for fracta in thesparqlset:
+                # sparqlQuery(fracta, URLS['virtuoso-write'], auth=URLS['sparql_user'], pwd=URLS['sparql_pw'])
+                myfile.write(fracta)
+                myfile.write("\n\r")
 
 
 def marc21_display():
