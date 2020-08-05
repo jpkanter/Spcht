@@ -298,7 +298,8 @@ if __name__ == "__main__":
     parser.add_argument('-configFile', type=str, help="Defines a (local) config file to load things from")
     parser.add_argument('-TestMode', action="store_true", help="Executes some 'random', flavour of the day testscript")
     parser.add_argument('-MarcView', action="store_true", help="Marc21 Display test")
-    parser.add_argument('-checkSpcht', type=str, help="Tries to load and validate the specified Spcht JSON File")
+    parser.add_argument('-CheckSpcht', type=str, help="Tries to load and validate the specified Spcht JSON File")
+    parser.add_argument('-CompileSpcht', type=str, help="Loads a SPCHT File, validates and then compiles it to $file")
     args = parser.parse_args()
     print(args)
     # +++ CONFIG FILE +++
@@ -311,8 +312,13 @@ if __name__ == "__main__":
         del cfg_status
 
     # +++ SPCHT Checker +++
-    if args.checkSpcht:
+    if args.CheckSpcht:
         Spcht.check_format(args.checkSpcht)
+
+    # +++ SPCHT Compile
+    if args.CompileSpcht:
+        sperber = Spcht(args.CompileSpcht)
+        sperber.export_full_descriptor(TESTFOLDER + "fll_spcht.json")
 
     # +++ Daily Debugging +++
     if args.TestMode:

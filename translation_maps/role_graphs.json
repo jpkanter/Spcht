@@ -1,4 +1,5 @@
  {
     "aus": "http://purl.org/dc/elements/1.1/creator",
-    "aut": "http://purl.org/dc/elements/1.1/creator"
+    "aut": "http://purl.org/dc/elements/1.1/creator",
+	"act": "http://purl.org/dc/terms/contributor"
 }

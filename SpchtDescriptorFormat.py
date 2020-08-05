@@ -152,6 +152,7 @@ class Spcht:
                     NoFieldsFound, UnicodeDecodeError) as e:
                 print("record id {0}:".format(record_id) + str(e), file=sys.stderr)
                 return False
+        # TODO: Clean this up
         return marcFullRecordFixed
 
     @staticmethod
@@ -307,15 +308,13 @@ class Spcht:
                 return False
         if Spcht.is_dictkey(node_dict, 'mapping_settings') and node_dict['mapping_settings'].get('$ref') is not None:
             file_path = node_dict['mapping_settings']['$ref']  # ? does it always has to be a relative path?
-
             map_dict = self.load_json(file_path)
             # iterate through the dict, if manual entries have the same key ignore
             if not isinstance(map_dict, dict):  # we expect a simple, flat dictionary, nothing else
                 return False  # funnily enough, this also includes bool which happens when json loads fails
             # ! this here is the actual logic that does the thing:
             # there might no mapping key at all
-            if not Spcht.is_dictkey(node_dict, 'mapping'):
-                node_dict['mapping'] = {}
+            node_dict['mapping'] = node_dict.get('mapping', {})
             for key, value in map_dict.items():
                 if not isinstance(value, str):  # only flat dictionaries, no nodes
                     print("spcht_map", file=self.std_out)
@@ -327,6 +326,19 @@ class Spcht:
             del (node_dict['mapping_settings']['$ref'])
             if len(node_dict['mapping_settings']) <= 0:
                 del (node_dict['mapping_settings'])  # if there are no other entries the entire mapping settings goes
+
+        if Spcht.is_dictkey(node_dict, 'graph_map_ref'):  # mostly boiler plate from above, probably not my brightest day
+            map_dict = self.load_json(node_dict['graph_map_ref'])
+            if not isinstance(map_dict, dict):
+                return False
+            node_dict['graph_map'] = node_dict.get('graph_map', {})
+            for key, value in map_dict.items():
+                if not isinstance(value, str):
+                    print("spcht_map", file=self.std_out)
+                    return False
+                node_dict['graph_map'][key] = node_dict['graph_map'].get(key, value)
+            del map_dict
+            del node_dict['graph_map_ref']
 
         return node_dict  # whether nothing has had changed or not, this holds true
 
@@ -367,7 +379,7 @@ class Spcht:
                             self.debug_print(colored(f"✓ subfield {sub_dict['subfield']}", "green"))
                             return Spcht._node_return_iron(sub_dict['graph'], [sub_dict['field'].lstrip("0")][sub_dict['subfield']])
                 # Variant 2: a list of subfields is concat
-                if Spcht.is_dictkey(sub_dict, 'subfields'):
+                elif Spcht.is_dictkey(sub_dict, 'subfields'):
                     # check for EVERY subfield to be around, abort this if not
                     combined_string = ""  # ? this seems less than perfect
                     for marc_key in sub_dict['subfields']:
@@ -419,7 +431,8 @@ class Spcht:
             # * librarian was who wrote the descriptor format
             self.debug_print(colored("Fallback triggered", "yellow"), sub_dict.get('fallback'), end="-> ")
             recursion_node = copy.deepcopy(sub_dict['fallback'])
-            recursion_node['graph'] = sub_dict['graph']
+            if not Spcht.is_dictkey(recursion_node, 'graph'):
+                recursion_node['graph'] = sub_dict['graph'] # so in theory you can define new graphs for fallbacks
             return self._recursion_node(recursion_node, raw_dict, marc21_dict)
         else:
             self.debug_print(colored("absolutlty nothing", "magenta"), end=" |\n")
@@ -727,6 +740,8 @@ class Spcht:
             "header_miss": "The main header informations [id_source, id_field, main] are missing, is this even the right file?",
             "header_mal": "The header information seems to be malformed",
             "basic_struct": "Elements of the basic structure ( [source, field, required, graph] ) are missing",
+            "basic_struct2": "An Element of the basic sub node structure is missing [source or field]",
+            "type_str": "the type key must contain a string value that is either 'triple' or anything else",
             "regex": "The provided regex is not correct",
             "marc_subfield": "Every marc entry needs a field AND a subfield or subfield_s_ item, cannot find subfield/s.",
             "marc_subfield_str": "The subfield key has to be a string value",
@@ -744,7 +759,11 @@ class Spcht:
             "must_str": "The value of the {} key must be a string",
             "fallback": "-> structure of the fallback node contains errors",
             "nodes": "-> error in structure of Node",
-            "fallback_dict": "Fallback structure must be an dictionary build like a regular node"
+            "fallback_dict": "Fallback structure must be an dictionary build like a regular node",
+            "graph_map": "When defining graph_field there must also be a graph_map key defining the mapping.",
+            "graph_map_dict": "The graph mapping must be a dictionary of strings",
+            "graph_map_dict_str": "Each key must reference a string value in the graph_map key",
+            "graph_map_ref": "The key graph_map_ref must be a string pointing to a local file"
         }
         if isinstance(i18n, dict):
             for key, value in error_desc.items():
@@ -790,15 +809,45 @@ class Spcht:
         # @param error_desc - the entire flat dictionary of error texts
         # * i am writing print & return a lot here, i really considered making a function so i can do "return funct()"
         # * but what is the point? Another sub function to save one line of text each time and obfuscate the code more?
+        # ? i am wondering if i shouldn't rather rise a ValueError instead of returning False
         if not is_root and not Spcht.is_dictkey(node, 'source', 'field'):
-            print(error_desc['basic_struct'], file=out)
+            print(error_desc['basic_struct2'], file=out)
             return False
-        if is_root and not Spcht.is_dictkey(node, 'source', 'field', 'required', 'graph'):
-            print(error_desc['basic_struct'], file=out)
-            return False
+
+        # root node specific things
+        if is_root:
+            if not Spcht.is_dictkey(node, 'source', 'field', 'required', 'graph'):
+                print(error_desc['basic_struct'], file=out)
+                return False
+            if not isinstance(node['required'], str):
+                print(error_desc['required_str'], file=out)
+                return False
+            if node['required'] != "optional" and node['required'] != "mandatory":
+                print(error_desc['required_chk'], file=out)
+                return False
+            if Spcht.is_dictkey(node, 'type') and not isinstance(node['type'], str):
+                print(error_desc['type_str'], file=out)
+                return False
 
         if not isinstance(node['field'], str):  # ? is a one character string a chr?
             print(error_desc['field_str'], file=out)
+            return False
+        # checks for correct data types, its pretty much 4 time the same code but there might be a case
+        # where i want to change the datatype so i let it be split for later handling
+        if Spcht.is_dictkey(node, 'cut') and not isinstance(node['cut'], str):
+            print(error_desc['must_str'].format("cut"), file=out)
+            return False
+        if Spcht.is_dictkey(node, 'match') and not isinstance(node['match'], str):
+            print(error_desc['must_str'].format("match"), file=out)
+            return False
+        if not Spcht.validate_regex(node.get('match', r"")) or not Spcht.validate_regex(node.get('cut', r"")):
+            print(error_desc['regex'], file=out)
+            return False
+        if Spcht.is_dictkey(node, 'prepend') and not isinstance(node['prepend'], str):
+            print(error_desc['must_str'].format("prepend"), file=out)
+            return False
+        if Spcht.is_dictkey(node, 'append') and not isinstance(node['append'], str):
+            print(error_desc['must_str'].format("append"), file=out)
             return False
 
         if node['source'] == "marc":
@@ -817,6 +866,9 @@ class Spcht:
                     if not isinstance(singular_subfield, str):
                         print(error_desc['marc_subfields_str'], file=out)
                         return False
+            if Spcht.is_dictkey(node, 'concat') and not isinstance(node['concat'], str):
+                print(error_desc['must_str'].format("concat"), file=out)
+                return False
 
         if node['source'] == "dict":
             if Spcht.is_dictkey(node, 'alternatives'):
@@ -837,7 +889,7 @@ class Spcht:
                         if not isinstance(value, str):
                             print(error_desc['map_dict_str'], file=out)
                             return False
-            if Spcht.is_dictkey(node, "mapping_settings"):
+            if Spcht.is_dictkey(node, 'mapping_settings'):
                 if not isinstance(node['mapping_settings'], dict):
                     print(error_desc['maps_dict'], file=out)
                     return False
@@ -850,34 +902,25 @@ class Spcht:
                             else:
                                 print(error_desc['maps_dict_str'], file=out)
                                 return False
-        # root node specific things
-        # TODO: include dictmap for checking
-        if is_root:
-            if not isinstance(node['required'], str):
-                print(error_desc['required_str'], file=out)
-                return False
-            if node['required'] != "optional" and node['required'] != "mandatory":
-                print(error_desc['required_chk'], file=out)
-                return False
-            # checks for correct data types, its pretty much 4 time the same code but there might be a case
-            # where i want to change the datatype so i let it be split for later handling
-            if Spcht.is_dictkey(node, 'cut') and not isinstance(node['cut'], str):
-                print(error_desc['must_str'].format("cut"), file=out)
-                return False
-            if Spcht.is_dictkey(node, 'match') and not isinstance(node['cut'], str):
-                print(error_desc['must_str'].format("match"), file=out)
-                return False
-
-            if not Spcht.validate_regex(node.get('match', r"")) or not Spcht.validate_regex(node.get('cut', r"")):
-                print(error_desc['regex'], file=out)
-                return False
-
-            if Spcht.is_dictkey(node, 'prepend') and not isinstance(node['cut'], str):
-                print(error_desc['must_str'].format("prepend"), file=out)
-                return False
-            if Spcht.is_dictkey(node, 'append') and not isinstance(node['cut'], str):
-                print(error_desc['must_str'].format("append"), file=out)
-                return False
+            if Spcht.is_dictkey(node, 'graph_field'):
+                if not isinstance(node['graph_field'], str):
+                    print(error_desc['must_str'].format("graph_field"), file=out)
+                    return False
+                if not Spcht.is_dictkey(node, 'graph_map') and not Spcht.is_dictkey(node, 'graph_map_ref'):
+                    print(error_desc['graph_map'], file=out)
+                    return False
+                if Spcht.is_dictkey(node, 'graph_map'):
+                    if not isinstance(node['graph_map'], dict):
+                        print(error_desc['graph_map_dict'], file=out)
+                        return False
+                    else:
+                        for value in node['graph_map'].values():
+                            if not isinstance(value, str):
+                                print(error_desc['graph_map_dict_str'], file=out)
+                                return False
+                if Spcht.is_dictkey(node, 'graph_map_ref') and not isinstance(node['graph_map_ref'], str):
+                    print(error_desc['graph_map_ref'], file=out)
+                    return False
 
         if Spcht.is_dictkey(node, 'fallback'):
             if isinstance(node['fallback'], dict):

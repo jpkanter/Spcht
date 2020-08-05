@@ -131,12 +131,13 @@
         {
             "name": "Experimentell: definitive Authoren - literal",
             "source": "dict",
-            "graph": "http://purl.org/dc/terms/contributorA",
+            "graph": "http://purl.org/dc/terms/contributor",
             "comment1": "for this graph is the mandatory default",
             "graph_map": {
-                "aus": "http://purl.org/dc/elements/1.1/creatorA",
-                "aut": "http://purl.org/dc/elements/1.1/creatorA"
+                "aus": "http://purl.org/dc/elements/1.1/creator",
+                "aut": "http://purl.org/dc/elements/1.1/creator"
                 },
+            "graph_map_ref": "./translation_maps/role_graphs.json",
             "graph_field": "author2_role",
             "field": "author2",
             "required": "optional",

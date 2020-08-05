@@ -143,14 +143,17 @@ The following kinds of key are currently possible
   "id_field": "",
   "nodes": [
     {
-      "name": "your text here",
-      "source": "",
+      "name": "Some Text that is used in debugging but not elsewhere",
+      "source": "dict",
       "graph": "",
       "field": "",
-      "type": "optional"
+      "required": "optional"
     }
   ]
 }
 ```
+## The Class
+Originally  the entire logic behind the SPCHT format was written as a set of procedures just churning away. Later the need for a cleaner solution has arisen and everything was remodeled for a object oriented solution
+
 ### Ideas // Planning
 
