@@ -62,10 +62,10 @@ Each Node contains at least a `source`, `graph` and `type` field which define th
 * `source` - source for the data field, if its a dictionary `field`is the key we are looking for. If the source is to be found in a corresponding MARC21 entry `field` describes the Entry Number ranging from 000 to 999. There is also a necessary `subfield` as most MARC21 entries do not lay on the root.
   
   * Values: `dict` and `marc`
-* `graph` - the actual mapping to linked data. Before sending sparql queries the script will shorten all entries accordingly. If you have multiple entries of the same source they will be grouped. I decided that for this kind of configuration file it is best to leave as many information to the bare eye as possible.
+* `graph` - the actual mapping to linked data. Before sending sparql queries the script will shorten all entries accordingly. If you have multiple entries of the same source they will be grouped. I decided that for this kind of configuration file it is best to leave as many information to the bare eye as possible. You can define a new graph for a fall back if there ever arises the need to do it in one node. If you don't do so the fall back node will inherit the his `graph` from the parent node. (*if you have a very exotic 4 staged node and redefine the graph in the second fall back, the third will use the graph of its parent which is the second fall back, not the root node. I honestly see not a use case for this but the functionality was easily enough to obtain. **Note: you can change the graph but not the type of that node in fall backs, which limits future use cases***)
   * Values: `a fully qualify graph descriptor string`
 * `fallback` - if the current specified source isn't available you may describe an alternative. Currently only "_marc_" or "_dict_" are possible entries. You can use the same source with different fields to generate a fall-back order. _eg. if dict key "summer" isn't available the fall-back will also look into the dict but use the field "winter_ You may also just use `alternatives` for this if your source is **dict**.
-  The sub-dictionary of `fallback` contains another dictionary descriptor. You may chain sub-dictionaries _ad infinitum_ (or the maximum dictionary depth of json)
+  The sub-dictionary of `fallback` contains another dictionary descriptor. You may chain sub-dictionaries _ad infinitum_ (or the maximum dictionary depth of json or maximum depth of recursion in python)
     * Values: `a "node" dictionary {}`
 * `required` - if everything fails, all fall backs are not to be found and all alternatives yield nothing and the `required` is set to mandatory the whole entry gets discarded, if some basic data could be gathered the list of errors gets a specific entry, otherwise there is only a counter of indescribable mapping errors being incremented by one. 
   * Values: `optional`, `mandatory`
@@ -153,7 +153,70 @@ The following kinds of key are currently possible
 }
 ```
 ## The Class
-Originally  the entire logic behind the SPCHT format was written as a set of procedures just churning away. Later the need for a cleaner solution has arisen and everything was remodeled for a object oriented solution
+Originally  the entire logic behind the SPCHT format was written as a set of procedures just churning away. Later the need for a cleaner solution has arisen and everything was remodeled for a object oriented solution. The *Spcht* Class was created, it holds a bunch of variables and offers a few public functions. Some work without an instance of the class. Each instance of a *Spcht* Objects holds the information of one descriptive file.
+
+### non-instantiated functions
+
+```python
+def is_dictkey(dictionary, *keys)
+def list_has_elements(iterable)
+def validate_regex(string)
+def marc21_fixRecord(record, validation=False, replace_method="decimal")
+def marcleader2report(marc21_leader, output=sys.stdout)
+def check_format(descriptor, out=sys.stderr, i18n=None)
+```
+
+These functions provide some utility which is mostly used internally for the other functions but might as well be useful elsewhere. They are written in a way that makes reusing them easy, although most of them are simple enough to not bother
+
+| Function              | Purpose                                                      |
+| --------------------- | ------------------------------------------------------------ |
+| **is_dictkey**        | Returns true when *all* provided keys are present in the provide dictionary |
+| **list_has_elements** | Checks if an iterable has any elements *Note, this function seems verbose and unnecessary* |
+| **validate_regex**    | Returns true if the provided string is valid regex, false if not |
+| **marc21_fixRecord**  | Replaces some unicode Characters like ö, ä and ü that came through the database to the interpreter |
+| **marcleader2report** | Gives a verbose report about the content of the provided Marc21 leader string (length = 24 Byte) |
+| **check_format**      | Returns true if the provided descriptor (in dictionary Spcht format) is a valid Spcht descriptor, otherwise false and an error print. (*Might throw exceptions in later iterations*) |
+
+
+
+### instantiated functions
+
+```python
+def debug_print(self, *args, **kwargs)
+def debug_mode(self, status)
+def export_full_descriptor(self, filename, indent=3)
+def load_json(self, filename)
+def descri_status(self)
+def getSaveAs(self, key=None)
+def cleanSaveAs(self)
+def load_descriptor_file(self, filename)
+def processData(self, raw_dict, graph, marc21="fullrecord", marc21_source="dict")
+def __init__(self, filename=None, check_format=False, debug=False)
+```
+
+| Function                   | Purpose                                                      |
+| -------------------------- | ------------------------------------------------------------ |
+| **debug_print**            | Used to only print something to `self.debug_out` when the `self._debug` variable is set to true |
+| **debug_mode**             | Toggles the debug mode with True and anything else, enables some debug prints in the processing process |
+| **export_full_descriptor** | Saves the "compiled" (with all loaded referenced) descriptor file at the specified place as json |
+| **load_json**              | encapsulated json file loading, throws a variety of exceptions if the json file is invalid or anything else went wrong |
+| **descri_status**          | Returns true if a descriptor file was successfully loaded into this instance of Spcht |
+| **getSaveAs**              | returns (all/a key) of the `self._saveas` dictionary that was saved through the processing up till now |
+| **cleanSaveas**            | Removes duplicated entries of the `self._saveas` Variable    |
+| **load_descriptor**        | Loads the specified, local descriptor file and validates it.  Returns true when successfull |
+| **processData**            | Main function, inputs a flat dictionary of one set of data that get mapped according to the descriptor file. Requires successfully loaded descriptor file. |
+
+
+
+### public variables
+
+```python
+self.std_out = sys.stdout
+self.std_err = sys.stderr
+self.debug_out = sys.stdout
+```
+
+
 
 ### Ideas // Planning
 

@@ -631,6 +631,10 @@ class Spcht:
         # spcht descriptor format - sdf
         # ! this is temporarily here, i am not sure how i want to handle the descriptor dictionary for now
         # ! there might be a use case to have a different mapping file for every single call instead of a global one
+
+        # most elemental check
+        if self._DESCRI is None:
+            return False
         # Preparation of Data to make it more handy in the further processing
         marc21_record = None  # setting a default here
         if marc21_source == "dict":
@@ -920,6 +924,10 @@ class Spcht:
                                 return False
                 if Spcht.is_dictkey(node, 'graph_map_ref') and not isinstance(node['graph_map_ref'], str):
                     print(error_desc['graph_map_ref'], file=out)
+                    return False
+            if Spcht.is_dictkey(node, 'saveas'):
+                if not isinstance(node['saveas'], str):
+                    print(error_desc['must_str'].format("saveas"), file=out)
                     return False
 
         if Spcht.is_dictkey(node, 'fallback'):
