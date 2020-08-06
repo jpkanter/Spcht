@@ -7,6 +7,13 @@ from pymarc.exceptions import RecordLengthInvalid, RecordLeaderInvalid, BaseAddr
     RecordDirectoryInvalid, NoFieldsFound
 from termcolor import colored  # only needed for debug print
 
+try:
+    NORDF = False
+    import rdflib
+    from rdflib.namespace import DC, DCTERMS, DOAP, FOAF, SKOS, OWL, RDF, RDFS, VOID, XMLNS, XSD
+except ImportError:
+    NORDF = True
+
 
 # the actual class
 
@@ -396,6 +403,7 @@ class Spcht:
             # ! this handling of the marc format is probably too simply
             # TODO: gather more samples of awful marc and process it
         elif sub_dict['source'] == "dict":
+            print(colored(sub_dict.get('prepend', ""), "red"), end=" <<")
             self.debug_print(colored("Source Dict", "yellow"), end="-> ")
             # graph_field matching - some additional checks necessary
             # the existence of graph_field invalidates the rest if graph field does not match
@@ -491,18 +499,24 @@ class Spcht:
         # after having found a value for a given key and done the appropriate mapping the value gets transformed
         # once more to change it to the provided pattern
 
-        if not Spcht.is_dictkey(sub_dict, "cut"):
-            return value  # the nothing happens clause, again
         if isinstance(value, str):
-            pure_filter = re.sub(sub_dict['cut'], sub_dict.get("replace", ""), value)
+            if not Spcht.is_dictkey(sub_dict, "cut"):
+                self._addToSaveAs(value, sub_dict)
+                return sub_dict.get('prepend', "") + value + sub_dict.get('append', "")
+
+            pure_filter = re.sub(sub_dict.get('cut', ""), sub_dict.get("replace", ""), value)
             self._addToSaveAs(pure_filter, sub_dict)
             return sub_dict.get('prepend', "") + pure_filter + sub_dict.get('append', "")
         elif isinstance(value, list):
             list_of_returns = []
             for item in value:
-                pure_filter = re.sub(sub_dict['cut'], sub_dict.get("replace", ""), item)
-                self._addToSaveAs(pure_filter, sub_dict)
-                rest_str = sub_dict.get('prepend', "") + pure_filter + sub_dict.get('append', "")
+                pure_filter = re.sub(sub_dict.get('cut', ""), sub_dict.get('replace', ""), item)
+                if not Spcht.is_dictkey(sub_dict, "cut"):
+                    rest_str = sub_dict.get('prepend', "") + item + sub_dict.get('append', "")
+                    self._addToSaveAs(value, sub_dict)
+                else:
+                    rest_str = sub_dict.get('prepend', "") + pure_filter + sub_dict.get('append', "")
+                    self._addToSaveAs(pure_filter, sub_dict)
                 list_of_returns.append(rest_str)
             if len(list_of_returns) == 1:
                 return list_of_returns[0]  # we are handling lists later anyway, but i am cleaning here a bit
@@ -733,6 +747,18 @@ class Spcht:
     # TODO: Error logs for known error entries and total failures as statistic
     # TODO: Grouping of graph descriptors in an @context
 
+    @staticmethod
+    def process2RDF(quadro_list, namespace):
+        if NORDF:
+            return False
+        localns = rdflib.Namespace(namespace)
+        graph = rdflib.Graph()
+        for each in quadro_list:
+            if each[3] == 0:
+                graph.add((rdflib.URIRef(each[0]), rdflib.URIRef(each [1]), rdflib.Literal(each[2])))
+            else:
+                graph.add((rdflib.URIRef(each[0]), rdflib.URIRef(each[1]), rdflib.URIRef(each[2])))
+        print(graph.serialize(format="turtle").decode("utf-8"))
     @staticmethod
     def check_format(descriptor, out=sys.stderr, i18n=None):
         # originally this wasn't a static method, but we want to use it to check ANY descriptor format, not just this

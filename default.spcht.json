@@ -273,6 +273,15 @@
             "field": "language",
             "type": "triple",
             "mapping_settings": { "$ref": "./translation_maps/languages_long.json" }
+        },
+        {
+            "name": "Verfügbarkeitswachtel",
+            "source": "dict",
+            "graph": "http://schema.org/availability",
+            "required": "optional",
+            "field": "id",
+            "prepend": "https://data.ub.uni-leipzig.de/item/wachtl/DE-15:ppn:",
+            "type": "triple"
         }
     ]
 }
