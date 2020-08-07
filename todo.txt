@@ -1,28 +1,30 @@
 * SPCHT
     [x] Interpreter for mapping reference via mapping_setting
     [x] handling of $default entries in mapping_setting instead of mapping
-    [ ] make regex matching for mappings work
+    [x] make regex matching for mappings work
      #  probably to be realized in spcht_node_mapping()
     [x] $inherit parameter actually inherting the value in $default
-    [ ] json error insights on load of file
+    [x] json error insights on load of file
     [ ] possible performance bottlenecks
     [x] Filter Value for x
     [x] Remove Parts of the value string
-    [ ] Remove duplicated information # should not really matter but still
-    [ ] MARC mutli Value for authors
-    [ ] Check Regex Entries for faults
+    [x] Remove duplicated information # should not really matter but still
+    [x] MARC mutli Value for authors
+    [x] Check Regex Entries for faults
     [ ] Escape pre and append texts
+    [ ] Add output kinds
 * SPARQL
-    [ ] differenciate between graph and string that happens to be a link to somewhere
-    [ ] generation of valid sparql queries
+    [x] differenciate between graph and string that happens to be a link to somewhere
+    [-] generation of valid sparql queries
     [ ] shortening of queries with @prefix
+     #  tangential solved with rdfLIB
     [ ] SPAQRL Escaping
 * EXPORT
-    [ ] export data directly to a .ttl file
+    [x] export data directly to a .ttl file
 * IMPORT
     [ ] you dont need to technically request *, just all the things you need, that might be less
 * GENERAL
     [ ] command line interface
-    [ ] probably rewriting the entire SPCHT into a class
-    [ ] format checking is inconclusive, alternatives check not properly working
+    [x] probably rewriting the entire SPCHT into a class
+    [x] format checking is inconclusive, alternatives check not properly working
 
