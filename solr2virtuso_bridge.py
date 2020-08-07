@@ -180,7 +180,8 @@ def spcht_object_test():
         # TODO: trying all 15 Testsets every time
         with open(TESTFOLDER + "bridge_jsondata.txt", "w") as myfile:
             json.dump(jsoned_list, myfile, indent=2)
-        #  Spcht.process2RDF(jsoned_list, "something")
+        with open(TESTFOLDER + "bridge_turtle.ttl", "w") as myfile:
+            myfile.write(Spcht.process2RDF(jsoned_list))
 
         with open(TESTFOLDER + "bridge_sparql.txt", "w") as myfile:
             for fracta in thesparqlset:

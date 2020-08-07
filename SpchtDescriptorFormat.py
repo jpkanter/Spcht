@@ -42,14 +42,26 @@ class Spcht:
             return "Empty Spcht"
 
     def debug_print(self, *args, **kwargs):
-        # prints only text if debug flag is set, i wonder if it would have been easier to just set the out put for
+        """
+            prints only text if debug flag is set, prints to *self._debug_out*
+
+            :param any args: pipes all args to a print function
+            :param any kwargs: pipes all kwargs **except** file to a print function
+        """
+        # i wonder if it would have been easier to just set the out put for
         # normal prints to None and be done with it. Is this better or worse? Probably no sense questioning this
-        if Spcht.is_dictkey(kwargs, "file"):
-            del kwargs['file']  # while handing through all the kwargs we have to make one exception, this seems to work
         if self._debug is True:
+            if Spcht.is_dictkey(kwargs, "file"):
+                del kwargs['file']  # while handing through all the kwargs we have to make one exception, this seems to work
             print(*args, file=self.debug_out, **kwargs)
 
     def debugmode(self, status):
+        """
+            Tooles the debug mode for the instance of SPCHT
+
+            :param bool status: Debugmode is activated if true
+            :return: nothing
+        """
         # a setter, i really dont like those
         if not isinstance(status, bool) or status is False:
             self._debug = False
@@ -57,8 +69,17 @@ class Spcht:
             self._debug = True
 
     def export_full_descriptor(self, filename, indent=3):
-        # exports the loaded descriptor datas structure, basically a compiled version
-        # i really dont know why i wrote this
+        """
+            Exports the ready loaded descriptor as a local json file, this includes all referenced maps, its
+            basically a "compiled" version
+
+            :param str filename: Full or relative path to the designated file, will overwrite
+            :param int indent: indentation of the json
+            :return: True if everything was successful
+            :rtype: bool
+        """
+        if self._DESCRI is None:
+            return False
         try:
             with open(filename, "w") as outfile:
                 json.dump(self._DESCRI, outfile, indent=indent)
@@ -66,6 +87,14 @@ class Spcht:
             print("File Error", e, file=self.std_err)
 
     def load_json(self, filename):
+        """
+            Encapsulates the loading of a json file into a simple command to save in lines
+
+            :param: filename: full path to the file or relative from current position
+            :type filename: string
+            :return: Returns the loaded object (list or dictionary) or ''False'' if something happend
+            :rtype: dict
+        """
         try:
             with open(filename, mode='r') as file:
                 return json.load(file)
@@ -83,12 +112,26 @@ class Spcht:
             return False
 
     def descri_status(self):
+        """
+            Return the status of the loaded descriptor format
+
+            :return: True if a working descriptor was load else false
+            :rtype: bool
+        """
         if self._DESCRI is not None:
             return True
         else:
             return False
 
     def getSaveAs(self, key=None):
+        """
+            SaveAs key in SPCHT saves the value of the node without prepend or append but with cut and match into a
+            list, this list is retrieved with this function. All data is saved inside the SPCHT object. It might get big.
+
+            :param str key: the dictionary key you want to retrieve, if key not present function returns None
+            :return: a dictionary of lists with the saved values, or when specified a key, a list of saved values
+            :rtype: dict or list or None
+        """
         if key is None:
             return self._SAVEAS
         if Spcht.is_dictkey(self._SAVEAS, key):
@@ -98,20 +141,28 @@ class Spcht:
 
     def cleanSaveaAs(self):
         # i originally had this in the "getSaveAs" function, but maybe you have for some reasons the need to do this
-        # manually or not at all. i dont know how expensive set to list is. We will find out
+        # manually or not at all. i dont know how expensive set to list is. We will find out, eventually
         for key in self._SAVEAS:
             self._SAVEAS[key] = list(set(self._SAVEAS[key]))
 
     # other boiler plate, general stuff that is used to not write out a lot of code each time
     @staticmethod
     def is_dictkey(dictionary, *keys):
-        try:
-            for key in keys:
-                if key not in dictionary:
-                    return False
-            return True
-        except TypeError:
-            print("Non Dictionary provided", file=sys.stderr)
+        """
+            Checks the given dictionary or the given list of keys
+
+            :param dict dictionary: a arbitarily dictionary
+            :param str keys: a variable number of dictionary keys
+            :return: True if `all` keys are present in the dictionary, else false
+            :rtype: bool
+            :raises TypeError: if a non-dictionary is provided
+        """
+        if not isinstance(dictionary, dict):
+            raise TypeError("Non Dictionary provided")
+        for key in keys:
+            if key not in dictionary:
+                return False
+        return True
 
     @staticmethod
     def list_has_elements(iterable):
@@ -122,6 +173,13 @@ class Spcht:
 
     @staticmethod
     def validate_regex(regex_str):
+        """
+            Checks if a given string is valid regex
+
+            :param str regex_str: a suspicios string that may or may not be valid regex
+            :rtype: bool
+            :return: True if valid regex was give, False in case of TypeError or re.error
+        """
         # another of those super basic function where i am not sure if there isn't an easier way
         try:
             re.compile(regex_str)
@@ -246,6 +304,15 @@ class Spcht:
 
     @staticmethod
     def marc2list(marc_full_record, validation=True, replace_method='decimal'):
+        """
+            errrm
+
+            :param str marc_full_record: string containing the full marc21 record
+            :param bool validation: Toogles whether the fixed record will be validated or not
+            :param str replace_method: One of the three replacement methods: [decimal, unicode, hex]
+            :return: Returns a dictionary of ONE Marc Record if there is only one or a list of dictionaries, each a marc21 entry
+            :rtype: dict or list
+        """
         clean_marc = Spcht.marc21_fixRecord(marc_full_record, validation=validation, replace_method=replace_method)
         if isinstance(clean_marc, str):  # would be boolean if something bad had happen
             reader = pymarc.MARCReader(clean_marc.encode('utf-8'))
@@ -281,6 +348,15 @@ class Spcht:
         # returned but everything else went fine, although, i am not sure if that even triggers and under what circumstances
 
     def load_descriptor_file(self, filename):
+        """
+            Loads the SPCHT Descriptor Format, a file formated as json in a specific structure outlined by the docs.
+            Notice that relative paths inside the file are relativ to the excuting script not the SPCHT format file itself
+            This might change at later point
+
+            :param str filename: a local file containing the main descriptor file
+            :return: Returns the descriptors as dictionary, False if something is wrong, None when pre-checks fail
+            :rtype: bool
+        """
         # returns None if something is amiss, returns the descriptors as dictionary
         # ? turns out i had to add some complexity starting with the "include" mapping
         descriptor = self.load_json(filename)
@@ -639,9 +715,18 @@ class Spcht:
         return None
 
     def processData(self, raw_dict, graph, marc21="fullrecord", marc21_source="dict"):
-        # takes a raw solr query and converts it to a list of sparql queries to be inserted in a triplestore
-        # per default it assumes there is a marc entry in the solrdump but it can be provided directly
-        # it also takes technically any dictionary with entries as input
+        """
+            takes a raw solr query and converts it to a list of sparql queries to be inserted in a triplestore
+            per default it assumes there is a marc entry in the solrdump but it can be provided directly
+            it also takes technically any dictionary with entries as input
+
+            :param dict raw_dict: a flat dictionary containing a key sorted list of values to be processes
+            :param str graph: beginning of the assigned graph all entries become triples of
+            :param str marc21: the raw_dict dictionary key that contains additional marc21 data
+            :param str marc21_source: source for marc21 data
+            :return: a list of tuples with 4 entries (subject, predicat, object, bit) - bit = 1 -> object is another triple. Returns True if absolutly nothing was matched but the process was a success otherwise. False if something didnt worked
+            :rtype: list or bool
+        """
         # spcht descriptor format - sdf
         # ! this is temporarily here, i am not sure how i want to handle the descriptor dictionary for now
         # ! there might be a use case to have a different mapping file for every single call instead of a global one
@@ -748,22 +833,42 @@ class Spcht:
     # TODO: Grouping of graph descriptors in an @context
 
     @staticmethod
-    def process2RDF(quadro_list, namespace):
+    def process2RDF(quadro_list, format="turtle"):
+        """
+            Leverages RDFlib to format a given list of tuples into an RDF Format
+
+            :param list quadro_list: List of tuples with 4 entries as provided by `processData`
+            :param str format: one of the offered formats by rdf lib
+            :return: a string containing the entire list formated as rdf, turtle format per default
+            :rtype: str
+        """
         if NORDF:
             return False
-        localns = rdflib.Namespace(namespace)
         graph = rdflib.Graph()
         for each in quadro_list:
             if each[3] == 0:
                 graph.add((rdflib.URIRef(each[0]), rdflib.URIRef(each [1]), rdflib.Literal(each[2])))
             else:
                 graph.add((rdflib.URIRef(each[0]), rdflib.URIRef(each[1]), rdflib.URIRef(each[2])))
-        print(graph.serialize(format="turtle").decode("utf-8"))
+        return graph.serialize(format=format).decode("utf-8")
+
     @staticmethod
     def check_format(descriptor, out=sys.stderr, i18n=None):
+        """
+            This function checks if the correct SPCHT format is provided anad if not gives appropriated errors.
+            This works without an instatiated copy and has therefore a separated output parameter. Further it is
+            possible to provide to custom translations for the error messages in cases you wish to offer a check
+            engine working in another non-english language. The keys for that dictionaries can be found in the source
+            code of this procedure
+
+            :param dict descriptor: a dictionary of the loaded json file of a descriptor file without references
+            :param file out: output pipe for the error messages
+            :param dict i18n: a flat dictionary containing the error texts. Not set keys will default to the standard ones
+            :return: True if everything is in order, False and a message about the located failure in the output
+            :rtype: bool
+        """
         # originally this wasn't a static method, but we want to use it to check ANY descriptor format, not just this
         # for this reasons this has its own out target instead of using that of the instance
-        # checks the format for any miss shaped data structures
         # * what it does not check for is illogical entries like having alternatives for a pure marc source
         # for language stuff i give you now the ability to actually provide local languages
         error_desc = {
