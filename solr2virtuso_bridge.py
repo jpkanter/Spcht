@@ -11,7 +11,7 @@ import time
 
 import pymarc
 
-from local_tools import is_dictkey, is_dict, cprint_type
+from local_tools import is_dictkey, is_dict, cprint_type, super_simple_progress_bar
 from os import path
 from virt_connect import sparqlQuery
 from termcolor import colored, cprint
@@ -232,13 +232,13 @@ def marc21_display():
 def full_process():
     global URLS, SPCHT
     load_config()
-    SPCHT = load_spcht_descriptor_file("default.spcht.json")
+    habicht = Spcht("default.spcht.json")
     big_data = []
     total_nodes = 0
 
-    req_rows = 50000
-    req_chunk = 1000
-    head_start = 50000
+    req_rows = 5000
+    req_chunk = 5000
+    head_start = 0
     req_para = {'q': "*:*", 'rows': req_rows, 'wt': "json"}
 
     stormwarden = open(TESTFOLDER + "times.log", "w")
@@ -247,47 +247,50 @@ def full_process():
 
     # mechanism to not load 50000 entries in one go but use chunks for it
     n = math.floor(int(req_rows) / req_chunk) + 1
-    print("Solr Source is {}".format(URLS['solr']), file=stormwarden)
-    print("Target Triplestore is {}".format(URLS['virtuoso-write']), file=stormwarden)
-    print("Target Graph is {}".format(URLS['graph']), file=stormwarden)
-    print("Detected {} chunks of a total of {} entries with a chunk size of {}".format(n, req_rows, req_chunk), file=stormwarden)
-    print("Start Loading Remote chunks - {}".format(delta_now(start_time)), file=stormwarden)
+    print(f"Solr Source is {URLS['solr']}", file=stormwarden)
+    print(f"Target Triplestore is {URLS['virtuoso-write']}", file=stormwarden)
+    print(f"Target Graph is {URLS['graph']}", file=stormwarden)
+    print(f"Detected {n} chunks of a total of {req_rows} entries with a chunk size of {req_chunk}", file=stormwarden)
+    print(f"Start Loading Remote chunks - {delta_now(start_time)}", file=stormwarden)
     temp_url_param = copy.deepcopy(req_para)  # otherwise dicts get copied by reference
-    print(("#" * n)[:0] + (" " * n)[:n], "{} / {}".format(0+1, n))
+    print(("#" * n)[:0] + (" " * n)[:n], f"{0+1} / {n}")
     for i in range(0, n):
         temp_url_param['start'] = i * req_chunk + head_start
-        print("New Chunk started: [{}/{}] - {} ms".format(i, n - 1, delta_now(start_time)), file=stormwarden)
+        print(f"New Chunk started: [{i}/{n-1}] - {delta_now(start_time)} ms", file=stormwarden)
         if i + 1 != n:
             temp_url_param['rows'] = req_chunk
         else:
             temp_url_param['rows'] = int(int(req_rows) % req_chunk)
-        print("\tUsing request URL: {}/{}".format(URLS['solr'], temp_url_param), file=stormwarden)
+        print(f"\tUsing request URL: {URLS['solr']}/{temp_url_param}", file=stormwarden)
         data = test_json(load_remote_content(URLS['solr'], temp_url_param))
         if data:  # no else required, test_json already gives us an error if something fails
-            print("Chunk finished, using SPCHT - {}".format(delta_now(start_time)), file=stormwarden)
+            print(f"Chunk finished, using SPCHT - {delta_now(start_time)}", file=stormwarden)
             chunk_data = slice_header_json(data)
             big_data += chunk_data
             number = 0
             # test 1 - chunkwise data import
             inserts = []
             for entry in chunk_data:
-                temp = convertMapping(entry, URLS['graph'])
+                temp = habicht.processData(entry, URLS['graph'])
                 if temp:
                     number += len(temp)
-
-                    inserts.append(bird_sparkle_insert(URLS['graph'], temp))
+                    inserts.append(Spcht.quickSparql(temp, URLS['graph']))  # just by coincidence this is the same in this example
                     big_data.append(temp)
             total_nodes += number
-            print("Pure Maping for current Chunk done, doing http sparql requests - {}".format(delta_now(start_time)),
+            print(f"Pure Maping for current Chunk done, doing http sparql requests - {delta_now(start_time)}",
                   file=stormwarden)
+            incrementor = 0
             for pnguin in inserts:
                 sparqlQuery(pnguin, URLS['virtuoso-write'], auth=URLS['sparql_user'], pwd=URLS['sparql_pw'])
-            print("SPARQL Requests finished total of {} entries - {}".format(number, delta_now(start_time)),
+                incrementor += 1
+                super_simple_progress_bar(incrementor, len(inserts), "HTTP ", f"{incrementor} / {len(inserts)} [{number}]")
+            print(f"\n{incrementor} Inserts done, {number} entries, commencing")
+            print(f"SPARQL Requests finished total of {number} entries - {delta_now(start_time)}",
                   file=stormwarden)
-        print(("#" * n)[:i] + (" " * n)[:(n - i)], "{} / {}".format(i+1, n), "- {}".format(delta_now(start_time)))
-    print("Overall Executiontime was {} seconds".format(delta_now(start_time, 3)), file=stormwarden)
-    print("Total size of all entries is {}".format(sys.getsizeof(big_data)), file=stormwarden)
-    print("There was a total of {} triples".format(total_nodes), file=stormwarden)
+        print(("#" * n)[:i] + (" " * n)[:(n - i)], f"{i+1} / {n}", f"- {delta_now(start_time)}")
+    print(f"Overall Executiontime was {delta_now(start_time, 3)} seconds", file=stormwarden)
+    print(f"Total size of all entries is {sys.getsizeof(big_data)}", file=stormwarden)
+    print(f"There was a total of {total_nodes} triples", file=stormwarden)
     stormwarden.close()
 
 
@@ -300,6 +303,7 @@ if __name__ == "__main__":
     parser.add_argument('-configFile', type=str, help="Defines a (local) config file to load things from")
     parser.add_argument('-TestMode', action="store_true", help="Executes some 'random', flavour of the day testscript")
     parser.add_argument('-MarcView', action="store_true", help="Marc21 Display test")
+    parser.add_argument('-FullTest', action="store_true", help="Progressing mappings with the config specified ressources")
     parser.add_argument('-CheckSpcht', type=str, help="Tries to load and validate the specified Spcht JSON File")
     parser.add_argument('-CompileSpcht', type=str, help="Loads a SPCHT File, validates and then compiles it to $file")
     args = parser.parse_args()
@@ -327,6 +331,8 @@ if __name__ == "__main__":
         spcht_object_test()
     if args.MarcView:
         marc21_display()
+    if args.FullTest:
+        full_process()
     # TODO Insert Arg Interpretation here
     #
     # main_test()

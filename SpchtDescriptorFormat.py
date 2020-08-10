@@ -371,7 +371,7 @@ class Spcht:
         for item in descriptor['nodes']:
             a_node = self._load_ref_node(item)
             if isinstance(a_node, bool):  # if something goes wrong we abort here
-                print("spcht_ref", file=self.std_err)
+                self.debug_print("spcht_ref")
                 return False
             new_node.append(a_node)
         descriptor['nodes'] = new_node  # replaces the old node with the new, enriched ones
@@ -400,7 +400,7 @@ class Spcht:
             node_dict['mapping'] = node_dict.get('mapping', {})
             for key, value in map_dict.items():
                 if not isinstance(value, str):  # only flat dictionaries, no nodes
-                    print("spcht_map", file=self.std_out)
+                    self.debug_print("spcht_map")
                     return False
                 if not Spcht.is_dictkey(node_dict['mapping'], key):  # existing keys have priority
                     node_dict['mapping'][key] = value
@@ -417,7 +417,7 @@ class Spcht:
             node_dict['graph_map'] = node_dict.get('graph_map', {})
             for key, value in map_dict.items():
                 if not isinstance(value, str):
-                    print("spcht_map", file=self.std_out)
+                    self.debug_print("spcht_map")
                     return False
                 node_dict['graph_map'][key] = node_dict['graph_map'].get(key, value)
             del map_dict
@@ -479,7 +479,6 @@ class Spcht:
             # ! this handling of the marc format is probably too simply
             # TODO: gather more samples of awful marc and process it
         elif sub_dict['source'] == "dict":
-            print(colored(sub_dict.get('prepend', ""), "red"), end=" <<")
             self.debug_print(colored("Source Dict", "yellow"), end="-> ")
             # graph_field matching - some additional checks necessary
             # the existence of graph_field invalidates the rest if graph field does not match
@@ -831,6 +830,37 @@ class Spcht:
             return False  # ? id finding failed, therefore nothing can be returned
     # TODO: Error logs for known error entries and total failures as statistic
     # TODO: Grouping of graph descriptors in an @context
+
+    @staticmethod
+    def quickSparql(quadro_list, graph):
+        """
+            Does some basic string manipulation to create one solid block of entries for the inserts via sparql
+            :param list quadro_list: a list of tuples as outputted by Spcht.processData()
+            :param str graph: the mapped graph the triples are inserted into, part of the sparql query
+            :return: a long, multilined string
+            :rtype: str
+        """
+        if isinstance(quadro_list, list):
+            sparkle = f"INSERT IN GRAPH <{graph}> {{\n"
+            for each in quadro_list:
+                sparkle += Spcht.quickSparqlEntry(each)
+            sparkle += "}"
+            return sparkle
+        else:
+            return f"INSERT IN GRAPH <{graph}> {{ " + Spcht.quickSparqlEntry(quadro_list) + "}"
+
+    @staticmethod
+    def quickSparqlEntry(quadro):
+        """
+            Converts the tuple format of the data processing into a sparql query string
+            :param tuple quadro: a tuple with 4 entries containing the graph plus identifier
+            :rtype: str
+            :return: a sparql query of the structure <s> <p> <o> .
+        """
+        if quadro[3] == 1:
+            return f"<{quadro[0]}> <{quadro[1]}> <{quadro[2]}> . \n"
+        else:
+            return f"<{quadro[0]}> <{quadro[1]}> \"{quadro[2]}\" . \n"
 
     @staticmethod
     def process2RDF(quadro_list, format="turtle"):
