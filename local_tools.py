@@ -1,4 +1,5 @@
 import sys
+import time
 
 from termcolor import colored
 
@@ -56,6 +57,29 @@ def list_has_elements(iterable):
     for item in iterable:
         return True
     return False
+
+
+def sleepy_bar(sleep_time, timeskip=0.1):
+    """
+        Used more for debugging and simple programs, usage of time.sleep might be not accurate
+        Displays a simple progressbar while waiting for time to tick away.
+        :param float sleep_time: Time in seconds how long we wait, float for precision
+        :param float timeskip: Time between cycles, very low numbers might not actualy happen
+        :rtype: None
+        :return: Doesnt return anything but prints to console with carriage return to overwrite itsself
+    """
+    try:
+        start_time = time.time()
+        stop_time = start_time + sleep_time
+        while time.time() < stop_time:
+            timenow = round(time.time() - start_time, 1)
+            super_simple_progress_bar(timenow, sleep_time, prefix="Time", suffix=f"{timenow} / {sleep_time}")
+            # i could have used time.time() and stop_time for the values of the bar as well
+            time.sleep(timeskip)
+        print("\n", end="")
+    except KeyboardInterrupt:
+        print(f"Aborting - {time.time()}")
+        exit()
 
 
 def super_simple_progress_bar(current_value, max_value, prefix="", suffix="", out=sys.stdout):

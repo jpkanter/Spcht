@@ -8,10 +8,11 @@ import json
 import math
 import sys
 import time
+from datetime import datetime
 
 import pymarc
 
-from local_tools import is_dictkey, is_dict, cprint_type, super_simple_progress_bar
+from local_tools import is_dictkey, is_dict, cprint_type, super_simple_progress_bar, sleepy_bar
 from os import path
 from virt_connect import sparqlQuery
 from termcolor import colored, cprint
@@ -76,8 +77,8 @@ def load_from_json(file_path):
         send_error("nofile")
     except ValueError:
         send_error("json_parser")
-    except:
-        send_error("graph_parser")
+    except Exception as error:
+        send_error("graph_parser "+str(error))
     return False
 
 
@@ -294,6 +295,62 @@ def full_process():
     stormwarden.close()
 
 
+def printing(*args, **kwargs):
+    print(*args, **kwargs)
+    if Spcht.is_dictkey(kwargs, "file"):
+        del kwargs['file']
+    print(*args, **kwargs)
+
+
+def downloadTest(req_rows=100, req_chunk=120, wait_time=0, wait_incrementor=0):
+    global URLS, SPCHT
+    load_config()
+    total_nodes = 0
+    head_start = 0
+    req_para = {'q': "*:*", 'rows': req_rows, 'wt': "json", "cursorMark": "*", "sort": "id asc"}
+    temp_url_param = copy.deepcopy(req_para)
+    n = math.floor(int(req_rows) / req_chunk) + 1
+
+    start_time = time.time()
+    now = datetime.now()
+    try:
+        time_string = now.strftime('%d%m%Y-%H%M-%S')
+        stormwarden = open(TESTFOLDER + f"downloads-{time_string}.log", "w")
+    except Exception as e:
+        print("Random exception", e)
+        return False
+
+    printing(f"API Source is {URLS['solr3']}", file=stormwarden)
+    printing(f"Initial wait time is {wait_time} with a cycling increment of {wait_incrementor}", file=stormwarden)
+    printing(f"Detected {n} chunks of a total of {req_rows} entries with a chunk size of {req_chunk}", file=stormwarden)
+    printing(f"Start Loading Remote chunks - {delta_now(start_time)}", file=stormwarden)
+    cursorMark = "*"
+    for i in range(0, n):
+
+        temp_url_param['cursorMark'] = cursorMark
+        if i + 1 != n:
+            temp_url_param['rows'] = req_chunk
+        else:
+            temp_url_param['rows'] = int(int(req_rows) % req_chunk)
+        if int(temp_url_param['rows']) == 0:
+            continue
+        printing(f"New Chunk started: [{i + 1}/{n}] - {delta_now(start_time)} ms", file=stormwarden)
+        printing(f"\tDownload at {delta_now(start_time)}", URLS['solr3'], temp_url_param, file=stormwarden)
+        pureData = load_remote_content(URLS['solr3'], temp_url_param)
+        if test_json(pureData):
+            big_data = test_json(pureData)
+            with open(TESTFOLDER + f"downloads-{time_string}-{i}.json", "w") as quickfile:
+                json.dump(big_data, quickfile, indent=2)
+            cursorMark = big_data['nextCursorMark']
+            printing(f"Download of Chunk is good json, next Cursor: {cursorMark}", file=stormwarden)
+        else:
+            printing(pureData, file=stormwarden)
+        printing(f"Chunk {i+1} finished, current time: {delta_now(start_time)}", file=stormwarden)
+        printing(f"Sleeping now for {wait_time} seconds", file=stormwarden)
+        sleepy_bar(wait_time)
+        wait_time += wait_incrementor
+
+
 def delta_now(zero_time, rounding=2):
     return str(round(time.time()-zero_time, rounding))
 
@@ -304,6 +361,7 @@ if __name__ == "__main__":
     parser.add_argument('-TestMode', action="store_true", help="Executes some 'random', flavour of the day testscript")
     parser.add_argument('-MarcView', action="store_true", help="Marc21 Display test")
     parser.add_argument('-FullTest', action="store_true", help="Progressing mappings with the config specified ressources")
+    parser.add_argument('-DownloadTest', action="store_true", help="Tries to Download multiple chunks from solr")
     parser.add_argument('-CheckSpcht', type=str, help="Tries to load and validate the specified Spcht JSON File")
     parser.add_argument('-CompileSpcht', type=str, help="Loads a SPCHT File, validates and then compiles it to $file")
     args = parser.parse_args()
@@ -333,6 +391,8 @@ if __name__ == "__main__":
         marc21_display()
     if args.FullTest:
         full_process()
+    if args.DownloadTest:
+        downloadTest(req_rows=100000, req_chunk=10000, wait_time=2, wait_incrementor=0)
     # TODO Insert Arg Interpretation here
     #
     # main_test()
