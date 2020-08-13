@@ -295,19 +295,12 @@ def full_process():
     stormwarden.close()
 
 
-def printing(*args, **kwargs):
-    print(*args, **kwargs)
-    if Spcht.is_dictkey(kwargs, "file"):
-        del kwargs['file']
-    print(*args, **kwargs)
-
-
 def downloadTest(req_rows=100, req_chunk=120, wait_time=0, wait_incrementor=0):
     global URLS, SPCHT
     load_config()
     total_nodes = 0
     head_start = 0
-    req_para = {'q': "*:*", 'rows': req_rows, 'wt': "json", "cursorMark": "*", "sort": "id asc"}
+    req_para = {'q': "id:0-*", 'rows': req_rows, 'wt': "json", "cursorMark": "*", "sort": "id asc"}
     temp_url_param = copy.deepcopy(req_para)
     n = math.floor(int(req_rows) / req_chunk) + 1
 
@@ -349,6 +342,109 @@ def downloadTest(req_rows=100, req_chunk=120, wait_time=0, wait_incrementor=0):
         printing(f"Sleeping now for {wait_time} seconds", file=stormwarden)
         sleepy_bar(wait_time)
         wait_time += wait_incrementor
+    stormwarden.close()
+
+
+def seizeID(string, sep="-"):
+    list = string.split(sep)
+    if len(list) > 1:
+        set_string = ""
+        for i in range(0, len(list)-1):
+            set_string += list[i] + sep
+        return set_string
+    else:
+        return string
+
+
+def solr_spy(req_url="", req_rows=100000, wait_time=0.0, mode=0):
+    # mode 0 - light mode
+    # mode 1 - heavy mode
+    # ? REGEX ^.*[-][a-zA-Z0-9]{9}$    Not needed
+    global URLS, SPCHT
+    load_config()
+    req_url = URLS['solr']
+    req_para = {'q': "*:*", 'rows': req_rows, 'wt': "json", "cursorMark": "*", "sort": "id asc", "fl": "id, source_id"}
+    castle_going = True  # i wrote KeepGoing before, twisted mind and here we are
+
+    list_of_known_abb = {}
+    iterator = 0
+    start_time = time.time()
+    now = datetime.now()
+
+    try:
+        time_string = now.strftime('%d%m%Y-%H%M-%S')
+        stormwarden = open(TESTFOLDER + f"SolrSpy-{time_string}.log", "w")
+    except Exception as e:
+        print("Random exception", e)
+        return False
+
+    printing(f"API Source is {req_url}", file=stormwarden)
+    printing(f"Retrieving all entries, this might take a while, chunk size is {req_rows}", file=stormwarden)
+    while castle_going:
+        printing(f"{delta_now(start_time)}\tStarting a new cycle, this is #{iterator+1}", file=stormwarden)
+        # various fluff stuff
+        stat = {'new': 0, 'add': 0}
+        iterator += 1
+        # actual logic
+        castle_going = False  # precaution
+        pureData = load_remote_content(req_url, req_para, mode="POST")
+        current_dateset = test_json(pureData)
+        if current_dateset:
+            if current_dateset.get("nextCursorMark", "*") != "*" and current_dateset['nextCursorMark'] != req_para['cursorMark']:
+                castle_going = True
+                req_para['cursorMark'] = current_dateset['nextCursorMark']
+            try:
+                printing(f"{delta_now(start_time)}\tDownload done, subcycle begins, Cursor:  {req_para['cursorMark']}", file=stormwarden)
+                for each in current_dateset['response']['docs']:
+                    id_key = each.get('source_id')
+                    if Spcht.is_dictkey(list_of_known_abb, id_key):
+                        list_of_known_abb[id_key]['count'] += 1
+                        stat['add'] += 1
+                    else:
+                        list_of_known_abb[id_key] = {}
+                        list_of_known_abb[id_key]['xmpl'] = each['id']
+                        list_of_known_abb[id_key]['count'] = 1
+                        printing(f"{delta_now(start_time)}\tNew key found: {id_key}", file=stormwarden)
+                        stat['new'] += 1
+            except KeyError:
+                printing(f"KeyError, ", current_dateset, file=stormwarden)
+                return False
+        printing(f"{delta_now(start_time)}\tCycle ended. Stats: Added: {stat['add']}, Newfound: {stat['new']}", file=stormwarden)
+
+        if mode == 0:  # light mode with iterating filter
+            req_para['q'] = ""
+            for each in list_of_known_abb.keys():
+                if req_para['q'] != "":
+                    req_para['q'] += " AND "
+                req_para['q'] += "!source_id:" + each
+            printing(f"{delta_now(start_time)}\tNew Query {req_para['q']}", file=stormwarden)
+            req_para['cursorMark'] = "*"  # resets cursor Mark then
+
+        if iterator > 500:
+            castle_going = False
+            printing(f"{delta_now(start_time)}\tHALT Condition triggered, curios", file=stormwarden)
+        sleepy_bar(wait_time)
+
+    printing(f"{delta_now(start_time)}\tProcess finished, {len(list_of_known_abb)} elements found", file=stormwarden)
+    # json.dump(list_of_known_abb, stormwarden, indent=2)
+    for each in list_of_known_abb.keys():
+        printing(f"{each}\t{list_of_known_abb[each]['count']}\t{list_of_known_abb[each]['xmpl']}", file=stormwarden)
+
+    stormwarden.close()
+
+
+def printing(*args, **kwargs):
+    """
+        function that double print things, to be meant to be used with a set file=
+        :param object args: stringeable objects that will be printed
+        :param any kwargs: anything, the parameter "file" will be replaced in the second printing with std.out
+        :return: Nothing, but prints to std.out AND a file
+        :rtype: None:
+    """
+    print(*args, **kwargs)
+    if Spcht.is_dictkey(kwargs, "file"):
+        del kwargs['file']
+    print(*args, **kwargs)
 
 
 def delta_now(zero_time, rounding=2):
@@ -362,6 +458,8 @@ if __name__ == "__main__":
     parser.add_argument('-MarcView', action="store_true", help="Marc21 Display test")
     parser.add_argument('-FullTest', action="store_true", help="Progressing mappings with the config specified ressources")
     parser.add_argument('-DownloadTest', action="store_true", help="Tries to Download multiple chunks from solr")
+    parser.add_argument('-SolrSpy', action="store_true", help="retrieves EVERY entry of a given solr and finds sub_ids")
+    parser.add_argument('-SolrStat', action="store_true", help="Creates statitistics regarding the Solr Fields")
     parser.add_argument('-CheckSpcht', type=str, help="Tries to load and validate the specified Spcht JSON File")
     parser.add_argument('-CompileSpcht', type=str, help="Loads a SPCHT File, validates and then compiles it to $file")
     args = parser.parse_args()
@@ -391,6 +489,8 @@ if __name__ == "__main__":
         marc21_display()
     if args.FullTest:
         full_process()
+    if args.SolrSpy:
+        solr_spy("", 2, 0.5, 0)
     if args.DownloadTest:
         downloadTest(req_rows=100000, req_chunk=10000, wait_time=2, wait_incrementor=0)
     # TODO Insert Arg Interpretation here

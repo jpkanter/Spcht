@@ -44,11 +44,14 @@ def display_error(message, error_name=None):
             print(message, file=sys.stderr)
 
 
-def load_remote_content(url, params, response_type=0):
+def load_remote_content(url, params, response_type=0, mode="GET"):
     # starts a GET request to the specified solr server with the provided list of parameters
     # response types: 0 = just the content, 1 = just the header, 2 = the entire GET-RESPONSE
     try:
-        resp = requests.get(url, params=params)
+        if mode != "POST":
+            resp = requests.get(url, params=params)
+        else:
+            resp = requests.post(url, data=params)
         if response_type == 0 or response_type > 2:  # this seems ugly
             return resp.text
         elif response_type == 1:

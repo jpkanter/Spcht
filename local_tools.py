@@ -79,7 +79,7 @@ def sleepy_bar(sleep_time, timeskip=0.1):
         print("\n", end="")
     except KeyboardInterrupt:
         print(f"Aborting - {time.time()}")
-        exit()
+        return True
 
 
 def super_simple_progress_bar(current_value, max_value, prefix="", suffix="", out=sys.stdout):
