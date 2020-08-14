@@ -345,15 +345,10 @@ def downloadTest(req_rows=100, req_chunk=120, wait_time=0, wait_incrementor=0):
     stormwarden.close()
 
 
-def seizeID(string, sep="-"):
-    list = string.split(sep)
-    if len(list) > 1:
-        set_string = ""
-        for i in range(0, len(list)-1):
-            set_string += list[i] + sep
-        return set_string
-    else:
-        return string
+def used_field_test():
+    load_config()
+    rolf = Spcht("default.spcht.json", debug=True)
+    print(rolf.list_of_dict_fields())
 
 
 def solr_spy(req_url="", req_rows=100000, wait_time=0.0, mode=0):
@@ -461,6 +456,7 @@ if __name__ == "__main__":
     parser.add_argument('-SolrSpy', action="store_true", help="retrieves EVERY entry of a given solr and finds sub_ids")
     parser.add_argument('-SolrStat', action="store_true", help="Creates statitistics regarding the Solr Fields")
     parser.add_argument('-CheckSpcht', type=str, help="Tries to load and validate the specified Spcht JSON File")
+    parser.add_argument('-CheckFields', action="store_true", help="Loads the default SPCHT file and lists all named fields")
     parser.add_argument('-CompileSpcht', type=str, help="Loads a SPCHT File, validates and then compiles it to $file")
     args = parser.parse_args()
     print(args)
@@ -491,6 +487,8 @@ if __name__ == "__main__":
         full_process()
     if args.SolrSpy:
         solr_spy("", 2, 0.5, 0)
+    if args.CheckFields:
+        used_field_test()
     if args.DownloadTest:
         downloadTest(req_rows=100000, req_chunk=10000, wait_time=2, wait_incrementor=0)
     # TODO Insert Arg Interpretation here

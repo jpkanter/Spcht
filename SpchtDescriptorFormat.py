@@ -831,6 +831,44 @@ class Spcht:
     # TODO: Error logs for known error entries and total failures as statistic
     # TODO: Grouping of graph descriptors in an @context
 
+    def list_of_dict_fields(self):
+        """
+            Returns a list of all the fields that might be used in processing of the data, this includes all
+            alternatives, fallbacks and graph_field keys with source dictionary
+            :return: a list of strings
+            :rtype: list
+        """
+        if self._DESCRI is None:  # requires initiated SPCHT Load
+            self.debug_print("list_of_dict_fields requires loaded SPCHT")
+            return None
+
+        the_list = []
+        if self._DESCRI['id_source'] == "dict":
+            the_list.append(self._DESCRI['id_field'])
+        temp_list = Spcht._list_of_fields_recursion(self._DESCRI['id_fallback'])
+        if temp_list is not None and len(temp_list) > 0:
+            the_list += temp_list
+        for node in self._DESCRI['nodes']:
+            temp_list = Spcht._list_of_fields_recursion(node)
+            if temp_list is not None and len(temp_list) > 0:
+                the_list += temp_list
+        return the_list
+
+    @staticmethod
+    def _list_of_fields_recursion(sub_dict):
+        part_list = []
+        if sub_dict['source'] == "dict":
+            part_list.append(sub_dict['field'])
+            if Spcht.is_dictkey(sub_dict, 'alternatives'):
+                part_list += sub_dict['alternatives']
+            if Spcht.is_dictkey(sub_dict, 'graph_field'):
+                part_list.append(sub_dict['graph_field'])
+        if Spcht.is_dictkey(sub_dict, 'fallback'):
+            temp_list = Spcht._list_of_fields_recursion(sub_dict['fallback'])
+            if temp_list is not None and len(temp_list) > 0:
+                part_list += temp_list
+        return part_list
+
     @staticmethod
     def quickSparql(quadro_list, graph):
         """
@@ -877,7 +915,7 @@ class Spcht:
         graph = rdflib.Graph()
         for each in quadro_list:
             if each[3] == 0:
-                graph.add((rdflib.URIRef(each[0]), rdflib.URIRef(each [1]), rdflib.Literal(each[2])))
+                graph.add((rdflib.URIRef(each[0]), rdflib.URIRef(each[1]), rdflib.Literal(each[2])))
             else:
                 graph.add((rdflib.URIRef(each[0]), rdflib.URIRef(each[1]), rdflib.URIRef(each[2])))
         return graph.serialize(format=format).decode("utf-8")
