@@ -127,7 +127,7 @@ def marc_test():
 def spcht_object_test():
     global URLS
     load_config()
-    heinz = Spcht("default.spcht.json", debug=True)
+    heinz = Spcht(URLS['spcht'], debug=True)
     if heinz.descri_status():
         debug_dict = {
             "0-1172721416": "monographischer Band - Goethes Faust mit Illustrator",
@@ -230,17 +230,14 @@ def marc21_display():
         print("═"*200)
 
 
-def full_process():
+def full_process(req_rows=50000, req_chunk=10000):
     global URLS, SPCHT
     load_config()
-    habicht = Spcht("default.spcht.json")
+    habicht = Spcht(URLS['spcht'])
     big_data = []
     total_nodes = 0
 
-    req_rows = 5000
-    req_chunk = 5000
-    head_start = 0
-    req_para = {'q': "*:*", 'rows': req_rows, 'wt': "json"}
+    req_para = {'q': "source_id:0+institution:DE-15", 'rows': req_rows, 'wt': "json", "cursorMark": "*", "sort": "id asc"}
 
     stormwarden = open(TESTFOLDER + "times.log", "w")
     start_time = time.time()
@@ -254,9 +251,10 @@ def full_process():
     print(f"Detected {n} chunks of a total of {req_rows} entries with a chunk size of {req_chunk}", file=stormwarden)
     print(f"Start Loading Remote chunks - {delta_now(start_time)}", file=stormwarden)
     temp_url_param = copy.deepcopy(req_para)  # otherwise dicts get copied by reference
+    cursorMark = "*"
     print(("#" * n)[:0] + (" " * n)[:n], f"{0+1} / {n}")
     for i in range(0, n):
-        temp_url_param['start'] = i * req_chunk + head_start
+        temp_url_param['cursorMark'] = cursorMark
         print(f"New Chunk started: [{i}/{n-1}] - {delta_now(start_time)} ms", file=stormwarden)
         if i + 1 != n:
             temp_url_param['rows'] = req_chunk
@@ -267,6 +265,7 @@ def full_process():
         if data:  # no else required, test_json already gives us an error if something fails
             print(f"Chunk finished, using SPCHT - {delta_now(start_time)}", file=stormwarden)
             chunk_data = slice_header_json(data)
+            cursorMark = chunk_data['nextCursorMark']
             big_data += chunk_data
             number = 0
             # test 1 - chunkwise data import
@@ -274,6 +273,7 @@ def full_process():
             for entry in chunk_data:
                 temp = habicht.processData(entry, URLS['graph'])
                 if temp:
+
                     number += len(temp)
                     inserts.append(Spcht.quickSparql(temp, URLS['graph']))  # just by coincidence this is the same in this example
                     big_data.append(temp)
@@ -300,7 +300,7 @@ def downloadTest(req_rows=100, req_chunk=120, wait_time=0, wait_incrementor=0):
     load_config()
     total_nodes = 0
     head_start = 0
-    req_para = {'q': "id:0-*", 'rows': req_rows, 'wt': "json", "cursorMark": "*", "sort": "id asc"}
+    req_para = {'q': "*:*", 'rows': req_rows, 'wt': "json", "cursorMark": "*", "sort": "id asc", "fl": "source_id:0"}
     temp_url_param = copy.deepcopy(req_para)
     n = math.floor(int(req_rows) / req_chunk) + 1
 
@@ -475,8 +475,9 @@ if __name__ == "__main__":
 
     # +++ SPCHT Compile
     if args.CompileSpcht:
-        sperber = Spcht(args.CompileSpcht)
+        sperber = Spcht(args.CompileSpcht, debug=True)
         sperber.export_full_descriptor(TESTFOLDER + "fll_spcht.json")
+        print(colored("Succesfully compiled spcht, file:", "cyan"), colored(TESTFOLDER + "fll_spcht.json", "blue"))
 
     # +++ Daily Debugging +++
     if args.TestMode:

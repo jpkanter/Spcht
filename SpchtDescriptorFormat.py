@@ -1,7 +1,10 @@
 import copy
 import json
+import os
 import re
 import sys
+from pathlib import Path
+
 import pymarc
 from pymarc.exceptions import RecordLengthInvalid, RecordLeaderInvalid, BaseAddressNotFound, BaseAddressInvalid, \
     RecordDirectoryInvalid, NoFieldsFound
@@ -27,9 +30,9 @@ class Spcht:
     _debug = False
 
     def __init__(self, filename=None, check_format=False, debug=False):
+        self.debugmode(debug)
         if filename is not None:
             self.load_descriptor_file(filename)
-        self.debugmode(debug)
         # does absolutely nothing in itself
 
     def __repr__(self):
@@ -99,7 +102,7 @@ class Spcht:
             with open(filename, mode='r') as file:
                 return json.load(file)
         except FileNotFoundError:
-            print("nofile", file=self.std_err)
+            print("nofile -", filename, file=self.std_err)
             return False
         except ValueError as error:
             print(colored("Error while parsing JSON:\n\r", "red"), error, file=self.std_err)
@@ -360,7 +363,9 @@ class Spcht:
         # returns None if something is amiss, returns the descriptors as dictionary
         # ? turns out i had to add some complexity starting with the "include" mapping
         descriptor = self.load_json(filename)
-
+        spcht_path = Path(filename)
+        self.debug_print("Local Dir:", colored(os.getcwd(), "blue"))
+        self.debug_print("Spcht Dir:", colored(spcht_path.parent, "cyan"))
         if isinstance(descriptor, bool):  # load json goes wrong if something is wrong with the json
             return None
         if not Spcht.check_format(descriptor):
@@ -369,7 +374,7 @@ class Spcht:
         # ? python iterations are not with pointers, so this will expose me as programming apprentice but this will work
         new_node = []
         for item in descriptor['nodes']:
-            a_node = self._load_ref_node(item)
+            a_node = self._load_ref_node(item, str(spcht_path.parent))
             if isinstance(a_node, bool):  # if something goes wrong we abort here
                 self.debug_print("spcht_ref")
                 return False
@@ -378,7 +383,7 @@ class Spcht:
         self._DESCRI = descriptor
         return True
 
-    def _load_ref_node(self, node_dict):
+    def _load_ref_node(self, node_dict, base_path):
         # We are again in beautiful world of recursion. Each node can contain a mapping and each mapping can contain
         # a reference to a mapping json. i am actually quite worried that this will lead to performance issues
         # TODO: Research limits for dictionaries and performance bottlenecks
@@ -386,12 +391,13 @@ class Spcht:
         # that i can check for isinstance easier than for None, i might be wrong and i have not looked into the
         # cost of that operation if that is ever a concern
         if Spcht.is_dictkey(node_dict, 'fallback'):
-            node_dict['fallback'] = self._load_ref_node(node_dict['fallback'])  # ! there it is again, the cursed recursion thing
+            node_dict['fallback'] = self._load_ref_node(node_dict['fallback'], base_path)  # ! there it is again, the cursed recursion thing
             if isinstance(node_dict['fallback'], bool):
                 return False
         if Spcht.is_dictkey(node_dict, 'mapping_settings') and node_dict['mapping_settings'].get('$ref') is not None:
             file_path = node_dict['mapping_settings']['$ref']  # ? does it always has to be a relative path?
-            map_dict = self.load_json(file_path)
+            self.debug_print("Reference:", colored(file_path, "green"))
+            map_dict = self.load_json(os.path.normpath(os.path.join(base_path, file_path)))
             # iterate through the dict, if manual entries have the same key ignore
             if not isinstance(map_dict, dict):  # we expect a simple, flat dictionary, nothing else
                 return False  # funnily enough, this also includes bool which happens when json loads fails

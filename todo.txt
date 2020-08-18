@@ -13,6 +13,7 @@
     [x] Check Regex Entries for faults
     [ ] Escape pre and append texts
     [ ] Add output kinds
+    [ ] arbitary inser for pre&append texts, more than one entry
 * SPARQL
     [x] differenciate between graph and string that happens to be a link to somewhere
     [-] generation of valid sparql queries
