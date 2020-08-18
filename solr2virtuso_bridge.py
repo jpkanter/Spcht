@@ -23,7 +23,6 @@ from SpchtDescriptorFormat import Spcht
 ERROR_TXT = {}
 URLS = {}
 SETTINGS = {}
-SPCHT = None  # SPECHT DESCRIPTOR FORMAT mapping
 TESTFOLDER = "./testdata/"
 
 
@@ -230,14 +229,14 @@ def marc21_display():
         print("═"*200)
 
 
-def full_process(req_rows=50000, req_chunk=10000):
-    global URLS, SPCHT
+def full_process(solr, graph, spcht, sparql, sparql_user="", sparql_pw="", log=False, req_rows=50000, req_chunk=10000, filter=""):
+    global URLS
     load_config()
-    habicht = Spcht(URLS['spcht'])
+    habicht = Spcht(spcht)
     big_data = []
     total_nodes = 0
-
-    req_para = {'q': "source_id:0+institution:DE-15", 'rows': req_rows, 'wt': "json", "cursorMark": "*", "sort": "id asc"}
+    #"source_id:0+institution:DE-15"
+    req_para = {'q': filter, 'rows': req_rows, 'wt': "json", "cursorMark": "*", "sort": "id asc"}
 
     stormwarden = open(TESTFOLDER + "times.log", "w")
     start_time = time.time()
@@ -355,9 +354,7 @@ def solr_spy(req_url="", req_rows=100000, wait_time=0.0, mode=0):
     # mode 0 - light mode
     # mode 1 - heavy mode
     # ? REGEX ^.*[-][a-zA-Z0-9]{9}$    Not needed
-    global URLS, SPCHT
-    load_config()
-    req_url = URLS['solr']
+    global URLS
     req_para = {'q': "*:*", 'rows': req_rows, 'wt': "json", "cursorMark": "*", "sort": "id asc", "fl": "id, source_id"}
     castle_going = True  # i wrote KeepGoing before, twisted mind and here we are
 
@@ -447,27 +444,53 @@ def delta_now(zero_time, rounding=2):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="LOD SPCHT Interpreter", epilog="Config File overwrites individual settings")
-    parser.add_argument('-configFile', type=str, help="Defines a (local) config file to load things from")
-    parser.add_argument('-TestMode', action="store_true", help="Executes some 'random', flavour of the day testscript")
-    parser.add_argument('-MarcView', action="store_true", help="Marc21 Display test")
-    parser.add_argument('-FullTest', action="store_true", help="Progressing mappings with the config specified ressources")
-    parser.add_argument('-DownloadTest', action="store_true", help="Tries to Download multiple chunks from solr")
-    parser.add_argument('-SolrSpy', action="store_true", help="retrieves EVERY entry of a given solr and finds sub_ids")
-    parser.add_argument('-SolrStat', action="store_true", help="Creates statitistics regarding the Solr Fields")
-    parser.add_argument('-CheckSpcht', type=str, help="Tries to load and validate the specified Spcht JSON File")
-    parser.add_argument('-CheckFields', action="store_true", help="Loads the default SPCHT file and lists all named fields")
-    parser.add_argument('-CompileSpcht', type=str, help="Loads a SPCHT File, validates and then compiles it to $file")
+    parser = argparse.ArgumentParser(
+        description="LOD Data Interpreter",
+        usage="Main functions: MarcView, SolrSpy, SolrStats, CheckSpcht, CheckFields, CompileSpcht and FullProcess. Each function needs the appropriated amount of commands to work properly",
+        epilog="Individual settings overwrite settings from the config file",
+        prefix_chars="-")
+    parser.add_argument('--MarcView', '-mv', type=str, help="Loads the specified json file and displays the mark content", metavar="MARCFILE")
+    parser.add_argument('--SolrSpy', '-sy', action="store_true", help="finds and counts different entries for a field")
+    parser.add_argument('--SolrStat', '-st', action="store_true", help="Creates statitistics regarding the Solr Fields")
+    parser.add_argument('--CheckSpcht', '-cs', action="store_true", help="Tries to load and validate the specified Spcht JSON File")
+    parser.add_argument('--CheckFields', '-cf', action="store_true",
+                        help="Loads a spcht file and displays all dictionary keys used in that descriptor")
+    parser.add_argument('--CompileSpcht', '-ct', action="store_true", help="Loads a SPCHT File, validates and then compiles it to $file")
+
+    parser.add_argument('--spcht', '-sdf', type=str, help="The spcht descriptor file for the mapping", metavar="FILEPATH")
+    parser.add_argument('--config', '-c', type=str, help="Defines a config file load general settings from", metavar="FILEPATH")
+    parser.add_argument('--log', '-l', type=str, help="Name of the logfile", metavar="FILEPATH")
+    parser.add_argument('--outfile', '-o', type=str, help="file where results will be saved", metavar="FILEPATH")
+    parser.add_argument('--solr', '-s', type=str, help="URL auf the /select/ interface of a Apache solr", metavar="URL")
+    parser.add_argument('--filter', '-f', type=str, help="Query Filter for q: ???", metavar="STRING")
+    parser.add_argument('--sparql_auth', '-sa', type=str, help="URL of the sparql Interface of a virtuoso", metavar="URL")
+    parser.add_argument('--sparql_user', '-su', type=str, help="Username for the sparql authentification", metavar="NAME")
+    parser.add_argument('--sparql_pw', '-sp', type=str, help="Password for the sparql authentification", metavar="PASSWORD")
+    parser.add_argument('--graph', '-g', type=str, help="Main Graph for the insert Operations", metavar="URI")
+    parser.add_argument('--part', '-p', type=int, help="Size of one chunk/part when loading data from solr", metavar="number")
+    parser.add_argument('--rows', '-r', type=int, help="Total Numbers of rows requested for the Operation", metavar="number")
+
+    parser.add_argument('--TestMode', action="store_true", help="Executes some 'random', flavour of the day testscript")
+    parser.add_argument('--FullTest', action="store_true", help="Progressing mappings with the config specified ressources")
+    parser.add_argument('--DownloadTest', action="store_true", help="Tries to Download multiple chunks from solr")
+
     args = parser.parse_args()
     print(args)
     # +++ CONFIG FILE +++
-    if args.configFile:
+    if args.config:
         cfg_status = load_config(args.configFile)
     else:
-        cfg_status = load_config() # if that fails everything gets set to None
-    if not cfg_status:
-        print("Config Loading failed, default Values will be None, proceed with caution")
-        del cfg_status
+        cfg_status = load_config()  # if that fails everything gets set to None
+
+    boring_parameters = ["spcht", "log", "outfile", "solr", "sparql_auth", "sparql_user", "sparql_pw", "graph", "part", "rows", "filter"]
+
+    for arg in vars(args):
+        if arg in boring_parameters and getattr(args, arg) is not None:
+            URLS[arg] = getattr(args, arg)
+
+    print("Config Entries")
+    for key in URLS:
+        print(f"\t{key}\t{URLS[key]}")
 
     # +++ SPCHT Checker +++
     if args.CheckSpcht:
