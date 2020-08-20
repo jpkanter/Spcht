@@ -126,3 +126,13 @@ def super_simple_progress_bar(current_value, max_value, prefix="", suffix="", ou
         arrow = ">"
     the_bar = "="*bar_length + arrow + " "*(bar_space-bar_length)
     print(prefix + "|" + the_bar + "|" + suffix, file=out, end="\r")
+
+
+def super_simple_progress_bar_clear(out=sys.stdout):
+    try:
+        import shutil
+    except ImportError:
+        print("Import Error", file=out)
+        return False
+    max_str, rows = shutil.get_terminal_size()
+    print(" "*max_str, end="\r")

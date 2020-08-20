@@ -11,8 +11,9 @@ import time
 from datetime import datetime, timedelta
 
 import pymarc
+from dateutil.relativedelta import relativedelta
 
-from local_tools import is_dictkey, is_dict, cprint_type, super_simple_progress_bar, sleepy_bar
+from local_tools import super_simple_progress_bar, sleepy_bar, super_simple_progress_bar_clear
 from os import path
 from virt_connect import sparqlQuery
 from termcolor import colored, cprint
@@ -32,7 +33,7 @@ def send_error(message, error_name=None):
     if error_name is None:
         sys.stderr.write(ERROR_TXT.get(message, message))
     else:
-        if is_dictkey(ERROR_TXT, error_name):
+        if Spcht.is_dictkey(ERROR_TXT, error_name):
             sys.stderr.write(ERROR_TXT[error_name].format(message))
         else:
             sys.stderr.write(message)
@@ -46,7 +47,7 @@ def load_config(file_path="config.json"):
     with open(file_path) as json_file:
         data = json.load(json_file)
         try:
-            ERROR_TXT = data['errors']
+            ERROR_TXT = data.get('errors')
         except KeyError:
             send_error("Cannot find 'error' Listings in {} File".format(file_path))  # in this there is not error field
             ERROR_TXT = None
@@ -58,7 +59,7 @@ def load_config(file_path="config.json"):
             PARA = None
             return False
         try:
-            SETTINGS = data['settings']
+            SETTINGS = data.get('settings')
         except KeyError:
             send_error("SETTINGS")
             SETTINGS = None
@@ -418,8 +419,21 @@ def delta_now(zero_time, rounding=2):
     return str(round(time.time()-zero_time, rounding))
 
 
+def delta_time_human(**kwargs):
+    # https://stackoverflow.com/a/11157649
+    attrs = ['years', 'months', 'days', 'hours', 'minutes', 'seconds', 'microseconds']
+    delta = relativedelta(**kwargs)
+    human_string = ""
+    for attr in attrs:
+        if getattr(delta, attr):
+            if human_string != "":
+                human_string += ", "
+            human_string += '%d %s' % (getattr(delta, attr), getattr(delta, attr) > 1 and attr or attr[:-1])
+    return human_string
+
+
 def update_data(solr, graph, spcht, sparql, sparql_user, sparql_pw,
-                max_age, log=None, rows=100000, chunk=10000, query="*:*"):
+                max_age, log=None, rows=100000, chunk=10000, query="*:*", dryrun=False):
     # 1. query solr for new entries
     # 2. use spcht to build new entries to be inserted later on
     # 3. sparql select with the ids for everything we need to update
@@ -428,9 +442,9 @@ def update_data(solr, graph, spcht, sparql, sparql_user, sparql_pw,
     # http://index.ub.uni-leipzig.de/solr/biblio/select?q=source_id%3A0+last_indexed%3A%5B2020-08-12T17%3A33%3A18.772Z+TO+*%5D&wt=json&indent=true
     greif = Spcht(spcht)
     flock = []
-    searchtime = datetime.now() - timedelta(minutes=max_age)
-    searchtime = "last_indexed:[" + searchtime.strftime("%Y-%m-%dT%H:%M:%SZ") + " TO *]"
-    query = query + "+" + searchtime
+    past_time = datetime.now() - timedelta(minutes=max_age)
+    searchtime = "last_indexed:[" + past_time.strftime("%Y-%m-%dT%H:%M:%SZ") + " TO *]"
+    query = f"{query} {searchtime}"
     req_para = {'q': query, 'rows': rows, 'wt': "json", "cursorMark": "*", "sort": "id asc"}
     time0 = time.time()
     iterator = 0
@@ -442,7 +456,10 @@ def update_data(solr, graph, spcht, sparql, sparql_user, sparql_pw,
             stormwarden = sys.stdout
     else:
         stormwarden = sys.stdout
-    printing(f"{time0}\t starting update process, SOLR is {solr}", file=stormwarden)
+    printing(f"{time.strftime('%d %b %Y %H:%M:%S', time.localtime(time0))} - {time0}", file=stormwarden)
+    printing(f"The time difference to now is {max_age} minutes, which amounts for the oldest entry to be from {past_time.strftime('%d.%m.%Y %H:%M:%S')}")
+    printing(f"Therefore its {delta_time_human(minutes=max_age)}", file=stormwarden)
+    printing(f"Starting update process, SOLR is {solr}", file=stormwarden)
     printing(f"Detected {n} chunks of a total of {rows} entries with a chunk size of {chunk}", file=stormwarden)
     cursorMark = "*"
     for i in range(0, n):
@@ -464,7 +481,7 @@ def update_data(solr, graph, spcht, sparql, sparql_user, sparql_pw,
                 chunk_data = slice_header_json(current_dateset)
                 for entry in chunk_data:
                     temp = greif.processData(entry, graph)
-                    if temp: # successful spcht interpretation
+                    if temp:  # successful spcht interpretation
                         flock.append(temp)
             except KeyError:
                 printing(f"KeyError, ", current_dateset, file=stormwarden)
@@ -475,6 +492,30 @@ def update_data(solr, graph, spcht, sparql, sparql_user, sparql_pw,
                 req_para['cursorMark'] = current_dateset['nextCursorMark']
             else:
                 break
+    printing(f"{delta_now(time0)}\tDownload & SPCHT finished, commencing updates", file=stormwarden)
+    printing(f"There are {len(flock)} updated entries since {past_time.strftime('%d.%m.%Y %H:%M:%S')}", file=stormwarden)
+    if len(flock) > 0:
+        counter = 0
+        if not dryrun:
+            printing(f"{delta_now(time0)}\tDeleting all entries that are about to be replaced", file=stormwarden)
+            len_of_flock = len(flock)
+            for each in flock:
+                super_simple_progress_bar(counter, len_of_flock, "DEL ", f"{counter} / {len_of_flock}")
+                sparqlQuery(f"WITH <{graph}> DELETE {{ <{each[0][0]}> ?p ?o }} WHERE {{ <{each[0][0]}> ?p ?o }}",
+                            sparql, auth=sparql_user, pwd=sparql_pw)
+                counter += 1
+            super_simple_progress_bar_clear()
+            printing(f"{delta_now(time0)}\tDeleting of entries complete, reinserting new data", file=stormwarden)
+            counter = 0
+            for each in flock:
+                super_simple_progress_bar(counter, len_of_flock, "INS ", f"{counter} / {len_of_flock}")
+                sparqlQuery(Spcht.quickSparql(each, graph), sparql, auth=sparql_user, pwd=sparql_pw)
+                counter += 1
+            super_simple_progress_bar_clear()
+        else:
+            printing(f"{delta_now(time0)}\tDry run - nothing happens", file=stormwarden)
+    else:
+        print("The set is empty, therefore no further processing is been done", file=stormwarden)
     printing(f"{delta_now(time0)}\tProcess finished", file=stormwarden)
     stormwarden.close()
 
@@ -488,6 +529,7 @@ if __name__ == "__main__":
     parser.add_argument('--MarcView', '-mv', type=str, help="Loads the specified json file and displays the mark content", metavar="MARCFILE")
     parser.add_argument('--SolrSpy', '-sy', action="store_true", help="finds and counts different entries for a field")
     parser.add_argument('--ProcessData', '-P', action="store_true", help="Processes the given data from solr to virtuoso with given spcht")
+    parser.add_argument('--UpdateData', '-U', action="store_true", help="Updates the Data with a specific time-diff")
     parser.add_argument('--SolrStat', '-st', action="store_true", help="Creates statitistics regarding the Solr Fields")
     parser.add_argument('--CheckSpcht', '-cs', action="store_true", help="Tries to load and validate the specified Spcht JSON File")
     parser.add_argument('--CheckFields', '-cf', action="store_true",
@@ -506,6 +548,7 @@ if __name__ == "__main__":
     parser.add_argument('--graph', '-g', type=str, help="Main Graph for the insert Operations", metavar="URI")
     parser.add_argument('--part', '-p', type=int, help="Size of one chunk/part when loading data from solr", metavar="number")
     parser.add_argument('--rows', '-r', type=int, help="Total Numbers of rows requested for the Operation", metavar="number")
+    parser.add_argument('--time', '-t', type=int, help="Time in Minutes", metavar="number")
 
     parser.add_argument('--urls', '-u', action="store_true", help="Lists all urls the procedure knows after loading data")
     parser.add_argument('--dry', '-d', action="store_true", help="Pulls (and loads) all data as per protocol but doesnt change anything permanently")
@@ -514,16 +557,19 @@ if __name__ == "__main__":
     parser.add_argument('--DownloadTest', action="store_true", help="Tries to Download multiple chunks from solr")
 
     args = parser.parse_args()
-    print(args)
     # +++ CONFIG FILE +++
     if args.config:
         cfg_status = load_config(args.config)
 
-    boring_parameters = ["spcht", "log", "outfile", "solr", "sparql_auth", "sparql_user", "sparql_pw", "graph", "part", "rows", "filter"]
+    boring_parameters = ["spcht", "log", "outfile", "solr", "sparql_auth", "sparql_user", "sparql_pw", "graph", "part", "rows", "filter", "time"]
 
     for arg in vars(args):
         if arg in boring_parameters and getattr(args, arg) is not None:
             PARA[arg] = getattr(args, arg)
+    if Spcht.is_dictkey(PARA, 'log'):  # replacing part of the string with a datetime:
+        time_string = datetime.now().strftime('%Y%m%d-%H%M%S')
+        PARA['log'] = PARA['log'].replace("$time", time_string)
+
     if args.urls:
         print("URL Entries from Config and Parameters")
         for key in PARA:
@@ -556,6 +602,11 @@ if you see this message, not all mandatory parameters were providedh"""
         full_process(PARA['solr'], PARA['graph'], PARA['spcht'], PARA['sparql'], PARA.get('sparql_user'),
                      PARA.get('sparql_pw'), PARA.get('log'), PARA['rows'], PARA['parts'], PARA['query'])
         exit(0)  # does only one of the big commands
+
+    # ! UpdateProcess - in parts a copy of full process
+    if args.UpdateData:
+        update_data(PARA['solr'], PARA['graph'], PARA['spcht'], PARA['sparql'], PARA.get('sparql_user'),
+                     PARA.get('sparql_pw'), PARA['time'], PARA.get('log'), PARA['rows'], PARA['parts'], PARA['query'])
     # +++ SPCHT Checker +++
     if args.CheckSpcht:
         Spcht.check_format(args.checkSpcht)
