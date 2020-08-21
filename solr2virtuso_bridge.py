@@ -13,12 +13,10 @@ from datetime import datetime, timedelta
 import pymarc
 from dateutil.relativedelta import relativedelta
 
-from local_tools import super_simple_progress_bar, sleepy_bar, super_simple_progress_bar_clear
+from local_tools import super_simple_progress_bar, sleepy_bar, super_simple_progress_bar_clear, \
+    load_remote_content, slice_header_json, sparqlQuery, block_sparkle_insert
 from os import path
-from virt_connect import sparqlQuery
-from termcolor import colored, cprint
-from legacy_tools import bird_sparkle_insert, bird_sparkle, bird_longhandle, fish_interpret
-from solr_tools import marc2list, marc21_fixRecord, load_remote_content, test_json, slice_header_json
+from termcolor import colored
 from SpchtDescriptorFormat import Spcht
 
 ERROR_TXT = {}
@@ -37,6 +35,16 @@ def send_error(message, error_name=None):
             sys.stderr.write(ERROR_TXT[error_name].format(message))
         else:
             sys.stderr.write(message)
+
+
+def test_json(json_str):
+    #  i am almost sure that there is already a build in function that does something very similar, embarrassing
+    try:
+        data = json.loads(json_str)
+        return data
+    except ValueError:
+        send_error("json")
+        return False
 
 
 def load_config(file_path="config.json"):
@@ -80,18 +88,6 @@ def load_from_json(file_path):
     except Exception as error:
         send_error("graph_parser "+str(error))
     return False
-
-
-def marc_test():
-    global TESTFOLDER
-    print(colored("Test Marc Stuff", "cyan"))
-
-    myfile = open(TESTFOLDER+"marc21test.json", "r")
-    marctest = json.load(myfile)
-    myfile.close()
-
-    print(colored(marctest, "yellow"))
-    print(json.dumps(marc2list(marctest.get('fullrecord')), indent=4))
 
 
 def spcht_object_test():
@@ -141,7 +137,7 @@ def spcht_object_test():
                         tmp_sparql = f"<{each[0]}> <{each[1]}> <{each[2]}> . \n"
                     double_list.append(f"{each[1]} - {each[2]} - [{each[3]}]")
                     tmp_sparql_set.append(tmp_sparql)
-                thesparqlset.append(bird_sparkle_insert(PARA['graph'], tmp_sparql_set))
+                thesparqlset.append(block_sparkle_insert(PARA['graph'], tmp_sparql_set))
                 del tmp_sparql_set
 
         with open(TESTFOLDER + "bridge_lines.txt", "w") as my_debug_output:
@@ -457,15 +453,12 @@ def update_data(solr, graph, spcht, sparql, sparql_user, sparql_pw,
     else:
         stormwarden = sys.stdout
     printing(f"{time.strftime('%d %b %Y %H:%M:%S', time.localtime(time0))} - {time0}", file=stormwarden)
-    printing(f"The time difference to now is {max_age} minutes, which amounts for the oldest entry to be from {past_time.strftime('%d.%m.%Y %H:%M:%S')}")
-    printing(f"Therefore its {delta_time_human(minutes=max_age)}", file=stormwarden)
+    printing(f"The time difference to NOW() is {delta_time_human(minutes=max_age)}, which amounts for the oldest entry to be from {past_time.strftime('%d.%m.%Y %H:%M:%S')}")
     printing(f"Starting update process, SOLR is {solr}", file=stormwarden)
     printing(f"Detected {n} chunks of a total of {rows} entries with a chunk size of {chunk}", file=stormwarden)
-    cursorMark = "*"
     for i in range(0, n):
         printing(f"{delta_now(time0)}\tStarting a new cycle, this is #{iterator + 1}", file=stormwarden)
         iterator += 1
-        req_para['cursorMark'] = cursorMark
         if i + 1 != n:
             req_para['rows'] = chunk
         else:
@@ -477,7 +470,7 @@ def update_data(solr, graph, spcht, sparql, sparql_user, sparql_pw,
         current_dateset = test_json(pureData)
         if current_dateset:
             try:
-                printing(f"{delta_now(time0)}\tDownload done, subcycle begins, Cursor:  {req_para['cursorMark']}",file=stormwarden)
+                printing(f"{delta_now(time0)}\tDownload done, subcycle begins, Cursor:  {req_para['cursorMark']}", file=stormwarden)
                 chunk_data = slice_header_json(current_dateset)
                 for entry in chunk_data:
                     temp = greif.processData(entry, graph)
@@ -491,6 +484,7 @@ def update_data(solr, graph, spcht, sparql, sparql_user, sparql_pw,
             if current_dateset.get("nextCursorMark", "*") != "*" and current_dateset['nextCursorMark'] != req_para['cursorMark']:
                 req_para['cursorMark'] = current_dateset['nextCursorMark']
             else:
+                printing(f"{delta_now(time0)}\tNo further CursorMark was received, therefore there are less results than expected rows. Aborting cycles", file=stormwarden)
                 break
     printing(f"{delta_now(time0)}\tDownload & SPCHT finished, commencing updates", file=stormwarden)
     printing(f"There are {len(flock)} updated entries since {past_time.strftime('%d.%m.%Y %H:%M:%S')}", file=stormwarden)

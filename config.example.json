@@ -10,14 +10,17 @@
     "spcht_map": "Das Mapping muss eindimensional sein.",
     "spcht_ref": "Fehler beim Laden der referenzierten Mappings"
   },
-  "urls": {
+  "para": {
     "solr": "http://<fqdn>/solr/biblio/select",
     "virtuoso-write": "http://<fqdn>/sparql-auth/",
+    "spcht": "default.spcht.json",
     "sparql_user": "<user>",
     "sparql_pw": "<password>",
-    "virtuoso-read": "http://<fqdn>/sparql",
-    "graph": "<IRI>",
-    "graph_label": "<IRI><label>"
+    "graph": "<URI>",
+    "query": "*:*",
+    "rows": 20,
+    "parts": 10000,
+    "time": 2880
   },
   "settings": {
     "workers": 8

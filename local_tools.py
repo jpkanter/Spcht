@@ -1,21 +1,85 @@
 import sys
 import time
+import json
+import requests
 
 from termcolor import colored
+from requests.auth import HTTPDigestAuth
+
+# describes structure of the json response from solr Version 7.3.1 holding the ubl data
+STRUCTURE = {
+    "header": "responseHeader",
+    "body": "response",
+    "content": "docs"
+}
 
 
-def is_dictkey(dictionary, *keys):
+def slice_header_json(data):
+    # cuts the header from the json response according to the provided structure (which is probably constant anyway)
+    # returns list of dictionaries
+    if isinstance(data.get(STRUCTURE['body']), dict):
+        return data.get(STRUCTURE['body']).get(STRUCTURE['content'])
+    raise TypeError("unex_struct")
+
+
+def load_remote_content(url, params, response_type=0, mode="GET"):
+    # starts a GET request to the specified solr server with the provided list of parameters
+    # response types: 0 = just the content, 1 = just the header, 2 = the entire GET-RESPONSE
     try:
-        for key in keys:
-            if not key in dictionary:
-                return False
-        return True
-    except TypeError:
-        print("Non Dictionary provided", file=sys.stderr)
+        if mode != "POST":
+            resp = requests.get(url, params=params)
+        else:
+            resp = requests.post(url, data=params)
+        if response_type == 0 or response_type > 2:  # this seems ugly
+            return resp.text
+        elif response_type == 1:
+            return resp.headers
+        elif response_type == 2:
+            return resp
+    except requests.exceptions.RequestException as e:
+        print("Request not successful,", e, file=sys.stderr)
 
 
-def is_dict(variable):  # for all intends and purposes this is just an alias for isinstance
-    return isinstance(variable, dict)
+def block_sparkle_insert(graph, insert_list):
+    sparkle = "INSERT IN GRAPH <{}> {{\n".format(graph)
+    for entry in insert_list:
+        sparkle += entry
+    sparkle += "}"
+    return sparkle
+
+
+def sparqlQuery(sparql_query, base_url, get_format="application/json", **kwargs):
+    # sends a query to the sparql endpoint of a virtuoso and (per default) retrieves a json and returns the data
+    params = {
+        "default-graph": "",
+        "should-sponge": "soft",
+        "query": sparql_query,
+        "debug": "on",
+        "timeout": "",
+        "format": get_format,
+        "save": "display",
+        "fname": ""
+    }
+    try:
+        if kwargs.get("auth", False) and kwargs.get("pwd", False):
+            # response = requests.get(base_url, auth=HTTPDigestAuth(kwargs.get("auth"), kwargs.get("pwd")), params=params)
+            response = requests.post(base_url, auth=HTTPDigestAuth(kwargs.get("auth"), kwargs.get("pwd")), data=params)
+        else:
+            response = requests.get(base_url, params=params)
+    except requests.exceptions.ConnectionError:
+        sys.stderr.write("Connection to Sparql-Server failed\n\r")
+        return False
+
+    try:
+        if response is not None:
+            if get_format == "application/json":
+                return json.loads(response.text)
+            else:
+                return response.text
+        else:
+            return False
+    except json.decoder.JSONDecodeError:
+        return response.text
 
 
 def cprint_type(object, show_type=False):
@@ -50,13 +114,6 @@ def cprint_type(object, show_type=False):
         prefix = ""
 
     print(prefix, colored(object, colors.get(color, "white")))
-
-
-def list_has_elements(iterable):
-    # technically this can check more than lists, but i use it to check some crude object on having objects or not
-    for item in iterable:
-        return True
-    return False
 
 
 def sleepy_bar(sleep_time, timeskip=0.1):
