@@ -203,6 +203,12 @@ def full_process(solr, graph, spcht, sparql, sparql_user="", sparql_pw="", log=F
     total_nodes = 0
     #"source_id:0+institution:DE-15"
     req_para = {'q': query, 'rows': req_rows, 'wt': "json", "cursorMark": "*", "sort": "id asc"}
+    # optimising requests a bit and pre filter for the stuff we need
+    fieldlist = habicht.list_of_dict_fields()
+    req_para['fl'] = ""
+    for each in fieldlist:
+        req_para['fl'] += f"{each} "
+    req_para['fl'] = req_para['fl'][:-1]
     if log:
         try:
             stormwarden = open(log, "w")
@@ -214,28 +220,24 @@ def full_process(solr, graph, spcht, sparql, sparql_user="", sparql_pw="", log=F
     print("Starting Process - Time Zero: {}".format(start_time), file=stormwarden)
 
     # mechanism to not load 50000 entries in one go but use chunks for it
-    n = math.floor(int(req_rows) / req_chunk) + 1
+    n = math.floor(int(req_rows) / int(req_chunk) ) + 1
     print(f"Solr Source is {solr}", file=stormwarden)
-    print(f"Target Triplestore is {PARA['virtuoso-write']}", file=stormwarden)
+    print(f"Target Triplestore is {sparql}", file=stormwarden)
     print(f"Target Graph is {graph}", file=stormwarden)
     print(f"Detected {n} chunks of a total of {req_rows} entries with a chunk size of {req_chunk}", file=stormwarden)
     print(f"Start Loading Remote chunks - {delta_now(start_time)}", file=stormwarden)
-    temp_url_param = copy.deepcopy(req_para)  # otherwise dicts get copied by reference
-    cursorMark = "*"
     print(("#" * n)[:0] + (" " * n)[:n], f"{0+1} / {n}")
     for i in range(0, n):
-        temp_url_param['cursorMark'] = cursorMark
-        print(f"New Chunk started: [{i}/{n-1}] - {delta_now(start_time)} ms", file=stormwarden)
+        print(f"New Chunk started: [{i+1}/{n-1}] - {delta_now(start_time)} ms", file=stormwarden)
         if i + 1 != n:
-            temp_url_param['rows'] = req_chunk
+            req_para['rows'] = req_chunk
         else:
-            temp_url_param['rows'] = int(int(req_rows) % req_chunk)
-        print(f"\tUsing request URL: {solr}/{temp_url_param}", file=stormwarden)
-        data = test_json(load_remote_content(PARA['solr'], temp_url_param))
+            req_para['rows'] = int(int(req_rows) % int(req_chunk))
+        print(f"\tUsing request URL: {solr}/{req_para}", file=stormwarden)
+        data = test_json(load_remote_content(solr, req_para))
         if data:  # no else required, test_json already gives us an error if something fails
             print(f"Chunk finished, using SPCHT - {delta_now(start_time)}", file=stormwarden)
             chunk_data = slice_header_json(data)
-            cursorMark = chunk_data['nextCursorMark']
             big_data += chunk_data
             number = 0
             # test 1 - chunkwise data import
@@ -258,6 +260,14 @@ def full_process(solr, graph, spcht, sparql, sparql_user="", sparql_pw="", log=F
             print(f"SPARQL Requests finished total of {number} entries - {delta_now(start_time)}",
                   file=stormwarden)
         print(("#" * n)[:i] + (" " * n)[:(n - i)], f"{i+1} / {n}", f"- {delta_now(start_time)}")
+
+        if data.get("nextCursorMark", "*") != "*" and data['nextCursorMark'] != req_para['cursorMark']:
+            req_para['cursorMark'] = data['nextCursorMark']
+        else:
+            printing(
+                f"{delta_now(start_time)}\tNo further CursorMark was received, therefore there are less results than expected rows. Aborting cycles",
+                file=stormwarden)
+            break
     print(f"Overall Executiontime was {delta_now(start_time, 3)} seconds", file=stormwarden)
     print(f"Total size of all entries is {sys.getsizeof(big_data)}", file=stormwarden)
     print(f"There was a total of {total_nodes} triples", file=stormwarden)
@@ -442,9 +452,14 @@ def update_data(solr, graph, spcht, sparql, sparql_user, sparql_pw,
     searchtime = "last_indexed:[" + past_time.strftime("%Y-%m-%dT%H:%M:%SZ") + " TO *]"
     query = f"{query} {searchtime}"
     req_para = {'q': query, 'rows': rows, 'wt': "json", "cursorMark": "*", "sort": "id asc"}
+    fieldlist = greif.list_of_dict_fields()
+    req_para['fl'] = ""
+    for each in fieldlist:
+        req_para['fl'] += f"{each} "
+    req_para['fl'] = req_para['fl'][:-1]
     time0 = time.time()
     iterator = 0
-    n = math.floor(int(rows) / chunk) + 1
+    n = math.floor(int(rows) / int(chunk)) + 1
     if log:
         try:
             stormwarden = open(log, "w")
@@ -491,8 +506,8 @@ def update_data(solr, graph, spcht, sparql, sparql_user, sparql_pw,
     if len(flock) > 0:
         counter = 0
         if not dryrun:
-            printing(f"{delta_now(time0)}\tDeleting all entries that are about to be replaced", file=stormwarden)
             len_of_flock = len(flock)
+            printing(f"{delta_now(time0)}\tDeleting all {len_of_flock} entries that are about to be replaced", file=stormwarden)
             for each in flock:
                 super_simple_progress_bar(counter, len_of_flock, "DEL ", f"{counter} / {len_of_flock}")
                 sparqlQuery(f"WITH <{graph}> DELETE {{ <{each[0][0]}> ?p ?o }} WHERE {{ <{each[0][0]}> ?p ?o }}",

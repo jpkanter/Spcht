@@ -848,7 +848,7 @@ class Spcht:
             self.debug_print("list_of_dict_fields requires loaded SPCHT")
             return None
 
-        the_list = []
+        the_list = ["fullrecord"]
         if self._DESCRI['id_source'] == "dict":
             the_list.append(self._DESCRI['id_field'])
         temp_list = Spcht._list_of_fields_recursion(self._DESCRI['id_fallback'])

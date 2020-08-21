@@ -7,14 +7,14 @@ from termcolor import colored
 from requests.auth import HTTPDigestAuth
 
 # describes structure of the json response from solr Version 7.3.1 holding the ubl data
-STRUCTURE = {
-    "header": "responseHeader",
-    "body": "response",
-    "content": "docs"
-}
 
 
 def slice_header_json(data):
+    STRUCTURE = {
+        "header": "responseHeader",
+        "body": "response",
+        "content": "docs"
+    }
     # cuts the header from the json response according to the provided structure (which is probably constant anyway)
     # returns list of dictionaries
     if isinstance(data.get(STRUCTURE['body']), dict):

@@ -2,43 +2,21 @@
 
 The [original](https://github.com/slub/efre-lod-elasticsearch-tools) toolchain of the **SLUB** was to complex for my needs, further i found its documentation
 in the parts that interested me the most more than lacking. Especially the total absence of any 
-comments had proven tiresome
+comments had proven tiresome. This started out as a fork but transformed into its own project, there are no parts of the original code left but a lot of inspiration was drawn. Therefore there is still the original project around, just in spirit and terms of creativity.
 
 ## Content
 
-## virt_connect.py & local_tools.py
-
-Different functions to provide utility for the other stuff. Nothing more than splitting different things in different files.
-
-### Functions
-
-- is_dictkey & is_dict
-
-  absolutely unncessary functions that are just shorthands for checks to get a true/false distinction. I am quite sure there is already an in-build function that does the same but i don't know it. Might be re-factored later.
-
-- connect2SQL
-
-- sparlqlQueryViaSQL
-
-- QueryWrapper
-
-  Part of the "do SparlQL Queries via the SQL Interface". Basic functionality should work but the behavior is not necessarily constant. I would rather not use this.
-
-- sparqlQuery
-
-  Simple Wrapper for the Queries to any given SparQL Endpoint, Supports the use of httpAUTH with optional Parameters `auth` and `pw`
-
-### In Development, not working as intended for now, goal is a cli style interface that can be used in conjunction with a cron job
-
 ## solr2virtuoso_bridge.py
 
-The main piece of work here, developed to do all the heavy lifting. It introduces a setting/descriptor format to actually map corresponding data fields from the apache solr database to sparql queries. The functions in the code do not actually require a solr as input source, if you have any other way to retrieve pure _jsoned_ dictionaries with a simple file structure it should also work. Or at least should be possible to easily modify the code to use such a source.
+The main part of the logic. It offers a handful of functions useable via a command line interface. Most settings that can be specified via a direct ressource can also referenced in a config json file with the key `para`.
+
+### local_tools.py
+
+To cleanup the main functions a bit some auxiliary functions where placed here to keep the code more readable.
 
 ## SpchtDiscriptorFormat.py
 
 Main class file for the spcht descriptor format. Further instructions and how to use it are in the [SPCHT.md](SPCHT.md) file
-
-
 
 ## Requirements
 
