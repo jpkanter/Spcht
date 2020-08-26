@@ -204,7 +204,7 @@ def full_process(solr, graph, spcht, sparql, sparql_user="", sparql_pw="", log=F
     #"source_id:0+institution:DE-15"
     req_para = {'q': query, 'rows': req_rows, 'wt': "json", "cursorMark": "*", "sort": "id asc"}
     # optimising requests a bit and pre filter for the stuff we need
-    fieldlist = habicht.list_of_dict_fields()
+    fieldlist = habicht.get_node_fields()
     req_para['fl'] = ""
     for each in fieldlist:
         req_para['fl'] += f"{each} "
@@ -327,7 +327,7 @@ def downloadTest(req_rows=100, req_chunk=120, wait_time=0, wait_incrementor=0):
 def used_field_test():
     load_config()
     rolf = Spcht("default.spcht.json", debug=True)
-    print(rolf.list_of_dict_fields())
+    print(rolf.get_node_fields())
 
 
 def solr_spy(req_url="", req_rows=100000, wait_time=0.0, mode=0):
@@ -452,7 +452,7 @@ def update_data(solr, graph, spcht, sparql, sparql_user, sparql_pw,
     searchtime = "last_indexed:[" + past_time.strftime("%Y-%m-%dT%H:%M:%SZ") + " TO *]"
     query = f"{query} {searchtime}"
     req_para = {'q': query, 'rows': rows, 'wt': "json", "cursorMark": "*", "sort": "id asc"}
-    fieldlist = greif.list_of_dict_fields()
+    fieldlist = greif.get_node_fields()
     req_para['fl'] = ""
     for each in fieldlist:
         req_para['fl'] += f"{each} "

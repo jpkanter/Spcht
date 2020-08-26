@@ -8,7 +8,11 @@ from pathlib import Path
 import pymarc
 from pymarc.exceptions import RecordLengthInvalid, RecordLeaderInvalid, BaseAddressNotFound, BaseAddressInvalid, \
     RecordDirectoryInvalid, NoFieldsFound
-from termcolor import colored  # only needed for debug print
+try:
+    from termcolor import colored  # only needed for debug print
+except ModuleNotFoundError:
+    def colored(text, *args):
+        return text  # throws args away returns non colored text
 
 try:
     NORDF = False
@@ -417,7 +421,8 @@ class Spcht:
                 del (node_dict['mapping_settings'])  # if there are no other entries the entire mapping settings goes
 
         if Spcht.is_dictkey(node_dict, 'graph_map_ref'):  # mostly boiler plate from above, probably not my brightest day
-            map_dict = self.load_json(node_dict['graph_map_ref'])
+            file_path = node_dict['graph_map_ref']
+            map_dict = self.load_json(os.path.normpath(os.path.join(base_path, file_path)))
             if not isinstance(map_dict, dict):
                 return False
             node_dict['graph_map'] = node_dict.get('graph_map', {})
@@ -837,10 +842,11 @@ class Spcht:
     # TODO: Error logs for known error entries and total failures as statistic
     # TODO: Grouping of graph descriptors in an @context
 
-    def list_of_dict_fields(self):
+    def get_node_fields(self):
         """
             Returns a list of all the fields that might be used in processing of the data, this includes all
             alternatives, fallbacks and graph_field keys with source dictionary
+
             :return: a list of strings
             :rtype: list
         """
@@ -851,17 +857,17 @@ class Spcht:
         the_list = ["fullrecord"]
         if self._DESCRI['id_source'] == "dict":
             the_list.append(self._DESCRI['id_field'])
-        temp_list = Spcht._list_of_fields_recursion(self._DESCRI['id_fallback'])
+        temp_list = Spcht._get_node_fields_recursion(self._DESCRI['id_fallback'])
         if temp_list is not None and len(temp_list) > 0:
             the_list += temp_list
         for node in self._DESCRI['nodes']:
-            temp_list = Spcht._list_of_fields_recursion(node)
+            temp_list = Spcht._get_node_fields_recursion(node)
             if temp_list is not None and len(temp_list) > 0:
                 the_list += temp_list
         return the_list
 
     @staticmethod
-    def _list_of_fields_recursion(sub_dict):
+    def _get_node_fields_recursion(sub_dict):
         part_list = []
         if sub_dict['source'] == "dict":
             part_list.append(sub_dict['field'])
@@ -870,7 +876,41 @@ class Spcht:
             if Spcht.is_dictkey(sub_dict, 'graph_field'):
                 part_list.append(sub_dict['graph_field'])
         if Spcht.is_dictkey(sub_dict, 'fallback'):
-            temp_list = Spcht._list_of_fields_recursion(sub_dict['fallback'])
+            temp_list = Spcht._get_node_fields_recursion(sub_dict['fallback'])
+            if temp_list is not None and len(temp_list) > 0:
+                part_list += temp_list
+        return part_list
+
+    def get_node_graphs(self):
+        """
+            Returns a list of all different graphs that could be mapped by the loaded spcht file. As for get_node_fields
+            this includes the referenced graphs in graph_map and fallbacks. This can theoretically return an empty list
+            when there are less than 1 node in the spcht file. But that raises other questions anyway...
+
+            :return: a list of string
+            :rtype: list
+        """
+        if self._DESCRI is None:  # requires initiated SPCHT Load
+            self.debug_print("list_of_dict_fields requires loaded SPCHT")
+            return None
+        the_other_list = []
+        for node in self._DESCRI['nodes']:
+            temp_list = Spcht._get_node_graphs_recursion(node)
+            if temp_list is not None and len(temp_list) > 0:
+                the_other_list += temp_list
+        # list set for deduplication, crude method but best i have for the moment
+        return list(set(the_other_list))  # unlike the field equivalent this might return an empty list
+
+    @staticmethod
+    def _get_node_graphs_recursion(sub_dict):
+        part_list = []
+        if Spcht.is_dictkey(sub_dict, 'graph'):
+            part_list.append(sub_dict['graph'])
+        if Spcht.is_dictkey(sub_dict, 'graph_map'):
+            for key, value in sub_dict['graph_map'].items():
+                part_list.append(value)  #probably some duplicates here
+        if Spcht.is_dictkey(sub_dict, 'fallback'):
+            temp_list = Spcht._get_node_fields_recursion(sub_dict['fallback'])
             if temp_list is not None and len(temp_list) > 0:
                 part_list += temp_list
         return part_list
