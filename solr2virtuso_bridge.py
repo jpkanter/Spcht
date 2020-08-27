@@ -614,6 +614,9 @@ if you see this message, not all mandatory parameters were providedh"""
 
     # ! UpdateProcess - in parts a copy of full process
     if args.UpdateData:
+        if not Spcht.is_dictkey(PARA, 'solr', 'graph', 'spcht', 'sparql', 'sparql_user', 'sparql_pw', 'time'):
+            print("Some Mandatory Parameters are missing")
+            exit(0)
         update_data(PARA['solr'], PARA['graph'], PARA['spcht'], PARA['sparql'], PARA.get('sparql_user'),
                      PARA.get('sparql_pw'), PARA['time'], PARA.get('log'), PARA['rows'], PARA['parts'], PARA['query'])
     # +++ SPCHT Checker +++

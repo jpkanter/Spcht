@@ -32,6 +32,7 @@ class Spcht:
     std_err = sys.stderr
     debug_out = sys.stdout
     _debug = False
+    _default_fields = ['fullrecord']
 
     def __init__(self, filename=None, check_format=False, debug=False):
         self.debugmode(debug)
@@ -332,6 +333,10 @@ class Spcht:
                 for i in range(1000):
                     if record[f'{i:03d}'] is not None:
                         tempdict[i] = {}
+                        if hasattr(record[f'{i:03d}'], 'indicator1') and record[f'{i:03d}'].indicator1.strip() != "":
+                            tempdict[i]['i1'] = record[f'{i:03d}'].indicator1
+                        if hasattr(record[f'{i:03d}'], 'indicator2') and record[f'{i:03d}'].indicator2.strip() != "":
+                            tempdict[i]['i2'] = record[f'{i:03d}'].indicator2
                         for item in record[f'{i:03d}']:
                             # marc items are tuples, for title its basically 'a': 'Word', 'b': 'more Words'
                             tempdict[i][item[0]] = item[1]
@@ -854,7 +859,8 @@ class Spcht:
             self.debug_print("list_of_dict_fields requires loaded SPCHT")
             return None
 
-        the_list = ["fullrecord"]
+        the_list = []
+        the_list += self._default_fields
         if self._DESCRI['id_source'] == "dict":
             the_list.append(self._DESCRI['id_field'])
         temp_list = Spcht._get_node_fields_recursion(self._DESCRI['id_fallback'])
@@ -880,6 +886,23 @@ class Spcht:
             if temp_list is not None and len(temp_list) > 0:
                 part_list += temp_list
         return part_list
+
+    def set_default_fields(self, list_of_strings):
+        """
+        Sets the fields that are always included by get_node_fields, useful if your marc containing field isnt
+        otherwise included in the dictionary
+
+        :para list_of_strings list: a list of strings that replaces the previous list
+        :return: Returns nothing but raises a TypeException is something is off
+        :rtype None:
+        """
+        if not isinstance(list_of_strings, list):
+            raise TypeError("given parameter is not a list")
+        for each in list_of_strings:
+            if not isinstance(each, str):
+                raise TypeError("an element in the list is not a string")
+        # i might as well throw a TypeException shouldnt i?
+        self._default_fields = list_of_strings
 
     def get_node_graphs(self):
         """

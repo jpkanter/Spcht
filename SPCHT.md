@@ -197,6 +197,9 @@ def descri_status(self)
 def getSaveAs(self, key=None)
 def cleanSaveAs(self)
 def load_descriptor_file(self, filename)
+def get_node_graphs(self)
+def get_node_fields(self)
+def set_default_fields(self, list_of_strings)
 def processData(self, raw_dict, graph, marc21="fullrecord", marc21_source="dict")
 def __init__(self, filename=None, check_format=False, debug=False)
 ```
@@ -212,6 +215,9 @@ def __init__(self, filename=None, check_format=False, debug=False)
 | **cleanSaveas**            | Removes duplicated entries of the `self._saveas` Variable    |
 | **load_descriptor**        | Loads the specified, local descriptor file and validates it.  Returns true when successfull |
 | **processData**            | Main function, inputs a flat dictionary of one set of data that get mapped according to the descriptor file. Requires successfully loaded descriptor file. |
+| **get_node_graphs**        | Returns a list of strings of all used graphs in the loaded spcht file, can theoretically return an empty list |
+| **get_node_fields**        | Returns a list of strings of all used fields, the field `fullrecord` is always included per default |
+| **set_default_fields**     | Changes the default list of default fields consisting of `fullrecord` to something else |
 
 
 
