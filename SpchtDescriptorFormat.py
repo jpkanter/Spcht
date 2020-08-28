@@ -538,7 +538,18 @@ class Spcht:
             return None  # usually i return false in these situations, but none seems appropriate
 
     @staticmethod
-    def _node_return_iron(graph, subject):
+    def _node_return_iron(graph: str, subject: list or str) -> list or None:
+        """
+            Used in processing of content as last step before signing off to the processing functions
+            equalizes the output, desired is a format where there is a list of tuples, after the basic steps we normally
+            only get a string for the graph but a list for the subject, this makes it so that the graph is copied.
+            Only case when there is more than one graph would be the graph_mapping function
+
+            :param graph: the mapped graph for this node
+            :param subject: a single mapped string or a list of such
+            :rtype: list or none
+            :return: a list of tuples where the first entry is the graph and the second the mapped subject
+        """
         # this is a simple routine to adjust the output from the nodeprocessing to a more uniform look so that its always
         # a list of tuples that is returned, instead of a tuple made of a string and a list.
         if not isinstance(graph, str):
@@ -548,7 +559,7 @@ class Spcht:
         if subject is None:
             return None
         if isinstance(subject, str):
-            return graph, subject  # at this point i am really questioning why i am not just returning always a list
+            return [(graph, subject)]  # list of one tuple
         if isinstance(subject, list):
             new_list = []
             for each in subject:
@@ -561,7 +572,16 @@ class Spcht:
         raise TypeError("Could handle graph, subject pair")
 
     @staticmethod
-    def _node_preprocessing(value, sub_dict):
+    def _node_preprocessing(value: str or list, sub_dict: dict) -> str or list or None:
+        """
+        used in the processing after entries were found, this acts basically as filter for everything that does
+        not match the provided regex in sub_dict
+
+        :param str or list value: value of the found field/subfield, can be a list
+        :param dict sub_dict: sub dictionary containing a match key, if not nothing happens
+        :return: None if not a single match was found, str or list if one or more matches were made or no 'match'
+        :rtype: str or list or None
+        """
         # if there is a match-filter, this filters out the entry or all entries not matching
         if not Spcht.is_dictkey(sub_dict, "match"):
             return value  # the nothing happens clause
@@ -579,6 +599,7 @@ class Spcht:
                     list_of_returns.append(finding.string)
             if 0 < len(list_of_returns) < 2:
                 return list_of_returns[0]  # if there is only one surviving element there is no point in returning a list
+                # although an argument could be made that always list would be more uniform....
             elif len(list_of_returns) > 1:
                 return list_of_returns
             else:
@@ -586,7 +607,18 @@ class Spcht:
         else:  # fallback if its anything else i dont intended to handle with this
             return value
 
-    def _node_postprocessing(self, value, sub_dict):
+    def _node_postprocessing(self, value: str or list, sub_dict: dict):
+        """
+        Used after filtering and mapping took place, this appends the pre and post text before the value if provided,
+        further also replaces part of the value with the replacement text or just removes the part that is
+        specified by cut if no replacement was provided. Without 'cut' there will be no replacement.
+        Order is first replace and cut and THEN appending text
+
+        :param str or list value: the content of the field that got mapped till now
+        :param dict sub_dict: the subdictionary of the node containing the 'cut', 'prepend', 'append' and 'replace' key
+        :return: returns the same number of provided entries as input, if only one its just a string
+        :rtype: str or list
+        """
         # after having found a value for a given key and done the appropriate mapping the value gets transformed
         # once more to change it to the provided pattern
 
@@ -625,6 +657,17 @@ class Spcht:
             self._SAVEAS[sub_dict['saveas']].append(value)
 
     def _node_mapping(self, value, mapping, settings):
+        """
+        Used in the processing after filtering via match but before the postprocesing. This replaces every matched
+        value from a dictionary or the default if no match. Its possible to set the default to inheritance to pass
+        the value through
+
+        :param str or list value: the found value in the source, can be also a list of values, usually strings
+        :param dict mapping: a dictionary of key:value pairs provided to replace parameter value one by one
+        :param dict settings: a set list of settings that were defined in the node
+        :return: returns the same number of values as input, might replace all non_matches with the default value. It CAN return None if something funky is going on with the settings and mapping
+        :rtype: str or list or None
+        """
         the_default = False
         if not isinstance(mapping, dict) or mapping is None:
             return value

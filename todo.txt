@@ -11,6 +11,8 @@
     [x] Remove duplicated information # should not really matter but still
     [x] MARC mutli Value for authors
     [x] Check Regex Entries for faults
+    [ ] MARC Filter/Conditions for fields/indicators
+    [ ] Append/Prepend working for Marc fields
     [ ] Escape pre and append texts
     [ ] Add output kinds
     [ ] arbitary inser for pre&append texts, more than one entry
