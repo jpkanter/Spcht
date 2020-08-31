@@ -819,8 +819,8 @@ class Spcht:
         }
         # ? what happens if there is more than one ressource?
         ressource = self._recursion_node(sub_dict, raw_dict, marc21_record)
-        if isinstance(ressource, tuple):
-            ressource = ressource[1]
+        if isinstance(ressource, list) and len(ressource) == 1:
+            ressource = ressource[0][1]
             self.debug_print("Ressource", colored(ressource, "green", attrs=["bold"]))
         else:
             self.debug_print("ERROR", colored(ressource, "green"))
