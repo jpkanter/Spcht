@@ -49,6 +49,9 @@ class Spcht:
         else:
             return "Empty Spcht"
 
+    def __iter__(self):
+        return SpchtIterator(self)
+
     def debug_print(self, *args, **kwargs):
         """
             prints only text if debug flag is set, prints to *self._debug_out*
@@ -1250,3 +1253,19 @@ class Spcht:
                 print(error_desc['fallback_dict'], file=out)
                 return False
         return True
+
+
+class SpchtIterator:
+    def __init__(self, spcht: Spcht):
+        self._spcht = spcht
+        self._index = 0
+
+    def __next__(self):
+        if isinstance(self._spcht._DESCRI, dict) and \
+                Spcht.is_dictkey(self._spcht._DESCRI, 'nodes') and \
+                self._index < (len(self._spcht._DESCRI['nodes'])):
+            result = self._spcht._DESCRI['nodes'][self._index]
+            self._index += 1
+            return result
+        raise StopIteration
+
