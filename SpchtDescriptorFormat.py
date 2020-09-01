@@ -798,7 +798,13 @@ class Spcht:
         # Preparation of Data to make it more handy in the further processing
         marc21_record = None  # setting a default here
         if marc21_source == "dict":
-            marc21_record = Spcht.marc2list(raw_dict.get(marc21))
+            try:
+                marc21_record = Spcht.marc2list(raw_dict.get(marc21))
+            except AttributeError as e:
+                if e == "'str' object has no attribute 'get":
+                    raise AttributeError(f"str has no get {raw_dict}")
+                else:
+                    raise AttributeError(e)  # pay it forward
         elif marc21_source == "none":
             pass  # this is more a nod to anyone reading this than actually doing anything
         else:

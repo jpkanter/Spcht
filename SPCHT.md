@@ -21,7 +21,7 @@ Lets get started with an example:
             "source": "dict",
             "graph": "http://purl.org/ontology/bibo/isbn",
             "field": "isbn",
-            "type": "optional",
+            "required": "optional",
             "fallback": {
                 "source": "marc",
                 "field": "020",
@@ -57,7 +57,7 @@ Each Node contains at least a `source`, `graph` and `type` field which define th
   
   * Values: a list of dictionaries.
 * `name` - the name doesn't serve any purpose, you may display it while processing but its just there so you have a better overview, while this is superfluous for the program, human readability seems like something to wish for. While not used for any processing the error reporting engine of the format checker uses it to clarify the position of an error but doesn't need it desperately.
-  
+  *Note*: the name is also used in the [Spcht Checker Gui](https://github.com/jpkanter/spcht_checker_gui) as display name, its still strictly unnecessary but adds visual cues
   * Values: `any string`
 * `source` - source for the data field, if its a dictionary `field`is the key we are looking for. If the source is to be found in a corresponding MARC21 entry `field` describes the Entry Number ranging from 000 to 999. There is also a necessary `subfield` as most MARC21 entries do not lay on the root.
   
@@ -79,9 +79,9 @@ Each Node contains at least a `source`, `graph` and `type` field which define th
 * `prepend` & `append`: both add literal text to the beginning and the end of any give value. This is the last step that gets applied to any given value regardless of source
   * Values: any `str` 
 * `saveas` - **WIP** this function saves the final value of the specified field or key into a list. That value is **without** the content of `prepend` and `append` but **with** the filter provided by `match` and `cut`.  The List can later be retrieved with the function `getSaveAs`. This list *can* contain duplicates depending on the processed content. Exact duplicated values can be filtered out with `CleanSaveAs`
-  * Value: a string that specifieds the dictionary key for the name of the list
+  * Value: a string that specified the dictionary key for the name of the list
 * other fields: the spcht descriptor format is meant to be a human readable configuration file, you can add any field you might like to make things more clear is not described to hold a function. For future extension it would be safest to stick to two particular dictionary-keys: `name` and `comment`
-  
+  *Note:* the aformentioned Spcht Gui program also uses the comment section as part of its displayed attributes, it matches every entry that starts with "comment*" which makes multiple comments possible.
 ##### source: dict
 
 The primary use case for this program was the mapping or conversion of content from the library *Apache Solr* to a *linked data format*. The main way *solr* outputs data is as a list of dictionaries. If you don't have a *solr* based database the program might be still of use. The data just has to exists as a dictionary in some kind of listed value unit. The **source:dict** format is the most basic of the bunch. In its default state it will just create a graph connection for the entry found, if there is a list of entries in the described dictionary key it will create as many graphs. It also offers some basic processing for more complex data. If the `field` key cannot be found it will use `alternatives`, a list of dictionary keys before it goes to the fall-back node.
