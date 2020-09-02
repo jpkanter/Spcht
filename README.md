@@ -1,14 +1,20 @@
-# Fork for EFRE Linked Open Data ElasticSearch Toolchain
+# Solr to Triplestore Bridge
 
-The [original](https://github.com/slub/efre-lod-elasticsearch-tools) toolchain of the **SLUB** was to complex for my needs, further i found its documentation
-in the parts that interested me the most more than lacking. Especially the total absence of any 
-comments had proven tiresome. This started out as a fork but transformed into its own project, there are no parts of the original code left but a lot of inspiration was drawn. Therefore there is still the original project around, just in spirit and terms of creativity.
+This project started out under a vastly different name. In its first live it was a very tightly build small tool aiming to provide a singular job. That objective remained mostly the same but the scope grew a bit larger and so a decision was made: a tool evolved from the first one takes the place and provides the ability to do more than a simple tool.
+
+![Simple diagram explaining the workflow](./README/simplediagram1.png)
+
+The project had already processed data from various sources in a search-able database, in this case an apache solr. On of the export formats of the solr is in json-format. Here we find some header informations and a list of key-value statements describing various attributes of media. These data should be transfered in a [triplestore](https://en.wikipedia.org/wiki/Triplestore), originally [OpenLink Virtuoso](https://virtuoso.openlinksw.com/) stored as rdf-triple. For those triples another step has to be taken, each data-pair needs to be matched into the right kind of object. The first instance of this work was hard coded and found the mapping directly in the code. To preserve the ability to change things at a later point of time a new format was found: the **spcht descriptor format**.
+
+While other frameworks like [MetaFacture](https://github.com/metafacture) exists, these proved to unwieldy. The format of the *sdf* is written in json and structured more simply. It cannot provide the same feature richness MetaFacture offers but runs easier. There is also a [GUI Tool](https://github.com/jpkanter/spcht_checker_gui) to provide guidance for the format itself.
 
 ## Content
 
-## solr2virtuoso_bridge.py
+The Codebase is strictly divided in the actual framework for spcht and an implementation for this specific project. 
 
-The main part of the logic. It offers a handful of functions useable via a command line interface. Most settings that can be specified via a direct ressource can also referenced in a config json file with the key `para`.
+## main.py
+
+The main part of the logic. It offers a handful of functions usable via a command line interface. Most settings that can be specified via a direct resource can also referenced in a configuration json file with the key `para`.
 
 ### local_tools.py
 
