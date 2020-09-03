@@ -13,7 +13,10 @@
     [x] Check Regex Entries for faults
     [ ] MARC Filter/Conditions for fields/indicators
     [ ] Append/Prepend working for Marc fields
+    [ ] MARC differenciate concate cases (full/partially)
+    [ ] DICT multi replacement / Insert
     [ ] Escape pre and append texts
+    [ ] Reference Nodes - Check if full path or relative path is provided os.path.isabs(my_path)
     [ ] Add output kinds
     [ ] arbitary inser for pre&append texts, more than one entry
 * SPARQL

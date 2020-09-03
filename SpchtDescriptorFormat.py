@@ -409,7 +409,11 @@ class Spcht:
         if Spcht.is_dictkey(node_dict, 'mapping_settings') and node_dict['mapping_settings'].get('$ref') is not None:
             file_path = node_dict['mapping_settings']['$ref']  # ? does it always has to be a relative path?
             self.debug_print("Reference:", colored(file_path, "green"))
-            map_dict = self.load_json(os.path.normpath(os.path.join(base_path, file_path)))
+            try:
+                map_dict = self.load_json(os.path.normpath(os.path.join(base_path, file_path)))
+            except FileNotFoundError:
+                self.debug_print("Reference File not found")
+                return False
             # iterate through the dict, if manual entries have the same key ignore
             if not isinstance(map_dict, dict):  # we expect a simple, flat dictionary, nothing else
                 return False  # funnily enough, this also includes bool which happens when json loads fails
@@ -1042,9 +1046,9 @@ class Spcht:
         return graph.serialize(format=format).decode("utf-8")
 
     @staticmethod
-    def check_format(descriptor, out=sys.stderr, i18n=None):
+    def check_format(descriptor, out=sys.stderr, base_path="", i18n=None):
         """
-            This function checks if the correct SPCHT format is provided anad if not gives appropriated errors.
+            This function checks if the correct SPCHT format is provided and if not gives appropriated errors.
             This works without an instatiated copy and has therefore a separated output parameter. Further it is
             possible to provide to custom translations for the error messages in cases you wish to offer a check
             engine working in another non-english language. The keys for that dictionaries can be found in the source
@@ -1052,6 +1056,7 @@ class Spcht:
 
             :param dict descriptor: a dictionary of the loaded json file of a descriptor file without references
             :param file out: output pipe for the error messages
+            :param base_path: path of the spcht descriptor file, used to check reference files not in script directory
             :param dict i18n: a flat dictionary containing the error texts. Not set keys will default to the standard ones
             :return: True if everything is in order, False and a message about the located failure in the output
             :rtype: bool
@@ -1065,6 +1070,7 @@ class Spcht:
             "header_mal": "The header information seems to be malformed",
             "basic_struct": "Elements of the basic structure ( [source, field, required, graph] ) are missing",
             "basic_struct2": "An Element of the basic sub node structure is missing [source or field]",
+            "ref_not_exist": "The file {} cannot be found (probably either rights or wrong path)",
             "type_str": "the type key must contain a string value that is either 'triple' or anything else",
             "regex": "The provided regex is not correct",
             "marc_subfield": "Every marc entry needs a field AND a subfield or subfield_s_ item, cannot find subfield/s.",
@@ -1094,6 +1100,8 @@ class Spcht:
                 if Spcht.is_dictkey(i18n, key) and isinstance(i18n[key], str):
                     error_desc[key] = i18n[key]
         # ? this should probably be in every reporting function which bears the question if its not possible in another way
+        if base_path == "":
+            base_path = os.path.abspath('.')
         # checks basic infos
         if not Spcht.is_dictkey(descriptor, 'id_source', 'id_field', 'nodes'):
             print(error_desc['header_miss'], file=out)
@@ -1116,19 +1124,19 @@ class Spcht:
         del plop
 
         # the actual header check
-        if not Spcht._check_format_node(header_node, error_desc, out):
+        if not Spcht._check_format_node(header_node, error_desc, out, base_path):
             print("header_mal", file=out)
             return False
         # end of header checks
         for node in descriptor['nodes']:
-            if not Spcht._check_format_node(node, error_desc, out, True):
+            if not Spcht._check_format_node(node, error_desc, out, base_path, True):
                 print(error_desc['nodes'], node.get('name', node.get('field', "unknown")), file=out)
                 return False
         # ! make sure everything that has to be here is here
         return True
 
     @staticmethod
-    def _check_format_node(node, error_desc, out, is_root=False):
+    def _check_format_node(node, error_desc, out, base_path, is_root=False):
         # @param node - a dictionary with a single node in it
         # @param error_desc - the entire flat dictionary of error texts
         # * i am writing print & return a lot here, i really considered making a function so i can do "return funct()"
@@ -1222,9 +1230,15 @@ class Spcht:
                         if not isinstance(value, str):
                             # special cases upon special cases, here its the possibility of true or false for $default
                             if isinstance(value, bool) and key == "$default":
-                                pass
+                                continue
                             else:
                                 print(error_desc['maps_dict_str'], file=out)
+                                return False
+                        if key == "$ref":
+                            file_path = value
+                            fullpath = os.path.normpath(os.path.join(base_path, file_path))
+                            if not os.path.exists(fullpath):
+                                print(error_desc['ref_not_exist'].format(file_path), file=out)
                                 return False
             if Spcht.is_dictkey(node, 'graph_field'):
                 if not isinstance(node['graph_field'], str):
@@ -1245,6 +1259,13 @@ class Spcht:
                 if Spcht.is_dictkey(node, 'graph_map_ref') and not isinstance(node['graph_map_ref'], str):
                     print(error_desc['graph_map_ref'], file=out)
                     return False
+                if Spcht.is_dictkey(node, 'graph_map_ref') and isinstance(node['graph_map_ref'], str):
+                    file_path = node['graph_map_ref']
+                    fullpath = os.path.normpath(os.path.join(base_path, file_path))
+                    if not os.path.exists(fullpath):
+                        print(error_desc['ref_not_exist'].format(file_path), file=out)
+                        return False
+
             if Spcht.is_dictkey(node, 'saveas'):
                 if not isinstance(node['saveas'], str):
                     print(error_desc['must_str'].format("saveas"), file=out)
@@ -1252,7 +1273,7 @@ class Spcht:
 
         if Spcht.is_dictkey(node, 'fallback'):
             if isinstance(node['fallback'], dict):
-                if not Spcht._check_format_node(node['fallback'], error_desc, out):  # ! this is recursion
+                if not Spcht._check_format_node(node['fallback'], error_desc, out, base_path):  # ! this is recursion
                     print(error_desc['fallback'], file=out)
                     return False
             else:
