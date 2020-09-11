@@ -183,6 +183,27 @@ class Spcht:
         return False
 
     @staticmethod
+    def list_wrapper(some_element):
+        """
+            I had the use case that i needed always a list of elements on a type i dont really care about as even when
+            its just a list of one element.
+        :param some_element: any variable that will be wrapped in a list
+        :type some_element: any
+        :return: Will return the element wrapped in the list unless its already a list, its its something weird returns None
+        :rtype: list or None
+        """
+        if isinstance(some_element, list):
+            return some_element
+        elif isinstance(some_element, str) or isinstance(some_element, int) or isinstance(some_element, float):
+            return [some_element]
+        elif isinstance(some_element, bool):
+            return [some_element]
+        elif isinstance(some_element, dict):
+            return [some_element]
+        else:
+            return None
+
+    @staticmethod
     def validate_regex(regex_str):
         """
             Checks if a given string is valid regex
@@ -508,10 +529,13 @@ class Spcht:
             if Spcht.is_dictkey(sub_dict, "graph_field"):
                 # ? i really hope this works like intended, if there is graph_field, do nothing of the normal matching
                 graph_value = self._graph_map(raw_dict, sub_dict)
-                if graph_value is not None:
+                if graph_value is not None:  # ? why i am even checking for that? Fallbacks, thats why
                     self.debug_print(colored("✓ graph_field", "green"))
                     return graph_value
             # normal field matching
+            elif Spcht.is_dictkey(sub_dict, 'insert_into'): # ? similar to graph field this is an alternate mode
+                return self._inserter_string(raw_dict, sub_dict)
+                # ! dont forget post processing
             elif Spcht.is_dictkey(raw_dict, sub_dict['field']):  # main field name
                 temp_value = raw_dict[sub_dict['field']]  # the raw value
                 temp_value = Spcht._node_preprocessing(temp_value, sub_dict)  # filters out entries
@@ -777,6 +801,37 @@ class Spcht:
                     continue
             if len(result_list) > 0:
                 return result_list
+        return None
+
+    def _inserter_string(self, raw_dict: dict, sub_dict: dict):
+        """
+            This inserts the value of field (and all additional fields defined in "insert_add_fields" into a string,
+            when there are less placeholders than add strings those will be omitted, if there are less fields than
+            placeholders (maybe cause the data source doesnt score that many hits) then those will be empty "". This
+            wont fire at all if not at least field doesnt exits
+        :param dict raw_dict: a flat dictionary containing a key sorted list of values to be processes
+        :param dict sub_dict: the subdictionary of the node containing all the nodes insert_into and insert_add_fields
+        :return: a list of tuple or a singular tuple of (graph, string)
+        :rtype: tuple or list
+        """
+        # ? sometimes i wonder why i bother with the tuple AND list stuff and not just return a list [(graph, str)]
+        # * check whether the base field even exists:
+        if not Spcht.is_dictkey(raw_dict, sub_dict['field']):
+            return None
+        placerholders = sub_dict['insert_into']
+        # check what actually exists in this instance of raw_dict
+        inserters = []
+        if Spcht.list_wrapper(raw_dict[sub_dict['field']]) is not None:
+            inserters.append(Spcht.list_wrapper(raw_dict[sub_dict['field']]))
+        else:  # TODO: this needs to be explored, what else datatypes here might appear
+            return None
+        if Spcht.is_dictkey(sub_dict, 'insert_add_fields'):
+            for each in sub_dict['insert_add_fields']:
+                if Spcht.is_dictkey(raw_dict, each) and Spcht.list_wrapper(raw_dict[each]) is not None:
+                    inserters.append(Spcht.list_wrapper(raw_dict[each]))
+                else:
+                    inserters.append([""])
+        print(json.dumps(inserters))
         return None
 
     def processData(self, raw_dict, graph, marc21="fullrecord", marc21_source="dict"):

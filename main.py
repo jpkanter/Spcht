@@ -635,7 +635,7 @@ if you see this message, not all mandatory parameters were providedh"""
     if args.MarcView:
         marc21_display()
     if args.FullTest:
-        full_process()
+        full_process(PARA['solr'], PARA['graph'], PARA['spcht'], PARA['sparql'])
     if args.SolrSpy:
         solr_spy("", 2, 0.5, 0)
     if args.CheckFields:

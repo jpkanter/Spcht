@@ -228,6 +228,19 @@
             "type": "triple"
         },
         {
+            "name": "Verfügbarkeitswachtel, neues System",
+            "comment": "Nutzt neues Feld InsertString",
+            "comment1": "Die Frage besteht ob man 'field' mitnimmt oder es rein auf InsertFields beschränkt",
+            "comment2": "What if any of those fields is a multivalued field?", 
+            "source": "dict",
+            "graph": "http://schema.org/availability",
+            "required": "optional",
+            "field": "institution",
+            "insert_into": "https://data.ub.uni-leipzig.de/item/wachtl/{}:ppn:{}",
+            "insert_add_fields": ["id"],
+            "type": "triple"
+        },
+        {
             "name" : "Teilhaber als Graph",
             "source": "dict",
             "graph": "http://purl.org/dc/terms/contributor",
