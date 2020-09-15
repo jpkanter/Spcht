@@ -204,6 +204,112 @@ class Spcht:
             return None
 
     @staticmethod
+    def all_variants(variant_matrix: list) -> list:
+        """
+        In case there is a list with lenght x containing a number of entries each
+        then this will give you all possible combinations of them. And i am quite
+        sure this is a solved problem but i didnt knew what to search for cause
+        apparently i lack a classical education in that field so i had to improvise
+        :param list variant_matrix: a list containing more lists
+        :return: a list of lists of all combinations, throws various TypeErrors if something isnt alright
+        :rtype: list
+        """
+        many = []
+        for cur_idx in range(0, len(variant_matrix), 2):
+            if len(variant_matrix) > cur_idx:
+                if len(many) <= 0:  # this are elements 1 & 2
+                    for each in variant_matrix[cur_idx]:
+                        for every in variant_matrix[cur_idx + 1]:
+                            many.append([each, every])
+                else:  # these are elements 3+ and 4+
+                    much = []
+                    for each in variant_matrix[cur_idx]:
+                        for every in variant_matrix[cur_idx + 1]:
+                            much.append([each, every])
+                    over_many = []
+                    for every in many:
+                        for each in much:
+                            menge = list(every)
+                            menge.append(each[0])
+                            menge.append(each[1])
+                            over_many += menge
+                            del menge
+                    many = over_many
+            else:
+                if len(many) <= 0:
+                    for each in variant_matrix[cur_idx]:
+                        many.append(each)
+                else:  # there was already a previous rounds with two entries in a "tuple"
+                    over_many = []
+                    for every in many:
+                        for each in variant_matrix[cur_idx]:
+                            menge = list(every)
+                            menge.append(each)
+                            over_many += menge
+                    many = over_many
+            if not len(variant_matrix) >= cur_idx + 1:  # there is no next block after this one
+                break  # does that really matter? we are doing strides of two anyway right?
+        return many
+
+    @staticmethod
+    def match_positions(regex_pattern, zeichenkette: str) -> list or None:
+        """
+        Returns a list of position tuples for the start and end of the matched pattern in a string
+        :param str regex_pattern: the regex pattern that matches
+        :param str zeichenkette: the string you want to match against
+        :return: either a list of tuples or None if no match was found, tuples are start and end of the position
+        :rtype: list or None
+        """
+        # ? this is one of these things where there is surely a solution already but i couldn't find it in 5 minutes
+        pattern = re.compile(regex_pattern)
+        poslist = []
+        for hit in pattern.finditer(zeichenkette):
+            poslist.append((hit.start(), hit.end()))
+        if len(poslist) <= 0:
+            return None
+        else:
+            return poslist
+
+    @staticmethod
+    def insert_list_into_str(the_string_list: list, zeichenkette: str, regex_pattern=r'\{\}', pattern_len=2, strict=True):
+        """
+        Inserts a list of list of strings into another string that contains placeholder of the specified kind in regex_pattern
+        :param list the_string_list: a list containing another list of strings, one element for each position
+        :param str zeichenkette: the string you want to match against
+        :param str regex_pattern: the regex pattern searching for the replacement
+        :param int pattern_len: the lenght of the matching placeholder pattern, i am open for less clunky input on this
+        :param bool strict: if true empty strings will mean nothing gets returned, if false empty strings will replace
+        :return: a string with the inserted strings
+        :rtype: str
+        """
+        # ? and the next problem that has a solution somewhere but i couldn't find the words to find it
+        positions = Spcht.match_positions(regex_pattern, zeichenkette)
+        if len(the_string_list) > len(positions):  # more inserts than slots
+            if strict:
+                return None
+            # else nothing for now, you would probably see that something isnt right right?
+        if len(the_string_list) < len(positions):  # more slots than inserts
+            if strict:
+                return None  # would lead to empty space, cant have that
+            else:
+                for i in range(len(positions)-len(the_string_list)):
+                    the_string_list.append("")  # to fill up
+        slots_iter = iter(positions)  # * this is truly the first time i really need an iterator
+        str_len_correction = 0  # * the difference the introduced strings make
+        for each in the_string_list:
+            if len(each) <= 0 and strict:
+                return None
+            start, end = next(slots_iter)
+            start += str_len_correction
+            end += str_len_correction  # * i am almost sure this can be solved more elegantly
+            if len(zeichenkette) > end:
+                zeichenkette = zeichenkette[0:start] + each + zeichenkette[(end):len(zeichenkette)]
+            else:
+                zeichenkette = zeichenkette[0:start] + each
+            str_len_correction += len(each)-pattern_len
+        return zeichenkette
+
+    @staticmethod
     def validate_regex(regex_str):
         """
             Checks if a given string is valid regex
@@ -533,8 +639,11 @@ class Spcht:
                     self.debug_print(colored("✓ graph_field", "green"))
                     return graph_value
             # normal field matching
-            elif Spcht.is_dictkey(sub_dict, 'insert_into'): # ? similar to graph field this is an alternate mode
-                return self._inserter_string(raw_dict, sub_dict)
+            elif Spcht.is_dictkey(sub_dict, 'insert_into'):  # ? similar to graph field this is an alternate mode
+                inserted_ones = self._inserter_string(raw_dict, sub_dict)
+                if inserted_ones is not None:
+                    self.debug_print(colored("✓ insert_field", "green"))
+                    return Spcht._node_return_iron(sub_dict['graph'], self._node_postprocessing(inserted_ones, sub_dict))
                 # ! dont forget post processing
             elif Spcht.is_dictkey(raw_dict, sub_dict['field']):  # main field name
                 temp_value = raw_dict[sub_dict['field']]  # the raw value
@@ -654,21 +763,20 @@ class Spcht:
         # once more to change it to the provided pattern
 
         if isinstance(value, str):
-            if not Spcht.is_dictkey(sub_dict, "cut"):
+            if Spcht.is_dictkey(sub_dict, 'cut'):
+                value = re.sub(sub_dict.get('cut', ""), sub_dict.get('replace', ""), value)
                 self._addToSaveAs(value, sub_dict)
-                return sub_dict.get('prepend', "") + value + sub_dict.get('append', "")
-
-            pure_filter = re.sub(sub_dict.get('cut', ""), sub_dict.get("replace", ""), value)
-            self._addToSaveAs(pure_filter, sub_dict)
-            return sub_dict.get('prepend', "") + pure_filter + sub_dict.get('append', "")
+            else:
+                self._addToSaveAs(value, sub_dict)
+            return sub_dict.get('prepend', "") + value + sub_dict.get('append', "")
         elif isinstance(value, list):
             list_of_returns = []
             for item in value:
-                pure_filter = re.sub(sub_dict.get('cut', ""), sub_dict.get('replace', ""), item)
                 if not Spcht.is_dictkey(sub_dict, "cut"):
                     rest_str = sub_dict.get('prepend', "") + item + sub_dict.get('append', "")
-                    self._addToSaveAs(value, sub_dict)
+                    self._addToSaveAs(item, sub_dict)
                 else:
+                    pure_filter = re.sub(sub_dict.get('cut', ""), sub_dict.get('replace', ""), item)
                     rest_str = sub_dict.get('prepend', "") + pure_filter + sub_dict.get('append', "")
                     self._addToSaveAs(pure_filter, sub_dict)
                 list_of_returns.append(rest_str)
@@ -818,7 +926,6 @@ class Spcht:
         # * check whether the base field even exists:
         if not Spcht.is_dictkey(raw_dict, sub_dict['field']):
             return None
-        placerholders = sub_dict['insert_into']
         # check what actually exists in this instance of raw_dict
         inserters = []
         if Spcht.list_wrapper(raw_dict[sub_dict['field']]) is not None:
@@ -831,8 +938,17 @@ class Spcht:
                     inserters.append(Spcht.list_wrapper(raw_dict[each]))
                 else:
                     inserters.append([""])
-        print(json.dumps(inserters))
-        return None
+        all_texts = Spcht.all_variants(inserters)
+        self.debug_print(colored(f"Inserts {len(all_texts)}", "grey"), end=" ")
+        all_lines = []
+        for each in all_texts:
+            replaced_line = Spcht.insert_list_into_str(each, sub_dict['insert_into'], r'\{\}', 2, True)
+            if replaced_line is not None:
+                all_lines.append(replaced_line)
+        if len(all_lines) > 0:
+            return all_lines
+        else:
+            return None
 
     def processData(self, raw_dict, graph, marc21="fullrecord", marc21_source="dict"):
         """
@@ -899,7 +1015,6 @@ class Spcht:
                     node_status = 1
                 else:
                     node_status = 0
-
                 # * mandatory checks
                 # there are two ways i could have done this, either this or having the checks split up in every case
                 if facet is None:
@@ -981,7 +1096,7 @@ class Spcht:
             temp_list = Spcht._get_node_fields_recursion(node)
             if temp_list is not None and len(temp_list) > 0:
                 the_list += temp_list
-        return the_list
+        return sorted(set(the_list))
 
     @staticmethod
     def _get_node_fields_recursion(sub_dict):
@@ -992,6 +1107,9 @@ class Spcht:
                 part_list += sub_dict['alternatives']
             if Spcht.is_dictkey(sub_dict, 'graph_field'):
                 part_list.append(sub_dict['graph_field'])
+            if Spcht.is_dictkey(sub_dict, 'insert_add_fields'):
+                for each in sub_dict['insert_add_fields']:
+                    part_list.append(each)
         if Spcht.is_dictkey(sub_dict, 'fallback'):
             temp_list = Spcht._get_node_fields_recursion(sub_dict['fallback'])
             if temp_list is not None and len(temp_list) > 0:
@@ -1033,7 +1151,7 @@ class Spcht:
             if temp_list is not None and len(temp_list) > 0:
                 the_other_list += temp_list
         # list set for deduplication, crude method but best i have for the moment
-        return list(set(the_other_list))  # unlike the field equivalent this might return an empty list
+        return sorted(set(the_other_list))  # unlike the field equivalent this might return an empty list
 
     @staticmethod
     def _get_node_graphs_recursion(sub_dict):
