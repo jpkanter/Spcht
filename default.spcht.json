@@ -225,6 +225,9 @@
             "required": "optional",
             "field": "id",
             "prepend": "https://data.ub.uni-leipzig.de/item/wachtl/DE-15:ppn:",
+            "if_condition": "equal",
+            "if_value": "DE-15",
+            "if_field": "institution",
             "type": "triple"
         },
         {

@@ -22,6 +22,10 @@ except ImportError:
     NORDF = True
 
 
+SPCHT_BOOL_OPS = {"equal":"==", "eq":"=","greater":">","gr":">","lesser":"<","ls":"<",
+                    "greater_equal":">=","gq":">=", "lesser_equal":"<=","lq":"<=",
+                  "unequal":"!=","uq":"!="}
+
 # the actual class
 
 class Spcht:
@@ -158,19 +162,23 @@ class Spcht:
 
     # other boiler plate, general stuff that is used to not write out a lot of code each time
     @staticmethod
-    def is_dictkey(dictionary, *keys):
+    def is_dictkey(dictionary, *keys: str or list):
         """
             Checks the given dictionary or the given list of keys
 
             :param dict dictionary: a arbitarily dictionary
-            :param str keys: a variable number of dictionary keys
+            :param str or list keys: a variable number of dictionary keys, either in a list of strings or as multiple strings
             :return: True if `all` keys are present in the dictionary, else false
             :rtype: bool
-            :raises TypeError: if a non-dictionary is provided
+            :raises TypeError: if a non-dictionary is provided, or keys is a not valid dictionary key
         """
         if not isinstance(dictionary, dict):
             raise TypeError("Non Dictionary provided")
         for key in keys:
+            if isinstance(key, list):
+                for each in key:
+                    if each not in dictionary:
+                        return False
             if key not in dictionary:
                 return False
         return True
@@ -308,6 +316,49 @@ class Spcht:
                 zeichenkette = zeichenkette[0:start] + each
             str_len_correction += len(each)-pattern_len
         return zeichenkette
+
+    @staticmethod
+    def is_float(string):
+        """
+        Checks if a string can be converted to a float
+        :param str string: a string of any kind
+        :return: True if its possible, False if not
+        :rtype: bool
+        """
+        # ! why exactly i am writing such kind of functions all the time? Do i lack the vision to see the build ins?
+        try:
+            float(string)
+            return True
+        except ValueError:
+            return False
+
+    @staticmethod
+    def is_int(string):
+        """
+        Checks if a string can be converted to an int
+        :param str string: a string of any kind
+        :return: True if possible, False if not
+        :rtype: bool
+        """
+        try:
+            int(string)
+            return True
+        except ValueError:
+            return False
+
+    @staticmethod
+    def if_possible_make_this_numerical(value: any):
+        """Converts a given var in the best kind of numerical value that it can, if it can be an int it will be one,
+        :param object value: any kind of value, hopefully something 1-dimensional
+        :return: the converted value, might be an int, might be a float, or just the object that came
+        :rtype: int or float or any
+        """
+        if Spcht.is_int(value):
+            return int(value)
+        elif Spcht.is_float(value):
+            return float(value)
+        else:
+            return value
 
     @staticmethod
     def validate_regex(regex_str):
@@ -630,6 +681,11 @@ class Spcht:
             # TODO: gather more samples of awful marc and process it
         elif sub_dict['source'] == "dict":
             self.debug_print(colored("Source Dict", "yellow"), end="-> ")
+
+            if Spcht.is_dictkey(sub_dict, "if_condition"):  # condition cancels out the entire node, doesnt support fallbacks
+                if not self._handle_if(raw_dict, sub_dict, 'dict'):
+                    return None
+
             # graph_field matching - some additional checks necessary
             # the existence of graph_field invalidates the rest if graph field does not match
             if Spcht.is_dictkey(sub_dict, "graph_field"):
@@ -950,6 +1006,69 @@ class Spcht:
         else:
             return None
 
+    def _handle_if(self, raw_dict: dict, sub_dict: dict, mode: str):
+        # ? for now this only needs one field to match the criteria and everything is fine
+        # TODO: Expand if so that it might demand that every single field fulfill the condition
+        # here is something to learn, list(obj) is a not actually calling a function and faster for small dictionaries
+        # there is the Python 3.5 feature, unpacking generalizations PEP 448, which works with *obj, calling the iterator
+        # dictionaries give their keys when iterating over them, it would probably be more clear to do *dict.keys() but
+        # that has the same result as just doing *obj --- this doesnt matter anymore cause i was wrong in the thing
+        # that triggered this text, but the change to is_dictkey is made and this information is still useful
+        if Spcht.is_dictkey(SPCHT_BOOL_OPS, sub_dict['if_condition']):
+            sub_dict['if_condition'] = SPCHT_BOOL_OPS[sub_dict['if_condition']]
+        sub_dict['if_value'] = Spcht.if_possible_make_this_numerical(sub_dict['if_value'])
+
+        if mode == 'dict':
+            if not Spcht.is_dictkey(raw_dict, sub_dict['if_field']):
+                if sub_dict['if_condition'] == "=" or sub_dict['if_condition'] == "<" or sub_dict['if_condition'] == "<=":
+                    self.debug_print(colored(f"✗ no if_field found", "blue"), end=" ")
+                    return False
+                else:  # redundant else
+                    self.debug_print(colored(f"✓ no if_field found", "blue"), end=" ")
+                    return True
+                # the logic here is that if you want to have something smaller or equal that not exists it always will be
+                # now we have established that the field at least exists, onward
+            # * so the point of this is to make shore and coast that we actually get stuff beyond simple != / ==
+            if not isinstance(raw_dict[sub_dict['if_field']], list):
+                value = list(Spcht.if_possible_make_this_numerical(raw_dict[sub_dict['if_field']]))
+            else:
+                value = []
+                for each in raw_dict[sub_dict['if_field']]:
+                    value.append(Spcht.if_possible_make_this_numerical(each))
+
+            # ? i really hope one day i learn how to do this better, this seems SUPER clunky, i am sorry
+            for each in value:
+                if sub_dict['if_condition'] == "==":
+                    if each == sub_dict['if_value']:
+                        self.debug_print(colored(f"✓{sub_dict['if_field']}=={each}", "blue"), end=" ")
+                        return True
+                if sub_dict['if_condition'] == ">":
+                    if each > sub_dict['if_value']:
+                        self.debug_print(colored(f"✓{sub_dict['if_field']}<{each}", "blue"), end=" ")
+                        return True
+                if sub_dict['if_condition'] == "<":
+                    if each < sub_dict['if_value']:
+                        self.debug_print(colored(f"✓{sub_dict['if_field']}<{each}", "blue"), end=" ")
+                        return True
+                if sub_dict['if_condition'] == ">=":
+                    if each >= sub_dict['if_value']:
+                        self.debug_print(colored(f"✓{sub_dict['if_field']}>={each}", "blue"), end=" ")
+                        return True
+                if sub_dict['if_condition'] == "<=":
+                    if each <= sub_dict['if_value']:
+                        self.debug_print(colored(f"✓{sub_dict['if_field']}<={each}", "blue"), end=" ")
+                        return True
+                if sub_dict['if_condition'] == "!=":
+                    if each != sub_dict['if_value']:
+                        self.debug_print(colored(f"✓{sub_dict['if_field']}!={each}", "blue"), end=" ")
+                        return True
+            self.debug_print(colored(f"✗ {sub_dict['if_field']} was not {sub_dict['if_condition']} {sub_dict['if_value']}", "magenta"), end="\n")
+            return False
+        else:
+            # ! insert some text here larry
+            self.debug_print(colored(f"If condition in non-supported source type {mode}", "yellow"), end=" ")
+            return True
+
     def processData(self, raw_dict, graph, marc21="fullrecord", marc21_source="dict"):
         """
             takes a raw solr query and converts it to a list of sparql queries to be inserted in a triplestore
@@ -1110,6 +1229,8 @@ class Spcht:
             if Spcht.is_dictkey(sub_dict, 'insert_add_fields'):
                 for each in sub_dict['insert_add_fields']:
                     part_list.append(each)
+            if Spcht.is_dictkey(sub_dict, 'if_field'):
+                part_list.append(sub_dict['if_field'])
         if Spcht.is_dictkey(sub_dict, 'fallback'):
             temp_list = Spcht._get_node_fields_recursion(sub_dict['fallback'])
             if temp_list is not None and len(temp_list) > 0:
