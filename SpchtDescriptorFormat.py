@@ -24,7 +24,7 @@ except ImportError:
 
 SPCHT_BOOL_OPS = {"equal":"==", "eq":"=","greater":">","gr":">","lesser":"<","ls":"<",
                     "greater_equal":">=","gq":">=", "lesser_equal":"<=","lq":"<=",
-                  "unequal":"!=","uq":"!="}
+                  "unequal":"!=","uq":"!=","=":"==","==":"==","<":"<",">":">","<=":"<=",">=":">=","!=":"!=","exi":"exi"}
 
 # the actual class
 
@@ -290,6 +290,7 @@ class Spcht:
         :return: a string with the inserted strings
         :rtype: str
         """
+        # ! for future reference: "random {} {} {}".format(*list) will do almost what this does
         # ? and the next problem that has a solution somewhere but i couldn't find the words to find it
         positions = Spcht.match_positions(regex_pattern, zeichenkette)
         if len(the_string_list) > len(positions):  # more inserts than slots
@@ -1387,7 +1388,14 @@ class Spcht:
             "graph_map": "When defining graph_field there must also be a graph_map key defining the mapping.",
             "graph_map_dict": "The graph mapping must be a dictionary of strings",
             "graph_map_dict_str": "Each key must reference a string value in the graph_map key",
-            "graph_map_ref": "The key graph_map_ref must be a string pointing to a local file"
+            "graph_map_ref": "The key graph_map_ref must be a string pointing to a local file",
+            "add_fields_list": "The additional fields for the insert string have to be in a list, even if its only one ['str']",
+            "add_field_list_str": "Every element of the add_fields has to be a string",
+            "if_allowed_expressions": "The conditions for the if field can only be {}",
+            "if_need_value": "The Condition needs the key 'if_value' except for the 'exi' condition",
+            "if_need_field": "The Condition needs the key 'if_field' that references the data field for checking",
+            "if_need_subfield": "The Condition in source:marc needs 'if_field' AND 'if_subfield'",
+            "if_value_types": "The Condition value can only be of type string, integer or float",
         }
         if isinstance(i18n, dict):
             for key, value in error_desc.items():
@@ -1515,6 +1523,44 @@ class Spcht:
                         if not isinstance(value, str):
                             print(error_desc['map_dict_str'], file=out)
                             return False
+            if Spcht.is_dictkey(node, 'insert_into'):
+                if not isinstance(node['insert_into'], str):
+                    print(error_desc['must_str'].format('insert_into'), file=out)
+                    return False
+                if Spcht.is_dictkey(node, 'insert_add_fields') and not isinstance(node['insert_add_fields'], list):
+                    print(error_desc['add_field_list'], file=out)  # add field is optional, it might not exist but when..
+                    return False
+                else:
+                    for each in node['insert_add_fields']:
+                        if not isinstance(each, str):
+                            print(error_desc['add_field_list_str'], file=out)
+                            return False
+
+            if Spcht.is_dictkey(node, 'if_condition'):
+                if not isinstance(node['if_condition'], str):
+                    print(error_desc['must_str'].format('if_condition'), file=out)
+                    return False
+                else:
+                    if not Spcht.is_dictkey(SPCHT_BOOL_OPS, node['if_condition']):
+                        print(error_desc['if_allowed_expressions'].format(*SPCHT_BOOL_OPS.keys()), file=out)
+                        return False
+                if not Spcht.is_dictkey(node, 'if_field'):
+                    print(error_desc['if_need_field'], file=out)
+                    return False
+                else:
+                    if not isinstance(node['if_field'], str):
+                        print(error_desc['must_str'].format('if_field'), file=out)
+                        return False
+                if not Spcht.is_dictkey(node, 'if_value') and node['if_condition'] != "exi":  # exi doesnt need a value
+                    print(error_desc['if_need_value'], file=out)
+                    return False
+                if Spcht.is_dictkey(node, 'if_value'):
+                    if not isinstance(node['if_value'], str) \
+                      and not isinstance(node['if_value'], int) \
+                      and not isinstance(node['if_value'], float):
+                        print(error_desc['if_value_types'], file=out)
+                        return False
+
             if Spcht.is_dictkey(node, 'mapping_settings'):
                 if not isinstance(node['mapping_settings'], dict):
                     print(error_desc['maps_dict'], file=out)
