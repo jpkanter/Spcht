@@ -244,6 +244,18 @@
             "type": "triple"
         },
         {
+            "name": "Marc21 Insert Into Test String",
+            "comment": "theoretically marc should work with this, but i have no practical example",
+            "source": "marc",
+            "graph": "https://graphs.toucancorp.com/marcstring",
+            "required": "optional",
+            "field": "001",
+            "subfield": "none",
+            "insert_into": "Field 3 {} - 40a: {} and 40b = {}",
+            "insert_add_fields": ["40:a", "40:b"],
+            "type": "literal"
+        },
+        {
             "name" : "Teilhaber als Graph",
             "source": "dict",
             "graph": "http://purl.org/dc/terms/contributor",
