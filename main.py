@@ -92,7 +92,6 @@ def load_from_json(file_path):
 
 def spcht_object_test():
     global PARA
-    load_config()
     heinz = Spcht(PARA['spcht'], debug=True)
     if heinz.descri_status():
         debug_dict = {
@@ -122,6 +121,9 @@ def spcht_object_test():
         jsoned_list = []
         thesparqlset = []
         for entry in thetestset:
+            if Spcht.is_dictkey(PARA, 'isolate'):
+                if PARA['isolate'] != entry.get('id'):
+                    continue
             print(colored(debug_dict.get(entry.get('id')), "white", attrs=["bold"]))
             temp = heinz.processData(entry, PARA['graph'])
             if isinstance(temp, list):
@@ -558,6 +560,7 @@ if __name__ == "__main__":
     parser.add_argument('--part', '-p', type=int, help="Size of one chunk/part when loading data from solr", metavar="number")
     parser.add_argument('--rows', '-r', type=int, help="Total Numbers of rows requested for the Operation", metavar="number")
     parser.add_argument('--time', '-t', type=int, help="Time in Minutes", metavar="number")
+    parser.add_argument('--isolate', '-i', type=str, help="DEBUG: Isolates the test set to one ID", metavar="number")
 
     parser.add_argument('--urls', '-u', action="store_true", help="Lists all urls the procedure knows after loading data")
     parser.add_argument('--dry', '-d', action="store_true", help="Pulls (and loads) all data as per protocol but doesnt change anything permanently")
@@ -570,7 +573,7 @@ if __name__ == "__main__":
     if args.config:
         cfg_status = load_config(args.config)
 
-    boring_parameters = ["spcht", "log", "outfile", "solr", "sparql_auth", "sparql_user", "sparql_pw", "graph", "part", "rows", "filter", "time"]
+    boring_parameters = ["spcht", "log", "outfile", "solr", "sparql_auth", "sparql_user", "sparql_pw", "graph", "part", "rows", "filter", "time", "isolate"]
 
     for arg in vars(args):
         if arg in boring_parameters and getattr(args, arg) is not None:

@@ -210,6 +210,200 @@
       "subfield": "a",
       "insert_into": "Here 336:a : {}, also 264:c {}",
       "insert_add_fields": ["264:c"]
+    },
+    {
+      "name": "Simple Dict with prepend text",
+      "source": "dict",
+      "graph": "https://simple.dict.with.prepend/",
+      "required": "optional",
+      "field": "genre",
+      "prepend": "Some Prefix"
+    },
+     {
+      "name": "Simple Dict with append text",
+      "source": "dict",
+      "graph": "https://simple.dict.with.append/",
+      "required": "optional",
+      "field": "title",
+      "prepend": "<><>xXx<><>POSTFIX"
+    },
+    {
+      "name": "Simple marc with prepend",
+      "source": "marc",
+      "graph": "https://simple.marc.with.prepend/",
+      "required": "optional",
+      "field": "001",
+      "subfield": "none",
+      "prepend": "PREFIX"
+    },
+    {
+      "name": "Simple marc with append",
+      "source": "marc",
+      "graph": "https://simple.marc.with.append/",
+      "required": "optional",
+      "field": "001",
+      "subfield": "none",
+      "append": "POSTFIX"
+    },
+    {
+      "name": "Simple Dict with cut",
+      "source": "dict",
+      "graph": "https://simple.dict.with.cut/",
+      "required": "optional",
+      "field": "ctrlnum",
+      "cut": "(\\(DE-627\\))"
+    },
+    {
+      "name": "Simple Dict with cut & replace",
+      "source": "dict",
+      "graph": "https://simple.dict.with.cut.replace/",
+      "required": "optional",
+      "field": "ctrlnum",
+      "cut": "(\\(DE-627\\))",
+      "replace": "SE-999 "
+    },
+    {
+      "name": "Simple Dict with match",
+      "source": "dict",
+      "graph": "https://simple.dict.with.match/",
+      "required": "optional",
+      "field": "ctrlnum",
+      "match": "(\\(DE-627\\))"
+    },
+    {
+      "name": "Simple Dict with match, cut & replace",
+      "source": "dict",
+      "graph": "https://simple.dict.with.match.cut.replace/",
+      "required": "optional",
+      "field": "ctrlnum",
+      "match": "(\\(DE-627\\))",
+      "cut": "(\\(DE-627\\))",
+      "replace": "ES-665 "
+    },
+    {
+      "name": "Dict Mapping",
+      "source": "dict",
+      "graph": "https://complex.dict.mapping.to.value",
+      "field": "author_role",
+      "alternatives": ["author_corporate_role", "author2_role", "author_corporate2_role"],
+      "required": "optional",
+      "mapping_settings": {
+          "$ref": "./translation_maps/roles.json",
+          "$default": true
+          },
+      "mapping": {
+        "aut": "https://this.overwrites.the.loaded.mapping"
+      }
+    },
+    {
+      "name": "Dict Mapping with append/prepend",
+      "source": "dict",
+      "graph": "https://dict.mapping.but.with.append.prepend",
+      "field": "author_role",
+      "alternatives": ["author_corporate_role", "author2_role", "author_corporate2_role"],
+      "required": "optional",
+      "mapping_settings": {
+          "$ref": "./translation_maps/roles.json",
+          "$default": true
+          },
+      "mapping": {
+        "aut": "https://this.overwrites.the.loaded.mapping"
+      },
+      "prepend": "PREFIX",
+      "append": "SUFFIX"
+    },
+    {
+      "name": "Dict Graph Map",
+      "source": "dict",
+      "graph": "http://complex.dict.two.fields.to.graph.map",
+      "graph_map": {
+          "aus": "https://this.overwrites.the.loaded.graph.map",
+          "aut": "http://purl.org/dc/elements/1.1/creator"
+          },
+      "graph_map_ref": "./translation_maps/role_graphs.json",
+      "graph_field": "author2_role",
+      "field": "author2",
+      "required": "optional"
+    },
+    {
+      "name": "Dict Graph Map with append, prepend",
+      "source": "dict",
+      "graph": "http://i.cannot.really.imagine.a.use.case.for.this.honestly",
+      "graph_map": {
+          "aus": "https://this.overwrites.the.loaded.graph.map",
+          "aut": "http://purl.org/dc/elements/1.1/creator"
+          },
+      "graph_map_ref": "./translation_maps/role_graphs.json",
+      "graph_field": "author2_role",
+      "field": "author2",
+      "prepend": "PREFIX",
+      "append": "SUFFIX",
+      "required": "optional"
+    },
+    {
+      "name": "Dict Graph Map with additional mapping of value",
+      "source": "dict",
+      "graph": "http://complex.dict.two.fields.to.graph.map.and.map.value",
+      "graph_map": {
+          "aus": "https://this.overwrites.the.loaded.graph.map",
+          "aut": "http://purl.org/dc/elements/1.1/creator",
+          "act": "https://if.this.is.gary.oldman.it.wont.say.so/"
+          },
+      "mapping_settings": {
+          "$default": true
+          },
+      "mapping": {
+        "Heisig, Bernhard": "<<><NOT Bernhard Heisig <<>>",
+        "J\u00e4ger, Wolfram": "Jörgen Wolfram?",
+        "Oldman, Gary": "xXx Geralt Altmann xXx"
+      },
+      "graph_map_ref": "./translation_maps/role_graphs.json",
+      "graph_field": "author2_role",
+      "field": "author2",
+      "required": "optional"
+    },
+    {
+      "name": "Simple Dict with if condition",
+      "source": "dict",
+      "graph": "https://simple.dict.with.if/",
+      "required": "optional",
+      "field": "building",
+      "if_condition": "equal",
+      "if_field": "institution",
+      "if_value": "DE-14"
+    },
+    {
+      "name": "Simple Dict with if comparator",
+      "source": "dict",
+      "graph": "https://simple.dict.with.if/",
+      "required": "optional",
+      "field": "language",
+      "if_condition": ">=",
+      "if_field": "publishDateSort",
+      "if_value": 2014
+    },
+    {
+      "name": "Simple marc with a subfield and if-condition",
+      "source": "marc",
+      "graph": "https://simple.marc.subfield.with.if/",
+      "required": "optional",
+      "field": "100",
+      "subfield": "a",
+      "if_condition": "equal",
+      "if_value": "ger",
+      "if_field": "41",
+      "if_subfield": "a"
+    },
+    {
+      "name": "Simple marc with a subfield and if-condition on existence",
+      "source": "marc",
+      "graph": "https://simple.marc.subfield.with.if.existence/",
+      "required": "optional",
+      "field": "856",
+      "subfield": "u",
+      "if_condition": "exi",
+      "if_field": "856",
+      "if_subfield": "i1"
     }
   ]
 }

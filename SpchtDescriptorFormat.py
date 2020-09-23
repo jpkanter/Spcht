@@ -234,18 +234,28 @@ class Spcht:
                     for each in variant_matrix[cur_idx]:
                         for every in variant_matrix[cur_idx + 1]:
                             much.append([each, every])
+                    temp_list = []
                     for every in many:
                         for each in much:
-                            every.append(each[0])
-                            every.append(each[1])
+                            temp_line = every.copy()
+                            temp_line.append(each[0])
+                            temp_line.append(each[1])
+                            temp_list.append(temp_line)
+                            del temp_line  # this should do nothing
+                    many = temp_list
             else:  # this position is the last one
                 if len(many) <= 0:
                     for each in variant_matrix[cur_idx]:
                         many.append([each])  # this is only one entry, a list of list is expected
                 else:  # there was already a previous rounds with two entries in a "tuple"
+                    temp_list = []
                     for every in many:
                         for each in variant_matrix[cur_idx]:
-                            every.append(each)
+                            temp_line = every.copy()
+                            temp_line.append(each)
+                            temp_list.append(temp_line)
+                            del temp_line
+                    many = temp_list
             if not len(variant_matrix) >= cur_idx + 1:  # there is no next block after this one
                 break  # does that really matter? we are doing strides of two anyway right?
         return many
@@ -310,6 +320,38 @@ class Spcht:
                 zeichenkette = zeichenkette[0:start] + each
             str_len_correction += len(each)-pattern_len
         return zeichenkette
+
+    @staticmethod
+    def extract_dictmarc_value(raw_dict: dict, sub_dict: dict, field="field", sub_field="") -> list or None:
+        if sub_dict['source'] == 'dict':
+            if not Spcht.is_dictkey(raw_dict, sub_dict[field]):
+                return None
+            if not isinstance(raw_dict[sub_dict[field]], list):
+                value = [Spcht.if_possible_make_this_numerical(raw_dict[sub_dict[field]])]
+            else:
+                value = []
+                for each in raw_dict[sub_dict[field]]:
+                    value.append(Spcht.if_possible_make_this_numerical(each))
+            return value
+        elif sub_dict['source'] == "marc":
+            m21_field = int(sub_dict[field].lstrip("0"))
+            m21_value = None
+            if not Spcht.is_dictkey(raw_dict, m21_field):
+                return None
+            if sub_dict[sub_field] == 'none' and not isinstance(raw_dict[m21_field], dict):
+                m21_value = raw_dict[m21_field]
+            if sub_dict[sub_field] != 'none' and isinstance(raw_dict[m21_field], dict):
+                if Spcht.is_dictkey(raw_dict[m21_field], sub_dict[sub_field]):
+                    m21_value = raw_dict[m21_field][sub_dict[sub_field]]
+            if m21_value is not None:
+                if isinstance(m21_value, list):
+                    value = []  # ? i am almost sure that marc21 can never be a list like element
+                    for each in m21_value:
+                        value.append(Spcht.if_possible_make_this_numerical(each))
+                else:
+                    return [Spcht.if_possible_make_this_numerical(m21_value)]
+            return None
+        return None
 
     @staticmethod
     def is_float(string):
@@ -657,7 +699,10 @@ class Spcht:
             if marc21_dict is None:
                 self.debug_print(colored("No Marc", "yellow"), end="|")
                 pass
-            elif not Spcht.is_dictkey(marc21_dict, int(sub_dict['field'].lstrip("0"))):
+            if Spcht.is_dictkey(sub_dict, "if_condition"):  # condition cancels out the entire node, triggers callback
+                if not self._handle_if(marc21_dict, sub_dict, 'flexible'):
+                    return self._call_fallback(sub_dict, raw_dict, marc21_dict) # ! i created call_fallback just for this
+            if not Spcht.is_dictkey(marc21_dict, int(sub_dict['field'].lstrip("0"))):
                 self.debug_print(colored(f"Marc around but not field {sub_dict['field']}", "yellow"), end=" > ")
                 pass
             else:  # r"^[0-9]{1,3}:\w*$"
@@ -670,6 +715,8 @@ class Spcht:
                         return Spcht._node_return_iron(sub_dict['graph'], inserted_ones)
                         # ! this handling of the marc format is probably too simply
                 elif Spcht.is_dictkey(sub_dict, 'subfield'):
+                    # marc21_value = Spcht.extract_dictmarc_value(marc21_dict, sub_dict, 'field', 'subfield')
+                    # ? would do the same but without the reporting stuff
                     m21_field = int(sub_dict['field'].lstrip("0"))
                     if Spcht.is_dictkey(marc21_dict, m21_field):
                         if sub_dict['subfield'] == "none":
@@ -705,9 +752,9 @@ class Spcht:
         elif sub_dict['source'] == "dict":
             self.debug_print(colored("Source Dict", "yellow"), end="-> ")
 
-            if Spcht.is_dictkey(sub_dict, "if_condition"):  # condition cancels out the entire node, doesnt support fallbacks
-                if not self._handle_if(raw_dict, sub_dict, 'dict'):
-                    return None
+            if Spcht.is_dictkey(sub_dict, "if_condition"):  # condition cancels out the entire node, triggers callback
+                if not self._handle_if(raw_dict, sub_dict, 'flexible'):
+                    return self._call_fallback(sub_dict, raw_dict, marc21_dict) # ! i created call_fallback just for this
 
             # graph_field matching - some additional checks necessary
             # the existence of graph_field invalidates the rest if graph field does not match
@@ -743,7 +790,9 @@ class Spcht:
                                             sub_dict.get('mapping_settings'))
                             self.debug_print(colored("✓ alternative field", "green"))
                             return Spcht._node_return_iron(sub_dict['graph'], self._node_postprocessing(temp_value, sub_dict))
+        return self._call_fallback(sub_dict, raw_dict, marc21_dict)
 
+    def _call_fallback(self, sub_dict, raw_dict, marc21_dict):
         if Spcht.is_dictkey(sub_dict, 'fallback') and sub_dict['fallback'] is not None:  # we only get here if everything else failed
             # * this is it, the dreaded recursion, this might happen a lot of times, depending on how motivated the
             # * librarian was who wrote the descriptor format
@@ -973,13 +1022,20 @@ class Spcht:
                 if (not isinstance(raw_dict[sub_dict['field']][i], str) or
                         not isinstance(raw_dict[sub_dict['graph_field']][i], str)):
                     continue  # we cannot work of non strings, although, what about numbers?
-                temp_value = raw_dict[sub_dict['field']][i]  # the raw value
+                temp_value = raw_dict[sub_dict['field']][i]  # the raw value, i could have shortened it, but readability is key
                 temp_value = Spcht._node_preprocessing(temp_value, sub_dict)  # filters out entries
                 if temp_value is not None and len(temp_value) > 0:
-                    temp_value = self._node_mapping(temp_value, sub_dict.get('mapping'),
-                                                    sub_dict.get('mapping_settings'))
-                    graph = self._node_mapping(raw_dict[sub_dict['graph_field']][i], sub_dict.get("graph_map"),
-                                               {"$default": sub_dict['graph']})
+                    temp_value = self._node_mapping(temp_value, sub_dict.get('mapping'), sub_dict.get('mapping_settings'))
+                    # ? when testing all the functions i got very confused at this part. What this does: it basically
+                    # ? allows us to use graph_map in conjunction with mapping, i dont know if there is any use ever, but
+                    # ? its possible. For reasons unknown to me i wrote this so the value that is mapped to the resulting
+                    # ? graph by the mapping function instead of just plain taking the actual value, i think that is cause
+                    # ? copied that part from the normal processing to get the pre/postprocessor working. One way or
+                    # ? another, since this uses .get it wont fail even if there is no mapping specified but it will work
+                    # ? if its the case. The clunky definition in the graph setter below this is the actual default
+                    # ? definition, so the default graph is always the graph field if not set to something different.
+                    # ? the field is mandatory for all nodes anyway so it should be pretty save
+                    graph = self._node_mapping(raw_dict[sub_dict['graph_field']][i], sub_dict.get("graph_map"), {"$default": sub_dict['graph']})
                     # danger here, if the graph_map is none, it will return graph_field instead of default, hrrr
                     if sub_dict.get("graph_map") is None:
                         graph = sub_dict['graph']
@@ -1012,7 +1068,7 @@ class Spcht:
                     return None
         # check what actually exists in this instance of raw_dict
         inserters = []  # each entry is a list of strings that are the values stored in that value, some dict fields are
-        # more than one value, therefore everythings gets squashed into a list
+        # more than one value, therefore everything gets squashed into a list
         if sub_dict['source'] == "dict":
             if Spcht.list_wrapper(raw_dict[sub_dict['field']]) is not None:
                 inserters.append(Spcht.list_wrapper(raw_dict[sub_dict['field']]))
@@ -1080,58 +1136,60 @@ class Spcht:
         # that triggered this text, but the change to is_dictkey is made and this information is still useful
         if Spcht.is_dictkey(SPCHT_BOOL_OPS, sub_dict['if_condition']):
             sub_dict['if_condition'] = SPCHT_BOOL_OPS[sub_dict['if_condition']]
+        else:
+            return False # if your comparator is false nothing can be true
+
+        comparator_value = self.extract_dictmarc_value(raw_dict, sub_dict, "if_field", "if_subfield")
+
+        if sub_dict['if_condition'] == "exi":
+            if comparator_value is None:
+                self.debug_print(colored(f"✗ field {sub_dict['if_field']} {sub_dict.get('if_subfield', '')} doesnt exist", "blue"), end=" ")
+                return False
+            self.debug_print(colored(f"✓ field {sub_dict['if_field']} {sub_dict.get('if_subfield', '')} exists", "blue"), end=" ")
+            return True
+
+        # ! if we compare there is no if_value, so we have to do the transformation later
         sub_dict['if_value'] = Spcht.if_possible_make_this_numerical(sub_dict['if_value'])
 
-        if sub_dict['source'] == 'dict':
-            if not Spcht.is_dictkey(raw_dict, sub_dict['if_field']):
-                if sub_dict['if_condition'] == "=" or sub_dict['if_condition'] == "<" or sub_dict['if_condition'] == "<=":
-                    self.debug_print(colored(f"✗ no if_field found", "blue"), end=" ")
-                    return False
-                else:  # redundant else
-                    self.debug_print(colored(f"✓ no if_field found", "blue"), end=" ")
-                    return True
-                # the logic here is that if you want to have something smaller or equal that not exists it always will be
-                # now we have established that the field at least exists, onward
-            # * so the point of this is to make shore and coast that we actually get stuff beyond simple != / ==
-            if not isinstance(raw_dict[sub_dict['if_field']], list):
-                value = list(Spcht.if_possible_make_this_numerical(raw_dict[sub_dict['if_field']]))
-            else:
-                value = []
-                for each in raw_dict[sub_dict['if_field']]:
-                    value.append(Spcht.if_possible_make_this_numerical(each))
+        if comparator_value is None:
+            if sub_dict['if_condition'] == "=" or sub_dict['if_condition'] == "<" or sub_dict['if_condition'] == "<=":
+                self.debug_print(colored(f"✗ no if_field found", "blue"), end=" ")
+                return False
+            else:  # redundant else
+                self.debug_print(colored(f"✓ no if_field found", "blue"), end=" ")
+                return True
+            # the logic here is that if you want to have something smaller or equal that not exists it always will be
+            # now we have established that the field at least exists, onward
+        # * so the point of this is to make shore and coast that we actually get stuff beyond simple != / ==
 
-            # ? i really hope one day i learn how to do this better, this seems SUPER clunky, i am sorry
-            for each in value:
-                if sub_dict['if_condition'] == "==":
-                    if each == sub_dict['if_value']:
-                        self.debug_print(colored(f"✓{sub_dict['if_field']}=={each}", "blue"), end=" ")
-                        return True
-                if sub_dict['if_condition'] == ">":
-                    if each > sub_dict['if_value']:
-                        self.debug_print(colored(f"✓{sub_dict['if_field']}<{each}", "blue"), end=" ")
-                        return True
-                if sub_dict['if_condition'] == "<":
-                    if each < sub_dict['if_value']:
-                        self.debug_print(colored(f"✓{sub_dict['if_field']}<{each}", "blue"), end=" ")
-                        return True
-                if sub_dict['if_condition'] == ">=":
-                    if each >= sub_dict['if_value']:
-                        self.debug_print(colored(f"✓{sub_dict['if_field']}>={each}", "blue"), end=" ")
-                        return True
-                if sub_dict['if_condition'] == "<=":
-                    if each <= sub_dict['if_value']:
-                        self.debug_print(colored(f"✓{sub_dict['if_field']}<={each}", "blue"), end=" ")
-                        return True
-                if sub_dict['if_condition'] == "!=":
-                    if each != sub_dict['if_value']:
-                        self.debug_print(colored(f"✓{sub_dict['if_field']}!={each}", "blue"), end=" ")
-                        return True
-            self.debug_print(colored(f"✗ {sub_dict['if_field']} was not {sub_dict['if_condition']} {sub_dict['if_value']}", "magenta"), end="\n")
-            return False
-        else:
-            # ! insert some text here larry
-            self.debug_print(colored(f"If condition in non-supported source type {mode}", "yellow"), end=" ")
-            return True
+        # ? i really hope one day i learn how to do this better, this seems SUPER clunky, i am sorry
+        for each in comparator_value:
+            if sub_dict['if_condition'] == "==":
+                if each == sub_dict['if_value']:
+                    self.debug_print(colored(f"✓{sub_dict['if_field']}=={each}", "blue"), end=" ")
+                    return True
+            if sub_dict['if_condition'] == ">":
+                if each > sub_dict['if_value']:
+                    self.debug_print(colored(f"✓{sub_dict['if_field']}<{each}", "blue"), end=" ")
+                    return True
+            if sub_dict['if_condition'] == "<":
+                if each < sub_dict['if_value']:
+                    self.debug_print(colored(f"✓{sub_dict['if_field']}<{each}", "blue"), end=" ")
+                    return True
+            if sub_dict['if_condition'] == ">=":
+                if each >= sub_dict['if_value']:
+                    self.debug_print(colored(f"✓{sub_dict['if_field']}>={each}", "blue"), end=" ")
+                    return True
+            if sub_dict['if_condition'] == "<=":
+                if each <= sub_dict['if_value']:
+                    self.debug_print(colored(f"✓{sub_dict['if_field']}<={each}", "blue"), end=" ")
+                    return True
+            if sub_dict['if_condition'] == "!=":
+                if each != sub_dict['if_value']:
+                    self.debug_print(colored(f"✓{sub_dict['if_field']}!={each}", "blue"), end=" ")
+                    return True
+        self.debug_print(colored(f"✗ {sub_dict['if_field']} was not {sub_dict['if_condition']} {sub_dict['if_value']}", "magenta"), end=" ")
+        return False
 
     def processData(self, raw_dict, graph, marc21="fullrecord", marc21_source="dict"):
         """
