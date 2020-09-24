@@ -322,7 +322,23 @@ class Spcht:
         return zeichenkette
 
     @staticmethod
-    def extract_dictmarc_value(raw_dict: dict, sub_dict: dict, field="field", sub_field="") -> list or None:
+    def extract_dictmarc_value(raw_dict: dict, sub_dict: dict, field="field", sub_field="subfield") -> list or None:
+        """
+        In the corner case and context of this program there are (for now) two different kinds of 'raw_dict', the first
+        is a flat dictionary containing a key:value relationship where the value might be a list, the second is the
+        transformed marc21_dict which is the data retrieved from the marc_string inside the datasource. The transformation
+        steps contained in spcht create a dictionary similar to the 'normal' raw_dict. There are additional exceptions
+        like that there are marc values without sub-key, for these the special subfield 'none' exists, there are also
+        indicators that are actually standing outside of the normal data set but are included by the transformation script
+        and accessable with 'i1' and 'i2'. This function abstracts those special cases and just takes the dictionary of
+        a spcht node and uses it to extract the neeed data and returns it. If there is no field it will return None instead
+        :param dict raw_dict: either the solr dictionary or the tranformed marc21_dict
+        :param dict sub_dict: a spcht node describing the data source
+        :param str field: name of the field in sub_dict, usually this is just 'field'
+        :param sub_field: name of the subfield in the sub_dict, usually this is just 'subfield'
+        :return: Either the value extracted or None if no value could be found
+        :rtype: list or None
+        """
         if sub_dict['source'] == 'dict':
             if not Spcht.is_dictkey(raw_dict, sub_dict[field]):
                 return None
@@ -1608,6 +1624,17 @@ class Spcht:
             return False
 
         if node['source'] == "marc":
+            if Spcht.is_dictkey(node, 'if_condition'):
+                if not isinstance(node['if_condition'], str):
+                    print(error_desc['must_str'].format('if_condition'), file=out)
+                    return False
+                if not Spcht.is_dictkey(node, 'if_field'):
+                    print(error_desc['if_need_field'], file=out)
+                    return False
+                if not Spcht.is_dictkey(node, 'if_subfield'):
+                    print(error_desc['if_need_subfield'], file=out)
+                    return False
+
             if not Spcht.is_dictkey(node, 'subfield') and not Spcht.is_dictkey(node, 'subfields'):
                 print(error_desc['marc_subfield'], file=out)
                 return False

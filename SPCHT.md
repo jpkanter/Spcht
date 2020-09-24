@@ -165,9 +165,18 @@ Originally  the entire logic behind the SPCHT format was written as a set of pro
 ### non-instantiated functions
 
 ```python
-def is_dictkey(dictionary, *keys)
-def list_has_elements(iterable)
-def validate_regex(string)
+def is_dictkey(dictionary: dict, *keys) -> bool
+def list_has_elements(iterable) -> bool
+def list_wrapper(some_elements: any) -> list
+def all_variants(variant_matrix: list) -> list
+def match_positions(regex: str, string: str) -> list
+def insert_list_into_str(list_of_strings, string, regex, pattern_length, strict=True)
+def extract_dictmarc_value(raw_dict, sub_dict, field="field", subfield="subfield")
+def is_float(string: str) -> bool
+def is_int(string: str) -> bool
+def if_possible_make_this_numerical(value: any) -> str or int or float
+def slice_marc_shorthand(string: str) -> tuple
+def validate_regex(regex_string: str) -> bool
 def marc21_fixRecord(record, validation=False, replace_method="decimal")
 def marcleader2report(marc21_leader, output=sys.stdout)
 def check_format(descriptor, out=sys.stderr, i18n=None)
@@ -175,14 +184,23 @@ def check_format(descriptor, out=sys.stderr, i18n=None)
 
 These functions provide some utility which is mostly used internally for the other functions but might as well be useful elsewhere. They are written in a way that makes reusing them easy, although most of them are simple enough to not bother
 
-| Function              | Purpose                                                      |
-| --------------------- | ------------------------------------------------------------ |
-| **is_dictkey**        | Returns true when *all* provided keys are present in the provide dictionary |
-| **list_has_elements** | Checks if an iterable has any elements *Note, this function seems verbose and unnecessary* |
-| **validate_regex**    | Returns true if the provided string is valid regex, false if not |
-| **marc21_fixRecord**  | Replaces some unicode Characters like ö, ä and ü that came through the database to the interpreter |
-| **marcleader2report** | Gives a verbose report about the content of the provided Marc21 leader string (length = 24 Byte) |
-| **check_format**      | Returns true if the provided descriptor (in dictionary Spcht format) is a valid Spcht descriptor, otherwise false and an error print. (*Might throw exceptions in later iterations*) |
+| Function                             | Purpose                                                      |
+| ------------------------------------ | ------------------------------------------------------------ |
+| **is_dictkey**                       | Returns true when *all* provided keys are present in the provide dictionary |
+| **list_has_elements**                | Checks if an iterable has any elements *Note, this function seems verbose and unnecessary* |
+| **all_variants**                     | A given list containing additional lists of elements will be iterated so all possible combination will be returned as a list of lists (a matrix, or 2-dimensional array) |
+| **list_wrapper**                     | If the input is already a list nothing happens, otherwise this returns [input] |
+| **match_positions**                  | While standard regex functions only return one position, this returns a list of start and stop of the provided pattern in the string |
+| **insert_list_into_string**          | This basically does `{} {} {}".format(*list)` but will also do checks whether enough elements are provided or not. It also implements a custom insert method instead of `str.format` |
+| **extract_dictmarc_value**           | Convenience function to abstract the retrieval of data from different datasources |
+| **is_float**                         | checks if a string could be a float                          |
+| **is_int**                           | checks if a string could be an int                           |
+| **if_possible_make _this_numerical** | Transforms a give string, if possible, to the lowest type of numerical value. String > Integer > Float |
+| **slice_marc_shorthand**             | Returns a tuple of field and subfield of a given *Marc 21 Shorthand* of the structure `624:a` |
+| **validate_regex**                   | Returns true if the provided string is valid regex, false if not |
+| **marc21_fixRecord**                 | Replaces some unicode Characters like ö, ä and ü that came through the database to the interpreter |
+| **marcleader2report**                | Gives a verbose report about the content of the provided Marc21 leader string (length = 24 Byte) |
+| **check_format**                     | Returns true if the provided descriptor (in dictionary Spcht format) is a valid Spcht descriptor, otherwise false and an error print. (*Might throw exceptions in later iterations*) |
 
 
 
@@ -228,6 +246,10 @@ self.std_out = sys.stdout
 self.std_err = sys.stderr
 self.debug_out = sys.stdout
 ```
+
+### Private functions
+
+
 
 
 
