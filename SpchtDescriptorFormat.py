@@ -294,9 +294,10 @@ class Spcht:
         # ! for future reference: "random {} {} {}".format(*list) will do almost what this does
         # ? and the next problem that has a solution somewhere but i couldn't find the words to find it
         positions = Spcht.match_positions(regex_pattern, zeichenkette)
-        if len(the_string_list) > len(positions):  # more inserts than slots
+        if len(positions) == 3:
             print(the_string_list)
-            print(f" {len(the_string_list)} > {len(positions)}")
+        if len(the_string_list) > len(positions):  # more inserts than slots
+            print(f" {len(the_string_list)} > {len(positions)}") # ? technically debug text
             if strict:
                 return None
             # else nothing for now, you would probably see that something isnt right right?
@@ -322,7 +323,7 @@ class Spcht:
         return zeichenkette
 
     @staticmethod
-    def extract_dictmarc_value(raw_dict: dict, sub_dict: dict, field="field", sub_field="subfield") -> list or None:
+    def extract_dictmarc_value(raw_dict: dict, sub_dict: dict, dict_field="field") -> list or None or False:
         """
         In the corner case and context of this program there are (for now) two different kinds of 'raw_dict', the first
         is a flat dictionary containing a key:value relationship where the value might be a list, the second is the
@@ -337,37 +338,76 @@ class Spcht:
         :param str field: name of the field in sub_dict, usually this is just 'field'
         :param sub_field: name of the subfield in the sub_dict, usually this is just 'subfield'
         :return: Either the value extracted or None if no value could be found
-        :rtype: list or None
+        :rtype: list or None or False
         """
         if sub_dict['source'] == 'dict':
-            if not Spcht.is_dictkey(raw_dict, sub_dict[field]):
+            if not Spcht.is_dictkey(raw_dict, sub_dict[dict_field]):
                 return None
-            if not isinstance(raw_dict[sub_dict[field]], list):
-                value = [Spcht.if_possible_make_this_numerical(raw_dict[sub_dict[field]])]
+            if not isinstance(raw_dict[sub_dict[dict_field]], list):
+                value = [raw_dict[sub_dict[dict_field]]]
             else:
                 value = []
-                for each in raw_dict[sub_dict[field]]:
-                    value.append(Spcht.if_possible_make_this_numerical(each))
+                for each in raw_dict[sub_dict[dict_field]]:
+                    value.append(each)
             return value
         elif sub_dict['source'] == "marc":
-            m21_field = int(sub_dict[field].lstrip("0"))
-            m21_value = None
-            if not Spcht.is_dictkey(raw_dict, m21_field):
-                return None
-            if sub_dict[sub_field] == 'none' and not isinstance(raw_dict[m21_field], dict):
-                m21_value = raw_dict[m21_field]
-            if sub_dict[sub_field] != 'none' and isinstance(raw_dict[m21_field], dict):
-                if Spcht.is_dictkey(raw_dict[m21_field], sub_dict[sub_field]):
-                    m21_value = raw_dict[m21_field][sub_dict[sub_field]]
-            if m21_value is not None:
-                if isinstance(m21_value, list):
-                    value = []  # ? i am almost sure that marc21 can never be a list like element
-                    for each in m21_value:
-                        value.append(Spcht.if_possible_make_this_numerical(each))
+            field, subfield = Spcht.slice_marc_shorthand(sub_dict[dict_field])
+            print(field, type(field))
+            print(subfield, type(subfield))
+            if field is None:
+                return None  # ! Exit 0 - No Match, exact reasons unknown
+            if not Spcht.is_dictkey(raw_dict, field):
+                return None  # ! Exit 1 - Field not present
+            value = None
+            if isinstance(raw_dict[field], list):
+                for each in raw_dict[field]:
+                    if Spcht.is_dictkey(each, subfield):
+                        m21_subfield = each[subfield]
+                        if isinstance(m21_subfield, list):
+                            for every in m21_subfield:
+                                value = Spcht.fill_var(value, every)
+                        else:
+                            value = Spcht.fill_var(value, m21_subfield)
+                    else:
+                        pass  # ? for now we are just ignoring that iteration
+                if value is None:
+                    return False  # ! Exit 2 - Field around but not subfield
                 else:
-                    return [Spcht.if_possible_make_this_numerical(m21_value)]
-            return None
-        return None
+                    return value  # * Value Return
+
+            else:
+                if Spcht.is_dictkey(raw_dict[field], subfield):
+                    if isinstance(raw_dict[field][subfield], list):
+                        for every in raw_dict[field][subfield]:
+                            value = Spcht.fill_var(value, every)
+                        if value is None:  # i honestly cannot think why this should every happen, probably a faulty preprocessor
+                            return False  # ! Exit 2 - Field around but not subfield
+                        else:
+                            return value  # * Value Return
+                    else:
+                        return raw_dict[field][subfield] # * Value Return  # a singular value
+                else:
+                    return False  # ! Exit 2 - Field around but not subfield
+
+    @staticmethod
+    def fill_var(current_var: list or str, new_var : any) -> list or any:
+        """
+        this is another of those functions that probably already exist or what i am trying to do is not wise. Anway
+        this either directly returns new_var if current_var is either an empty string or None. If not it creates a new
+        list with current_var as first element and new_var as second OR if current_var is already a list it just
+        appends, why i am doing that? Cause its boilerplate code and i otherwise had to write it 5 times in one function
+        :param list or str current_var: a variable that might be empty or is not
+        :param any new_var: the new value that is to be added to current_var
+        :return: most likely a list or just new_var
+        :rtype: list or any
+        """
+        if current_var is None:
+            return new_var
+        if isinstance(current_var, str) and current_var == "":  # a single space would be enough to not do things
+            return new_var
+        if isinstance(current_var, list):
+            return current_var.append(new_var)
+        return [current_var, new_var]
 
     @staticmethod
     def is_float(string):
@@ -579,24 +619,41 @@ class Spcht:
                 record_dict = Spcht.normalize_marcdict(record.as_dict())  # for some reason i cannot access all fields,
                 # also funny, i could probably use this to traverse the entire thing ,but better save than sorry i guess
                 # sticking to the standard in case pymarc changes in a way or another
+                marcdict = {}
                 for i in range(1000):
                     if record[f'{i:03d}'] is not None:
-                        tempdict[i] = {}
-                        if hasattr(record[f'{i:03d}'], 'indicator1') and record[f'{i:03d}'].indicator1.strip() != "":
-                            tempdict[i]['i1'] = record[f'{i:03d}'].indicator1
-                        if hasattr(record[f'{i:03d}'], 'indicator2') and record[f'{i:03d}'].indicator2.strip() != "":
-                            tempdict[i]['i2'] = record[f'{i:03d}'].indicator2
-                        for item in record[f'{i:03d}']:
-                            # marc items are tuples, for title its basically 'a': 'Word', 'b': 'more Words'
-                            tempdict[i][item[0]] = item[1]
-                            if Spcht.is_dictkey(tempdict[i], "concat"):
-                                tempdict[i]['concat'] += " " + item[1]
+                        for single_type in record.get_fields(f'{i:03d}'):
+                            temp_subdict = {}
+                            for subfield in single_type:
+                                if Spcht.is_dictkey(temp_subdict, subfield[0]):
+                                    if not isinstance(temp_subdict[subfield[0]], list):
+                                        temp_subdict[subfield[0]] = [temp_subdict[subfield[0]]]
+                                    temp_subdict[subfield[0]].append(subfield[1])
+                                else:
+                                    temp_subdict[subfield[0]] = subfield[1]
+                                # ? this is a bit unfortunated cause the indicator technically hangs at the subfield
+                                # ? not the individual item of the subfield, i will just copy it to every single one
+                                if hasattr(single_type, 'indicator1') and single_type.indicator1.strip() != "":
+                                    temp_subdict['i1'] = single_type.indicator1
+                                if hasattr(single_type, 'indicator2') and single_type.indicator2.strip() != "":
+                                    temp_subdict['i2'] = single_type.indicator2
+
+                            if Spcht.is_dictkey(marcdict, i):  # already exists, transforms into list
+                                if not isinstance(marcdict[i], list):
+                                    marcdict[i] = [marcdict[i]]
+                                marcdict[i].append(temp_subdict)
                             else:
-                                tempdict[i]['concat'] = item[1]
-                        if not Spcht.list_has_elements(record[f'{i:03d}']):
-                            tempdict[i] = record_dict.get(f'{i:03d}')
+                                marcdict[i] = temp_subdict
+                            try:
+                                if not Spcht.list_has_elements(single_type):
+                                    temp = record_dict.get(f'{i:03d}', None)
+                                    if temp is not None:
+                                        marcdict[i]['none'] = temp
+                            except TypeError:
+                                print(f'{i:03d}')
+                                print(record_dict.get(f'{i:03d}', None))
                             # normal len doesnt work cause no method, flat element
-                marc_list.append(tempdict)
+                marc_list.append(marcdict)
             if 0 < len(marc_list) < 2:
                 return marc_list[0]
             elif len(marc_list) > 1:
@@ -717,53 +774,35 @@ class Spcht:
                 pass
             if Spcht.is_dictkey(sub_dict, "if_condition"):  # condition cancels out the entire node, triggers callback
                 if not self._handle_if(marc21_dict, sub_dict, 'flexible'):
-                    return self._call_fallback(sub_dict, raw_dict, marc21_dict) # ! i created call_fallback just for this
-            if not Spcht.is_dictkey(marc21_dict, int(sub_dict['field'].lstrip("0"))):
+                    return self._call_fallback(sub_dict, raw_dict, marc21_dict)  # ! i created call_fallback just for this
+
+            m21_value = Spcht.extract_dictmarc_value(marc21_dict, sub_dict)
+            if m21_value is None:
                 self.debug_print(colored(f"Marc around but not field {sub_dict['field']}", "yellow"), end=" > ")
-                pass
-            else:  # r"^[0-9]{1,3}:\w*$"
-                self.debug_print(colored("Marc21", "yellow"), end="-> ")
-                # Variant 1: a singular subfield is taken
-                if Spcht.is_dictkey(sub_dict, 'insert_into'):
-                    inserted_ones = self._inserter_string(marc21_dict, sub_dict)
-                    if inserted_ones is not None:
-                        self.debug_print(colored("✓ insert_into", "green"))
-                        return Spcht._node_return_iron(sub_dict['graph'], inserted_ones)
-                        # ! this handling of the marc format is probably too simply
-                elif Spcht.is_dictkey(sub_dict, 'subfield'):
-                    # marc21_value = Spcht.extract_dictmarc_value(marc21_dict, sub_dict, 'field', 'subfield')
-                    # ? would do the same but without the reporting stuff
-                    m21_field = int(sub_dict['field'].lstrip("0"))
-                    if Spcht.is_dictkey(marc21_dict, m21_field):
-                        if sub_dict['subfield'] == "none":
-                            if isinstance(marc21_dict[m21_field], dict):
-                                self.debug_print(colored(f"✗ subfield none but marcfield not 'none-able'", "red"), end=" > ")
-                            else:
-                                self.debug_print(colored("✓ subfield none", "green"))
-                                return Spcht._node_return_iron(sub_dict['graph'], marc21_dict[m21_field])
-                        elif isinstance(marc21_dict[m21_field], dict) and Spcht.is_dictkey(marc21_dict[m21_field], sub_dict['subfield']):
-                            self.debug_print(colored(f"✓ subfield {sub_dict['subfield']}", "green"))
-                            return Spcht._node_return_iron(sub_dict['graph'], marc21_dict[m21_field][sub_dict['subfield']])
-                        else:
-                            self.debug_print(colored(f"✗ field and subfield not present in marc21 dict", "red"), end=" > ")
-                # Variant 2: a list of subfields is concat
-                elif Spcht.is_dictkey(sub_dict, 'subfields'):
-                    # check for EVERY subfield to be around, abort this if not
-                    combined_string = ""  # ? this seems less than perfect
-                    m21_dict_field = marc21_dict[int(sub_dict['field'].lstrip("0"))]
-                    if isinstance(m21_dict_field, dict):
-                        for marc_key in sub_dict['subfields']:
-                            if not Spcht.is_dictkey(m21_dict_field, marc_key):
-                                combined_string = False
-                                break
-                            else:
-                                combined_string += m21_dict_field[marc_key] + sub_dict.get('concat', " ")
-                        if isinstance(combined_string, str):  # feels wrong, if its boolean something went AWOL
-                            # * this just deleted the last concat piece with a string[:1] where 1 can be the length of concat
-                            self.debug_print(colored("✓ subfield_S_", "green"))
-                            return Spcht._node_return_iron(sub_dict['graph'], combined_string[:len(sub_dict.get('concat', " "))])
-                    else:
-                        self.debug_print(colored(f"✗ this field does not have subfields", "red"), end=" > ")
+                return self._call_fallback(sub_dict, raw_dict, marc21_dict)
+
+            self.debug_print(colored("Marc21", "yellow"), end="-> ")  # the first step
+            # ? Whats the most important step a man can take? --- Always the next one
+
+            if m21_value == False:  # r"^[0-9]{1,3}:\w*$"
+                self.debug_print(colored(f"✗ field found but subfield not present in marc21 dict", "red"), end=" > ")
+                return self._call_fallback(sub_dict, raw_dict, marc21_dict)
+
+            if Spcht.is_dictkey(sub_dict, 'insert_into'):
+                inserted_ones = self._inserter_string(marc21_dict, sub_dict)
+                if inserted_ones is not None:
+                    self.debug_print(colored("✓ insert_into", "green"))
+                    return Spcht._node_return_iron(sub_dict['graph'], inserted_ones)
+                    # ! this handling of the marc format is probably too simply
+            else:
+                temp_value = Spcht._node_preprocessing(m21_value, sub_dict)
+                if temp_value is None or len(temp_value) <= 0:
+                    self.debug_print(colored(f"✗ value preprocessing returned no matches", "red"), end=" > ")
+                    return self._call_fallback(sub_dict, raw_dict, marc21_dict)
+
+                self.debug_print(colored(f"✓ field&subfield", "green"))
+                return Spcht._node_return_iron(sub_dict['graph'], self._node_postprocessing(temp_value, sub_dict))
+
             # TODO: gather more samples of awful marc and process it
         elif sub_dict['source'] == "dict":
             self.debug_print(colored("Source Dict", "yellow"), end="-> ")
@@ -856,7 +895,7 @@ class Spcht:
         raise TypeError("Could handle graph, subject pair")
 
     @staticmethod
-    def _node_preprocessing(value: str or list, sub_dict: dict) -> str or list or None:
+    def _node_preprocessing(value: str or list, sub_dict: dict, key_prefix="") -> str or list or None:
         """
         used in the processing after entries were found, this acts basically as filter for everything that does
         not match the provided regex in sub_dict
@@ -867,10 +906,10 @@ class Spcht:
         :rtype: str or list or None
         """
         # if there is a match-filter, this filters out the entry or all entries not matching
-        if not Spcht.is_dictkey(sub_dict, "match"):
+        if not Spcht.is_dictkey(sub_dict, f'{key_prefix}match'):
             return value  # the nothing happens clause
         if isinstance(value, str):
-            finding = re.search(sub_dict['match'], value)
+            finding = re.search(sub_dict[f'{key_prefix}match'], str(value))
             if finding is not None:
                 return finding.string
             else:
@@ -878,7 +917,7 @@ class Spcht:
         elif isinstance(value, list):
             list_of_returns = []
             for item in value:
-                finding = re.search(sub_dict['match'], item)
+                finding = re.search(sub_dict[f'{key_prefix}match'], str(item))
                 if finding is not None:
                     list_of_returns.append(finding.string)
             if 0 < len(list_of_returns) < 2:
@@ -891,7 +930,7 @@ class Spcht:
         else:  # fallback if its anything else i dont intended to handle with this
             return value
 
-    def _node_postprocessing(self, value: str or list, sub_dict: dict):
+    def _node_postprocessing(self, value: str or list, sub_dict: dict, key_prefix=""):
         """
         Used after filtering and mapping took place, this appends the pre and post text before the value if provided,
         further also replaces part of the value with the replacement text or just removes the part that is
@@ -907,22 +946,24 @@ class Spcht:
         # once more to change it to the provided pattern
 
         if isinstance(value, str):
-            if Spcht.is_dictkey(sub_dict, 'cut'):
-                value = re.sub(sub_dict.get('cut', ""), sub_dict.get('replace', ""), value)
+            if Spcht.is_dictkey(sub_dict, f'{key_prefix}cut'):
+                value = re.sub(sub_dict.get(f'{key_prefix}cut', ""), sub_dict.get(f'{key_prefix}replace', ""), value)
                 self._addToSaveAs(value, sub_dict)
             else:
                 self._addToSaveAs(value, sub_dict)
-            return sub_dict.get('prepend', "") + value + sub_dict.get('append', "")
+            return sub_dict.get(f'{key_prefix}prepend', "") + value + sub_dict.get(f'{key_prefix}append', "")
         elif isinstance(value, list):
             list_of_returns = []
             for item in value:
-                if not Spcht.is_dictkey(sub_dict, "cut"):
-                    rest_str = sub_dict.get('prepend', "") + item + sub_dict.get('append', "")
-                    self._addToSaveAs(item, sub_dict)
+                if not Spcht.is_dictkey(sub_dict, f'{key_prefix}cut'):
+                    rest_str = sub_dict.get(f'{key_prefix}prepend', "") + str(item) + sub_dict.get(f'{key_prefix}append', "")
+                    if key_prefix != "":
+                        self._addToSaveAs(item, sub_dict)
                 else:
-                    pure_filter = re.sub(sub_dict.get('cut', ""), sub_dict.get('replace', ""), item)
-                    rest_str = sub_dict.get('prepend', "") + pure_filter + sub_dict.get('append', "")
-                    self._addToSaveAs(pure_filter, sub_dict)
+                    pure_filter = re.sub(sub_dict.get(f'{key_prefix}cut', ""), sub_dict.get(f'{key_prefix}replace', ""), str(item))
+                    rest_str = sub_dict.get(f'{key_prefix}prepend', "") + pure_filter + sub_dict.get(f'{key_prefix}append', "")
+                    if key_prefix != "":
+                        self._addToSaveAs(pure_filter, sub_dict)
                 list_of_returns.append(rest_str)
             if len(list_of_returns) == 1:
                 return list_of_returns[0]  # we are handling lists later anyway, but i am cleaning here a bit
@@ -1075,60 +1116,27 @@ class Spcht:
         """
         # ? sometimes i wonder why i bother with the tuple AND list stuff and not just return a list [(graph, str)]
         # * check whether the base field even exists:
-        if sub_dict['source'] == "dict" and not Spcht.is_dictkey(raw_dict, sub_dict['field']):
+        if Spcht.extract_dictmarc_value(raw_dict, sub_dict) is None:
             return None
-        elif sub_dict['source'] == "marc" and Spcht.is_dictkey(raw_dict, sub_dict['field'].lstrip("0")):
-            print(colored("MARC ALT", "green"))
-            if sub_dict['source'] == "marc":
-                if not Spcht.is_dictkey(raw_dict, sub_dict['subfield']):
-                    return None
         # check what actually exists in this instance of raw_dict
         inserters = []  # each entry is a list of strings that are the values stored in that value, some dict fields are
         # more than one value, therefore everything gets squashed into a list
-        if sub_dict['source'] == "dict":
-            if Spcht.list_wrapper(raw_dict[sub_dict['field']]) is not None:
-                inserters.append(Spcht.list_wrapper(raw_dict[sub_dict['field']]))
-            else:  # TODO: this needs to be explored, what else datatypes here might appear
-                return None
-            if Spcht.is_dictkey(sub_dict, 'insert_add_fields'):
-                for each in sub_dict['insert_add_fields']:
-                    if Spcht.is_dictkey(raw_dict, each) and Spcht.list_wrapper(raw_dict[each]) is not None:
-                        inserters.append(Spcht.list_wrapper(raw_dict[each]))
-                    else:
-                        inserters.append([""])
-        # Some small text on what this does: it adds all strings it can find to a list, with marc this is a bit more
-        # complicated cause some fields/subfields combinations do not always exists. So there is a lot of back and
-        # forth checking we have to do while processing. That in turn makes the whole source code a bit messy
-        elif sub_dict['source'] == "marc":
-            first_field = raw_dict.get(int(sub_dict['field'].lstrip("0")), None)
-            if first_field is not None and sub_dict['subfield'] != "none":
-                first_field = first_field.get(sub_dict['subfield'], None)
-            elif sub_dict['subfield'] == "none":
-                pass
-            else:
-                return None
-            if first_field is not None:
-                inserters.append(Spcht.list_wrapper(first_field))
-                if Spcht.is_dictkey(sub_dict, 'insert_add_fields'):  # insert_add_fields optional
-                    for each in sub_dict['insert_add_fields']:
-                        field, subfield = Spcht.slice_marc_shorthand(each)
-                        if not Spcht.is_dictkey(raw_dict, field):  # the field might noe even exist
-                            linefield = None
-                        elif subfield != "none" and isinstance(raw_dict[field], dict):  # its either none OR a key list
-                            linefield = raw_dict.get(field, None).get(subfield, None)
-                        elif subfield == "none" and not isinstance(raw_dict['field'], dict):
-                            linefield = raw_dict.get(field, None)
-                        else:
-                            self.debug_print(colored(f"✗ subfield none but marcfield not 'none-able' or vise versa", "red"), end=" > ")
-                            return None
-                        if linefield is not None:
-                            inserters.append(Spcht.list_wrapper(linefield))  # marc can, as far as i know, never be a list
-                        else:
-                            inserters.append([""])  # placeholder
-            else:
-                return None
-        else:
+        if sub_dict['source'] != "dict" and sub_dict['source'] != "marc":
+            print(f"Unknown source {sub_dict['source']}found, are you from the future relative to me?")
             return None
+        value = Spcht.extract_dictmarc_value(raw_dict, sub_dict)
+        if value is None or value is False:
+            return None
+        inserters.append(Spcht.list_wrapper(value))
+
+        if Spcht.is_dictkey(sub_dict, 'insert_add_fields'):
+            for each in sub_dict['insert_add_fields']:
+                pseudo_dict = {"source": sub_dict['source'], "field": each}
+                value = Spcht.extract_dictmarc_value(raw_dict, pseudo_dict)
+                if value is not None and value is not False:
+                    inserters.append(Spcht.list_wrapper(value))
+                else:
+                    inserters.append([""])
         # all_variants iterates through the seperate lists and creats a new list or rather matrix with all possible combinations
         all_texts = Spcht.all_variants(inserters)
         self.debug_print(colored(f"Inserts {len(all_texts)}", "grey"), end=" ")
@@ -1153,15 +1161,15 @@ class Spcht:
         if Spcht.is_dictkey(SPCHT_BOOL_OPS, sub_dict['if_condition']):
             sub_dict['if_condition'] = SPCHT_BOOL_OPS[sub_dict['if_condition']]
         else:
-            return False # if your comparator is false nothing can be true
+            return False  # if your comparator is false nothing can be true
 
-        comparator_value = self.extract_dictmarc_value(raw_dict, sub_dict, "if_field", "if_subfield")
+        comparator_value = self.extract_dictmarc_value(raw_dict, sub_dict, "if_field")
 
         if sub_dict['if_condition'] == "exi":
             if comparator_value is None:
-                self.debug_print(colored(f"✗ field {sub_dict['if_field']} {sub_dict.get('if_subfield', '')} doesnt exist", "blue"), end=" ")
+                self.debug_print(colored(f"✗ field {sub_dict['if_field']} doesnt exist", "blue"), end="-> ")
                 return False
-            self.debug_print(colored(f"✓ field {sub_dict['if_field']} {sub_dict.get('if_subfield', '')} exists", "blue"), end=" ")
+            self.debug_print(colored(f"✓ field {sub_dict['if_field']}  exists", "blue"), end="-> ")
             return True
 
         # ! if we compare there is no if_value, so we have to do the transformation later
@@ -1178,8 +1186,18 @@ class Spcht:
             # now we have established that the field at least exists, onward
         # * so the point of this is to make shore and coast that we actually get stuff beyond simple != / ==
 
+        #  for proper comparision we also need to use preprocessing and postprocessing to properly filter, i am pondering
+        #  to leave this undocumented
+        comparator_value = self._node_preprocessing(comparator_value, sub_dict, "if_")
+        comparator_value = self._node_postprocessing(comparator_value, sub_dict, "if_")
+        # pre and post processing have annoyingly enough a functionality that de-listifies stuff, in this case that is bad
+        # so we have to listify again, the usage of pre&postprocessing was an afterthought, i hope this doesnt eat to
+        # much performance
+        comparator_value = Spcht.list_wrapper(comparator_value)
         # ? i really hope one day i learn how to do this better, this seems SUPER clunky, i am sorry
+        failure_list = []
         for each in comparator_value:
+            each = Spcht.if_possible_make_this_numerical(each)
             if sub_dict['if_condition'] == "==":
                 if each == sub_dict['if_value']:
                     self.debug_print(colored(f"✓{sub_dict['if_field']}=={each}", "blue"), end=" ")
@@ -1204,7 +1222,8 @@ class Spcht:
                 if each != sub_dict['if_value']:
                     self.debug_print(colored(f"✓{sub_dict['if_field']}!={each}", "blue"), end=" ")
                     return True
-        self.debug_print(colored(f"✗ {sub_dict['if_field']} was not {sub_dict['if_condition']} {sub_dict['if_value']}", "magenta"), end=" ")
+            failure_list.append(each)
+        self.debug_print(colored(f"✗ {sub_dict['if_field']} was not {sub_dict['if_condition']} {sub_dict['if_value']} but {failure_list} instead", "magenta"), end="-> ")
         return False
 
     def processData(self, raw_dict, graph, marc21="fullrecord", marc21_source="dict"):
@@ -1505,10 +1524,6 @@ class Spcht:
             "ref_not_exist": "The file {} cannot be found (probably either rights or wrong path)",
             "type_str": "the type key must contain a string value that is either 'triple' or anything else",
             "regex": "The provided regex is not correct",
-            "marc_subfield": "Every marc entry needs a field AND a subfield or subfield_s_ item, cannot find subfield/s.",
-            "marc_subfield_str": "The subfield key has to be a string value",
-            "marc_subfields_list": "The Value of the subfield*S* key has to be a list (of strings)",
-            "marc_subfields_str": "Every single element of the subfield*S* list has to be a string",
             "field_str": "The field entry has to be a string",
             "required_str": "The required entry has to be a string and contain either: 'mandatory' or 'optional",
             "required_chk": "Required-String can only 'mandatory' or 'optional'. Maybe encoding error?",
@@ -1533,7 +1548,6 @@ class Spcht:
             "if_allowed_expressions": "The conditions for the if field can only be {}",
             "if_need_value": "The Condition needs the key 'if_value' except for the 'exi' condition",
             "if_need_field": "The Condition needs the key 'if_field' that references the data field for checking",
-            "if_need_subfield": "The Condition in source:marc needs 'if_field' AND 'if_subfield'",
             "if_value_types": "The Condition value can only be of type string, integer or float"
         }
         if isinstance(i18n, dict):
@@ -1631,25 +1645,7 @@ class Spcht:
                 if not Spcht.is_dictkey(node, 'if_field'):
                     print(error_desc['if_need_field'], file=out)
                     return False
-                if not Spcht.is_dictkey(node, 'if_subfield'):
-                    print(error_desc['if_need_subfield'], file=out)
-                    return False
 
-            if not Spcht.is_dictkey(node, 'subfield') and not Spcht.is_dictkey(node, 'subfields'):
-                print(error_desc['marc_subfield'], file=out)
-                return False
-            if Spcht.is_dictkey(node, 'subfield') and not isinstance(node['subfield'], str):  # check subfield further
-                print(error_desc['marc_subfield_str'], file=out)
-                return False
-            if Spcht.is_dictkey(node, 'subfields'):  # more than one check for subfields
-                if not isinstance(node['subfields'], list):
-                    print(error_desc['marc_subfields_list'], file=out)
-                    return False
-                # we have established that we got a list, now we proceed
-                for singular_subfield in node['subfields']:
-                    if not isinstance(singular_subfield, str):
-                        print(error_desc['marc_subfields_str'], file=out)
-                        return False
             if Spcht.is_dictkey(node, 'insert_into'):
                 if not isinstance(node['insert_into'], str):
                     print(error_desc['must_str'].format('insert_into'), file=out)
@@ -1667,10 +1663,6 @@ class Spcht:
                             if one is None:
                                 print(error_desc['add_field_list_marc_str2'])
                                 return False
-
-            if Spcht.is_dictkey(node, 'concat') and not isinstance(node['concat'], str):
-                print(error_desc['must_str'].format("concat"), file=out)
-                return False
 
         if node['source'] == "dict":
             if Spcht.is_dictkey(node, 'alternatives'):
@@ -1728,6 +1720,7 @@ class Spcht:
                       and not isinstance(node['if_value'], float):
                         print(error_desc['if_value_types'], file=out)
                         return False
+            # TODO: check for if_preprocessors
 
             if Spcht.is_dictkey(node, 'mapping_settings'):
                 if not isinstance(node['mapping_settings'], dict):

@@ -41,6 +41,10 @@ Goal of the whole format was to provide a somewhat easy way for a librarian to m
 
 As of now this goal is not totally achieved and further steps have to be taken.
 
+## The general Process
+
+
+
 #### Node Mapping
 
 ##### Special Head Node

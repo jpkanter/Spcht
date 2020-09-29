@@ -116,7 +116,7 @@ def spcht_object_test():
             "0-1550115898": "+ zugehörige GA",
             "0-279416644": "Karte"
         }
-        thetestset = load_from_json(TESTFOLDER + "thetestset.json")
+        thetestset = load_from_json(TESTFOLDER + PARA['TestMode'])
         double_list = []
         jsoned_list = []
         thesparqlset = []
@@ -162,8 +162,7 @@ def spcht_object_test():
 def marc21_display():
     # short test of things
     global PARA
-    load_config()
-    thetestset = load_from_json(TESTFOLDER + "thetestset.json")
+    thetestset = load_from_json(TESTFOLDER + PARA['MarcView'])
     for entry in thetestset:
         if entry.get('fullrecord') is not None:
             clean_marc21 = Spcht.marc2list(entry.get('fullrecord'))
@@ -171,31 +170,46 @@ def marc21_display():
             mll = 40  # max line length
             for key, value in clean_marc21.items():
                 if isinstance(value, dict):
-                    position = 0
-                    for subkey, subvalue in value.items():
-                        if subkey == "concat":
-                            continue
-                        if spacers.get(position, 0) < len(str(subvalue)):
-                            spacers[position] = len(str(subvalue)) + 1
-                            if len(str(subvalue)) >= mll:
-                                spacers[position] = mll
-                        position += 1
+                    value = [value]  # there was different code here before and this saves boilerplate space
+                if isinstance(value, list):
+                    for each in value:
+                        if isinstance(each, dict):
+                            position = 0
+                            for subkey, subvalue in each.items():
+                                if not isinstance(subvalue, list):
+                                    subvalue = [subvalue]
+                                for every in subvalue:
+                                    if spacers.get(position, 0) < len(str(every)):
+                                        spacers[position] = len(str(every)) + 1
+                                        if len(str(every)) >= mll:
+                                            spacers[position] = mll
+                                    position += 1
             for key, value in clean_marc21.items():
                 if isinstance(value, str):
                     print(colored((" "*4)[len(str(key)):] + str(key) + " ", "magenta"), colored(value, "cyan"), end="")
                 if isinstance(value, dict):
-                    print(colored((" "*4)[len(str(key)):] + str(key) + " ", "magenta"), end=" ")
-                    position = 0
-                    for subkey, subvalue in value.items():
-                        if subkey == "concat":
-                            continue
-                        print(colored(subkey, "yellow"), end=" ")
-                        print(colored(subvalue[:mll-3], "cyan") +
-                              colored("..."[:(len(subvalue)-mll)], "blue") +
-                              (" "*spacers.get(position, 0))[len(str(subvalue)):], end="║")
-                        position += 1
-                print("\n", end="")
+                    value = [value]
+                if isinstance(value, list):
+                    for each in value:
+                        print(colored((" "*4)[len(str(key)):] + str(key) + " ", "magenta"), end=" ")
+                        position = 0
+                        for subkey, subvalue in each.items():
+                            if not isinstance(subvalue, list):
+                                subvalue = [subvalue]
+                            for every in subvalue:
+                                print(colored(subkey, "yellow"), end=" ")
+                                print(colored(every[:mll-3], "cyan") +
+                                      colored("..."[:(len(every)-mll)], "blue") +
+                                      (" "*spacers.get(position, 0))[len(str(every)):], end="║")
+                                position += 1
+                        print("\n", end="")
         print("═"*200)
+
+
+def marc21_test():
+    global PARA
+    mydata = load_from_json(TESTFOLDER + PARA['MarcTest'])
+    testdata = Spcht.marc2list(mydata[0].get('fullrecord'))
 
 
 def full_process(solr, graph, spcht, sparql, sparql_user="", sparql_pw="", log=False, req_rows=50000, req_chunk=10000, query=""):
@@ -538,6 +552,8 @@ if __name__ == "__main__":
         epilog="Individual settings overwrite settings from the config file",
         prefix_chars="-")
     parser.add_argument('--MarcView', '-mv', type=str, help="Loads the specified json file and displays the mark content", metavar="MARCFILE")
+    parser.add_argument('--MarcTest', '-mt', type=str,
+                        help="Loads the specified json file does a throughtest", metavar="MARCFILE")
     parser.add_argument('--SolrSpy', '-sy', action="store_true", help="finds and counts different entries for a field")
     parser.add_argument('--ProcessData', '-P', action="store_true", help="Processes the given data from solr to virtuoso with given spcht")
     parser.add_argument('--UpdateData', '-U', action="store_true", help="Updates the Data with a specific time-diff")
@@ -564,7 +580,7 @@ if __name__ == "__main__":
 
     parser.add_argument('--urls', '-u', action="store_true", help="Lists all urls the procedure knows after loading data")
     parser.add_argument('--dry', '-d', action="store_true", help="Pulls (and loads) all data as per protocol but doesnt change anything permanently")
-    parser.add_argument('--TestMode', action="store_true", help="Executes some 'random', flavour of the day testscript")
+    parser.add_argument('--TestMode', type=str, help="Executes some 'random', flavour of the day testscript")
     parser.add_argument('--FullTest', action="store_true", help="Progressing mappings with the config specified ressources")
     parser.add_argument('--DownloadTest', action="store_true", help="Tries to Download multiple chunks from solr")
 
@@ -573,7 +589,7 @@ if __name__ == "__main__":
     if args.config:
         cfg_status = load_config(args.config)
 
-    boring_parameters = ["spcht", "log", "outfile", "solr", "sparql_auth", "sparql_user", "sparql_pw", "graph", "part", "rows", "filter", "time", "isolate"]
+    boring_parameters = ["spcht", "log", "outfile", "solr", "sparql_auth", "sparql_user", "sparql_pw", "graph", "part", "rows", "filter", "time", "isolate", "MarcTest", "MarcView", "TestMode"]
 
     for arg in vars(args):
         if arg in boring_parameters and getattr(args, arg) is not None:
@@ -637,6 +653,8 @@ if you see this message, not all mandatory parameters were providedh"""
         spcht_object_test()
     if args.MarcView:
         marc21_display()
+    if args.MarcTest:
+        marc21_test()
     if args.FullTest:
         full_process(PARA['solr'], PARA['graph'], PARA['spcht'], PARA['sparql'])
     if args.SolrSpy:

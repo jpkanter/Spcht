@@ -11,14 +11,15 @@
     [x] Remove duplicated information # should not really matter but still
     [x] MARC mutli Value for authors
     [x] Check Regex Entries for faults
-    [ ] MARC Filter/Conditions for fields/indicators
+    [x] MARC Filter/Conditions for fields/indicators
+    [ ] proper marc mv field import
+    [ ] record_type as indicator for content of type marc21
     [ ] Append/Prepend working for Marc fields
-    [ ] MARC differenciate concate cases (full/partially)
-    [ ] DICT multi replacement / Insert
+    [x] DICT multi replacement / Insert
     [ ] Escape pre and append texts
     [ ] Reference Nodes - Check if full path or relative path is provided os.path.isabs(my_path)
     [ ] Add output kinds
-    [ ] arbitary inser for pre&append texts, more than one entry
+    [x] arbitary inser for pre&append texts, more than one entry
 * SPARQL
     [x] differenciate between graph and string that happens to be a link to somewhere
     [-] generation of valid sparql queries
