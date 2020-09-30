@@ -683,7 +683,7 @@ class Spcht:
         self.debug_print("Spcht Dir:", colored(spcht_path.parent, "cyan"))
         if isinstance(descriptor, bool):  # load json goes wrong if something is wrong with the json
             return None
-        if not Spcht.check_format(descriptor):
+        if not Spcht.check_format(descriptor, base_path=spcht_path.parent):
             return None
         # * goes through every mapping node and adds the reference files, which makes me basically rebuild the thing
         # ? python iterations are not with pointers, so this will expose me as programming apprentice but this will work
@@ -1739,7 +1739,7 @@ class Spcht:
                             file_path = value
                             fullpath = os.path.normpath(os.path.join(base_path, file_path))
                             if not os.path.exists(fullpath):
-                                print(error_desc['ref_not_exist'].format(file_path), file=out)
+                                print(error_desc['ref_not_exist'].format(fullpath), file=out)
                                 return False
             if Spcht.is_dictkey(node, 'graph_field'):
                 if not isinstance(node['graph_field'], str):
@@ -1764,7 +1764,7 @@ class Spcht:
                     file_path = node['graph_map_ref']
                     fullpath = os.path.normpath(os.path.join(base_path, file_path))
                     if not os.path.exists(fullpath):
-                        print(error_desc['ref_not_exist'].format(file_path), file=out)
+                        print(error_desc['ref_not_exist'].format(fullpath), file=out)
                         return False
 
             if Spcht.is_dictkey(node, 'saveas'):
