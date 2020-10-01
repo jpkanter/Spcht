@@ -390,11 +390,15 @@
     {
       "name": "Combo Marc",
       "source": "marc",
-      "graph": "https://complex.marc//",
+      "graph": "https://complex.marc.with.graph.map//",
       "required": "optional",
       "field": "700:a",
       "graph_field": "700:4",
-      "graph_map": "./insert/into",
+      "graph_map": {
+            "aus": "https://this.overwrites.the.loaded.graph.map",
+            "aut": "http://purl.org/dc/elements/1.1/creator"
+            },
+      "graph_map_ref": "./translation_maps/role_graphs.json",
       "fallback": {
         "name": "Dict Graph Map in fallback for non-fullrecord",
         "source": "dict",

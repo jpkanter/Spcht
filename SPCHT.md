@@ -12,8 +12,7 @@ Lets get started with an example:
     "id_field": "id",
     "id_fallback": {
         "source": "marc",
-        "field": "001",
-        "subfield": "none"
+        "field": "001:none",
     },
     "nodes": [
         {
@@ -24,8 +23,7 @@ Lets get started with an example:
             "required": "optional",
             "fallback": {
                 "source": "marc",
-                "field": "020",
-                "subfield": "a"
+                "field": "020:a",
             }
         },
         {...},
@@ -60,30 +58,72 @@ Each Node contains at least a `source`, `graph` and `type` field which define th
 * `nodes` - this contains the description of all nodes. I renounced the idea of calling it *feathers*, a metaphor can only be stretched so far.
   
   * Values: a list of dictionaries.
+  
 * `name` - the name doesn't serve any purpose, you may display it while processing but its just there so you have a better overview, while this is superfluous for the program, human readability seems like something to wish for. While not used for any processing the error reporting engine of the format checker uses it to clarify the position of an error but doesn't need it desperately.
   *Note*: the name is also used in the [Spcht Checker Gui](https://github.com/jpkanter/spcht_checker_gui) as display name, its still strictly unnecessary but adds visual cues
+  
   * Values: `any string`
+  
 * `source` - source for the data field, if its a dictionary `field`is the key we are looking for. If the source is to be found in a corresponding MARC21 entry `field` describes the Entry Number ranging from 000 to 999. There is also a necessary `subfield` as most MARC21 entries do not lay on the root.
   
   * Values: `dict` and `marc`
+  
 * `graph` - the actual mapping to linked data. Before sending sparql queries the script will shorten all entries accordingly. If you have multiple entries of the same source they will be grouped. I decided that for this kind of configuration file it is best to leave as many information to the bare eye as possible. You can define a new graph for a fall back if there ever arises the need to do it in one node. If you don't do so the fall back node will inherit the his `graph` from the parent node. (*if you have a very exotic 4 staged node and redefine the graph in the second fall back, the third will use the graph of its parent which is the second fall back, not the root node. I honestly see not a use case for this but the functionality was easily enough to obtain. **Note: you can change the graph but not the type of that node in fall backs, which limits future use cases***)
+  
   * Values: `a fully qualify graph descriptor string`
+  
 * `fallback` - if the current specified source isn't available you may describe an alternative. Currently only "_marc_" or "_dict_" are possible entries. You can use the same source with different fields to generate a fall-back order. _eg. if dict key "summer" isn't available the fall-back will also look into the dict but use the field "winter_ You may also just use `alternatives` for this if your source is **dict**.
   The sub-dictionary of `fallback` contains another dictionary descriptor. You may chain sub-dictionaries _ad infinitum_ (or the maximum dictionary depth of json or maximum depth of recursion in python)
+  
     * Values: `a "node" dictionary {}`
+  
 * `required` - if everything fails, all fall backs are not to be found and all alternatives yield nothing and the `required` is set to mandatory the whole entry gets discarded, if some basic data could be gathered the list of errors gets a specific entry, otherwise there is only a counter of indescribable mapping errors being incremented by one. 
+  
   * Values: `optional`, `mandatory`
+  
+* `insert_into`
+
+  When you wish to insert one or more values of various fields inside a string (for example when generating a hyperlink to a ressource) `insert_into` inserts the value of field in the described string. 
+  If there are more values you want to insert at the same time additional fields can be defined  with `insert_add_fields`. 
+  If one or more keys are multivalued you will get as many triples as there are valid combinations. 
+  (example: `field` has 2 values and the first additional value 4 will yield you 8 triples)
+
+  Only values with anything in them will be filled, if one of the fields does not exist in the given dataset there will be no inserts. If there are more placeholders than fields there will also be no inserts.
+
+  **Its not possible to combine `source:marc` and `source:dict` in one string**
+
+  * optional key `insert_add_fields`: `list of str` - example: `["isbn", "release_year"]
+  * Values: `a string with "{}" as Placeholder`
+
+* `if_condition`
+
+  This function checks if the value of `if_field` is equal, greater (and so on...) as the value of `if_value`. Its also possible to check whether a field exists, in that case you don't need `if_value` Spcht will try to convert any String to a number if possible to allow comparison of numbers *(eg. for release years)*
+
+  **Its not possible to check `source:marc` and  use`source:dict` as value**
+
+  * Values: one of the following: `>, <, =, !=, >=, <=, 'exi'` *See addendum for complete list of possible condition strings*
+
 * `type` - per default each entry that is found is interpreted as if it would be a literal value. Due Mapping and the manual building of entries its entirely possible that some entries are actually another triple. in that case this has to be announced so that the sparql interpreter can take appropriate steps.
   **Do notice that type applies to all fall backs and alternatives, any match will be handled as either triple or literal, the parameter has to be specified in the top level of the node**
+  
   * Values: `literal` *(Default*), `triple`
+  
 * `cut` - removes a part of the final value after mapping and filtering has taken place but before anything gets pre- or appended to the resulting value
+  
   * Values: `str` of any Regex Valid term, properly escaped, Example: `(\\(DE-588\\))`, removes "(DE-588)" of `(DE-588)132140349` and returns just `132140349`
+  
 * `match` - this uses a regex match to filter out the content of an entry, the field value is matched against the value of the `match` entry, if it does not get at least one match the value gets ignored and no triple is created
+  
   * Values: `str` of any Regex-valid term, properly escape, Example: `(\\(DE-588\\))[0-9]*` matches Value `(DE-588)132140349`
+  
 * `prepend` & `append`: both add literal text to the beginning and the end of any give value. This is the last step that gets applied to any given value regardless of source
+  
   * Values: any `str` 
+  
 * `saveas` - **WIP** this function saves the final value of the specified field or key into a list. That value is **without** the content of `prepend` and `append` but **with** the filter provided by `match` and `cut`.  The List can later be retrieved with the function `getSaveAs`. This list *can* contain duplicates depending on the processed content. Exact duplicated values can be filtered out with `CleanSaveAs`
+  
   * Value: a string that specified the dictionary key for the name of the list
+  
 * other fields: the spcht descriptor format is meant to be a human readable configuration file, you can add any field you might like to make things more clear is not described to hold a function. For future extension it would be safest to stick to two particular dictionary-keys: `name` and `comment`
   *Note:* the aformentioned Spcht Gui program also uses the comment section as part of its displayed attributes, it matches every entry that starts with "comment*" which makes multiple comments possible.
 ##### source: dict
@@ -121,29 +161,7 @@ As of now a *Marc21* data source is inherently part of the main dictionary sourc
 The following kinds of key are currently possible
 
 * `field` - analogue to the way it works with **source:dict** this is a mandatory field for the `Marc21` Source, its usually limited to the numbers 1 to 999, the actual value is arbitrarily but non-numerical values will not make sense. The background script transforms the actual raw `Marc21` Data into a dictionary that will be accesses very similarly to the **source:dict** one.
-  
   * Value: `a singular string (str)`
-* `subfield` - every  **source:marc** requires *either* a `subfield` or a `subfields` entry. If both are present `subfield` takes the priority (for being first in the list of used parameters which in turn ignores the following parameter subfields). 
-  *While it makes little sense to have both subfield and subfields it will not break the* SPCHT *format but when the format checker will throw a warning cause this is likely the result of an accident.*
-  
-  * Value: `a single string (str)`
-* `subfields` - 
-  
-  * Value: `a list of strings [str, str, str]`
-  
-    *Note: a list of Strings means that even a singular element has to be wrapped in a list with length 1, example: `['b-field']`, you can, in theory, always use subfields instead of subfield with singular item lists. Although the example files have some use cases for subfield='none' where there is actually no subfields and just a value for the field itself, those wouldn't be accessible with subfields*
-  
-* subfields_mode - strict, default: flex
-
-#### actual mapping:
-
-
-* `field`, `subfield` - describes in which linear data field the corresponding data can be found. `subfield` is only really needed if you work with a MARC21 entry. _The leading 0 of the MARC21 entry gets omitted, `020` equals `20`._
-  
-  * Value: `a string`
-  
-
-  
 
 
 #### a basic mapping to copy and paste
@@ -258,4 +276,16 @@ self.debug_out = sys.stdout
 
 
 ### Ideas // Planning
+
+### Addendum
+
+##### possible if conditions:
+
+```python
+SPCHT_BOOL_OPS = {"equal":"==", "eq":"==","greater":">","gr":">","lesser":"<","ls":"<",
+ "greater_equal":">=","gq":">=", "lesser_equal":"<=","lq":"<=",
+ "unequal":"!=","uq":"!=",
+ "=":"==","==":"==","<":"<",">":">","<=":"<=",">=":">=","!=":"!=",
+ "exi":"exi"}
+```
 

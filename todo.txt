@@ -12,12 +12,12 @@
     [x] MARC mutli Value for authors
     [x] Check Regex Entries for faults
     [x] MARC Filter/Conditions for fields/indicators
-    [ ] proper marc mv field import
+    [x] proper marc mv field import
     [ ] record_type as indicator for content of type marc21
-    [ ] Append/Prepend working for Marc fields
+    [x] Append/Prepend working for Marc fields
     [x] DICT multi replacement / Insert
     [ ] Escape pre and append texts
-    [ ] Reference Nodes - Check if full path or relative path is provided os.path.isabs(my_path)
+    [x] Reference Nodes - Check if full path or relative path is provided os.path.isabs(my_path)
     [ ] Add output kinds
     [x] arbitary inser for pre&append texts, more than one entry
 * SPARQL
@@ -29,9 +29,9 @@
 * EXPORT
     [x] export data directly to a .ttl file
 * IMPORT
-    [ ] you dont need to technically request *, just all the things you need, that might be less
+    [-] you dont need to technically request *, just all the things you need, that might be less
 * GENERAL
-    [ ] command line interface
+    [-] command line interface
     [x] probably rewriting the entire SPCHT into a class
     [x] format checking is inconclusive, alternatives check not properly working
 
