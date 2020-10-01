@@ -41,7 +41,18 @@ As of now this goal is not totally achieved and further steps have to be taken.
 
 ## The general Process
 
+Spcht is part of a bigger process as shown in the following graphic:
 
+![spcht-overview](./README/spcht-overview.svg)
+
+This also means that the source for data doesnt have to be an *Apache Solr* but can be any other source of data that provides json-like informations in a flat data structure.  The output is a number of triples that can be exported to a triplestore as sparql query but doesnt have to be one. The raw output of *spcht* is flexible, also an export to rdf would be possible.
+
+The next graphic shows a slightly differenciated view on the processing of data inside of the *spcht* processing:
+
+![](/home/jpk/PycharmProjects/EFRE2-LOD2/README/spcht-processing.svg)
+
+  Before starting the actual mapping the entire block of data will be interpreted, per default its assume that the stream of provided data is in json format. The current standard also looks for a specific key titled `fullrecord` which may contain an encoded *Marc21* String. If this string is present it gets preprocessed to a more dictionary-like structure to allow further processing down the line. For that purpose every mark field gets a key corresponding to the field. (Example: Entry 700 becomes key `700: {'a': "name", 'e': "id"}`)
+If there is more than one field of type 700 (like in that example) cause it is a repeatable value the key 700 gets converted into a list of dictionary (`700: [{'a': "name1", 'e':"id1"}, {'a': "name2", 'e':"id2"}]`). The same is true for subfields like 'a' or 'b'. If there is an indicator for that specific field of the marc record its saved in the special field `id1` and `id2`. If there are no subfields another special field with name `none` will be create containing that value.
 
 #### Node Mapping
 
