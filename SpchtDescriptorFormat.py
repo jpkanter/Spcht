@@ -28,6 +28,7 @@ SPCHT_BOOL_OPS = {"equal":"==", "eq":"==","greater":">","gr":">","lesser":"<","l
 
 # the actual class
 
+
 class Spcht:
     _DESCRI = None  # the finally loaded descriptor file with all references solved
     _SAVEAS = {}
@@ -224,7 +225,7 @@ class Spcht:
         """
         many = []
         for cur_idx in range(0, len(variant_matrix), 2):
-            if len(variant_matrix)-1 > cur_idx: # there is at least one more position to come
+            if len(variant_matrix)-1 > cur_idx:  # there is at least one more position to come
                 if len(many) <= 0:  # this are elements 1 & 2
                     for each in variant_matrix[cur_idx]:
                         for every in variant_matrix[cur_idx + 1]:
@@ -295,10 +296,10 @@ class Spcht:
         # ? and the next problem that has a solution somewhere but i couldn't find the words to find it
         positions = Spcht.match_positions(regex_pattern, zeichenkette)
         if len(the_string_list) > len(positions):  # more inserts than slots
-            print(f" {len(the_string_list)} > {len(positions)}") # ? technically debug text
+            print(f" {len(the_string_list)} > {len(positions)}")  # ? technically debug text
             if strict:
                 return None
-            # else nothing for now, you would probably see that something isnt right right?
+            # else nothing for now, you would probably see that something isn't right right?
         if len(the_string_list) < len(positions):  # more slots than inserts
             if strict:
                 return None  # would lead to empty space, cant have that
@@ -314,7 +315,7 @@ class Spcht:
             start += str_len_correction
             end += str_len_correction  # * i am almost sure this can be solved more elegantly
             if len(zeichenkette) > end:
-                zeichenkette = zeichenkette[0:start] + each + zeichenkette[(end):len(zeichenkette)]
+                zeichenkette = zeichenkette[0:start] + each + zeichenkette[end:len(zeichenkette)]
             else:
                 zeichenkette = zeichenkette[0:start] + each
             str_len_correction += len(each)-pattern_len
@@ -333,8 +334,7 @@ class Spcht:
         a spcht node and uses it to extract the neeed data and returns it. If there is no field it will return None instead
         :param dict raw_dict: either the solr dictionary or the tranformed marc21_dict
         :param dict sub_dict: a spcht node describing the data source
-        :param str field: name of the field in sub_dict, usually this is just 'field'
-        :param sub_field: name of the subfield in the sub_dict, usually this is just 'subfield'
+        :param str dict_field: name of the field in sub_dict, usually this is just 'field'
         :return: Either the value extracted or None if no value could be found
         :rtype: list or None or False
         """
@@ -382,7 +382,7 @@ class Spcht:
                         else:
                             return value  # * Value Return
                     else:
-                        return raw_dict[field][subfield] # * Value Return  # a singular value
+                        return raw_dict[field][subfield]  # * Value Return  # a singular value
                 else:
                     return False  # ! Exit 2 - Field around but not subfield
 
@@ -437,9 +437,9 @@ class Spcht:
             return False
 
     @staticmethod
-    def if_possible_make_this_numerical(value: any):
+    def if_possible_make_this_numerical(value: str):
         """Converts a given var in the best kind of numerical value that it can, if it can be an int it will be one,
-        :param object value: any kind of value, hopefully something 1-dimensional
+        :param str value: any kind of value, hopefully something 1-dimensional
         :return: the converted value, might be an int, might be a float, or just the object that came
         :rtype: int or float or any
         """
@@ -481,7 +481,7 @@ class Spcht:
             return True
         except re.error:
             return False
-        except TypeError:  # for the string not beeing one
+        except TypeError:  # for the string not being one
             return False
 
     @staticmethod
@@ -498,7 +498,7 @@ class Spcht:
         }
         marcFullRecordFixed = record
         # replaces all three kinds of faults in the choosen method (decimal, unicode or hex)
-        # this method is written broader than necessary, reuseable?
+        # this method is written broader than necessary, reusable?
         for i in range(0, 3):
             marcFullRecordFixed = marcFullRecordFixed.replace(replace_methods.get(replace_method)[0][i],
                                                               replace_methods.get(replace_method)[1][i])
@@ -585,7 +585,7 @@ class Spcht:
     @staticmethod
     def normalize_marcdict(a_so_called_dictionary):
         # all this trouble cause for some reasons pymarc insists on being awful
-        # to explain it a bit further, this is the direct outout of .as_dict() for an example file
+        # to explain it a bit further, this is the direct out of .as_dict() for an example file
         # {'leader': '02546cam a2200841   4500', 'fields': [{'001': '0-023500557'}, ...
         # the leader is okay, but why are the fields a list of single dictionaries? i really dont get it
         the_long_unnecessary_list = a_so_called_dictionary.get('fields', None)
@@ -613,7 +613,6 @@ class Spcht:
             reader = pymarc.MARCReader(clean_marc.encode('utf-8'))
             marc_list = []
             for record in reader:
-                tempdict = {}
                 record_dict = Spcht.normalize_marcdict(record.as_dict())  # for some reason i cannot access all fields,
                 # also funny, i could probably use this to traverse the entire thing ,but better save than sorry i guess
                 # sticking to the standard in case pymarc changes in a way or another
@@ -629,7 +628,7 @@ class Spcht:
                                     temp_subdict[subfield[0]].append(subfield[1])
                                 else:
                                     temp_subdict[subfield[0]] = subfield[1]
-                                # ? this is a bit unfortunated cause the indicator technically hangs at the subfield
+                                # ? this is a bit unfortunately cause the indicator technically hangs at the subfield
                                 # ? not the individual item of the subfield, i will just copy it to every single one
                                 if hasattr(single_type, 'indicator1') and single_type.indicator1.strip() != "":
                                     temp_subdict['i1'] = single_type.indicator1
@@ -782,13 +781,13 @@ class Spcht:
             self.debug_print(colored("Marc21", "yellow"), end="-> ")  # the first step
             # ? Whats the most important step a man can take? --- Always the next one
 
-            if m21_value == False:  # r"^[0-9]{1,3}:\w*$"
+            if m21_value is False:  # r"^[0-9]{1,3}:\w*$"
                 self.debug_print(colored(f"✗ field found but subfield not present in marc21 dict", "magenta"), end=" > ")
                 return self._call_fallback(sub_dict, raw_dict, marc21_dict)
 
             if Spcht.is_dictkey(sub_dict, 'graph_field'):  # original boilerplate from dict
                 graph_value = self._graph_map(marc21_dict, sub_dict)
-                if graph_value is not None:  # ? why i am even checking for that? Fallbacks, thats why
+                if graph_value is not None:  # ? why i am even checking for that? Fallbacks, that's why
                     self.debug_print(colored("✓ graph_field", "green"))
                     return graph_value
                 self.debug_print(colored(f"✗ graph mapping could not be fullfilled", "magenta"), end=" > ")
@@ -813,14 +812,14 @@ class Spcht:
 
             if Spcht.is_dictkey(sub_dict, "if_condition"):  # condition cancels out the entire node, triggers callback
                 if not self._handle_if(raw_dict, sub_dict, 'flexible'):
-                    return self._call_fallback(sub_dict, raw_dict, marc21_dict) # ! i created call_fallback just for this
+                    return self._call_fallback(sub_dict, raw_dict, marc21_dict)  # ! i created call_fallback just for this
 
             # graph_field matching - some additional checks necessary
             # the existence of graph_field invalidates the rest if graph field does not match
             if Spcht.is_dictkey(sub_dict, "graph_field"):
                 # ? i really hope this works like intended, if there is graph_field, do nothing of the normal matching
                 graph_value = self._graph_map(raw_dict, sub_dict)
-                if graph_value is not None:  # ? why i am even checking for that? Fallbacks, thats why
+                if graph_value is not None:  # ? why i am even checking for that? Fallbacks, that's why
                     self.debug_print(colored("✓ graph_field", "green"))
                     return graph_value
             # normal field matching
@@ -1049,15 +1048,15 @@ class Spcht:
     def _graph_map(self, raw_dict, sub_dict):
         # originally i had this as part of the node_recursion function, but i encountered the problem
         # where i had to perform a lot of checks till i can actually do anything which in the structure i had
-        # would have resulted in a very nested if chain, as a seperate function i can do this more neatly and readable
+        # would have resulted in a very nested if chain, as a separate function i can do this more neatly and readable
         if Spcht.extract_dictmarc_value(raw_dict, sub_dict, 'field') is None or \
-                Spcht.extract_dictmarc_value(raw_dict, sub_dict,'graph_field') is None:
+                Spcht.extract_dictmarc_value(raw_dict, sub_dict, 'graph_field') is None:
             # this is a bit awkward, dict doesnt check for existence, marc does, neither do for graph_field, hmm
             self.debug_print(colored(f"✗ no field or graph_field not present", "magenta"), end=" > ")
             return None
-        field = Spcht.extract_dictmarc_value(raw_dict, sub_dict, "field") # this is just here cause i was tired of typing the full thing every time
+        field = Spcht.extract_dictmarc_value(raw_dict, sub_dict, "field")  # this is just here cause i was tired of typing the full thing every time
         graph_field = Spcht.extract_dictmarc_value(raw_dict, sub_dict, "graph_field")
-        # i am not entirely sure that those cojoined tests are all that useful at this place
+        # i am not entirely sure that those conjoined tests are all that useful at this place
         if field is None or graph_field is None:
             self.debug_print(colored(f"✗ field or graphfield could not be found in given data", "magenta"), end=" > ")
             return None
@@ -1090,7 +1089,7 @@ class Spcht:
         if isinstance(field, list):  # more complex, two lists that are connected to each other
             result_list = []
             for i in range(0, len(field)):
-                if (not isinstance(field[i], str) or not isinstance(graph_field[i], str)):
+                if not isinstance(field[i], str) or not isinstance(graph_field[i], str):
                     continue  # we cannot work of non strings, although, what about numbers?
                 temp_value = Spcht._node_preprocessing(field[i], sub_dict)  # filters out entries
                 if temp_value is not None and len(temp_value) > 0:
@@ -1149,7 +1148,7 @@ class Spcht:
                     inserters.append(Spcht.list_wrapper(value))
                 else:
                     inserters.append([""])
-        # all_variants iterates through the seperate lists and creats a new list or rather matrix with all possible combinations
+        # all_variants iterates through the separate lists and creates a new list or rather matrix with all possible combinations
         all_texts = Spcht.all_variants(inserters)
         self.debug_print(colored(f"Inserts {len(all_texts)}", "grey"), end=" ")
         all_lines = []
@@ -1198,7 +1197,7 @@ class Spcht:
             # now we have established that the field at least exists, onward
         # * so the point of this is to make shore and coast that we actually get stuff beyond simple != / ==
 
-        #  for proper comparision we also need to use preprocessing and postprocessing to properly filter, i am pondering
+        #  for proper comparison we also need to use preprocessing and postprocessing to properly filter, i am pondering
         #  to leave this undocumented
         comparator_value = self._node_preprocessing(comparator_value, sub_dict, "if_")
         comparator_value = self._node_postprocessing(comparator_value, sub_dict, "if_")
@@ -1286,7 +1285,7 @@ class Spcht:
             "alternatives": self._DESCRI.get('id_alternatives', None),
             "fallback": self._DESCRI.get('id_fallback', None)
         }
-        # ? what happens if there is more than one ressource?
+        # ? what happens if there is more than one resource?
         ressource = self._recursion_node(sub_dict, raw_dict, marc21_record)
         if isinstance(ressource, list) and len(ressource) == 1:
             ressource = ressource[0][1]
@@ -1420,7 +1419,7 @@ class Spcht:
         for each in list_of_strings:
             if not isinstance(each, str):
                 raise TypeError("an element in the list is not a string")
-        # i might as well throw a TypeException shouldnt i?
+        # i might as well throw a TypeException shouldn't i?
         self._default_fields = list_of_strings
 
     def get_node_graphs(self):
@@ -1450,7 +1449,7 @@ class Spcht:
             part_list.append(sub_dict['graph'])
         if Spcht.is_dictkey(sub_dict, 'graph_map'):
             for key, value in sub_dict['graph_map'].items():
-                part_list.append(value)  #probably some duplicates here
+                part_list.append(value)   #probably some duplicates here
         if Spcht.is_dictkey(sub_dict, 'fallback'):
             temp_list = Spcht._get_node_fields_recursion(sub_dict['fallback'])
             if temp_list is not None and len(temp_list) > 0:
@@ -1458,7 +1457,7 @@ class Spcht:
         return part_list
 
     @staticmethod
-    def quickSparql(quadro_list, graph):
+    def quickSparql(quadro_list: list, graph: str) -> str:
         """
             Does some basic string manipulation to create one solid block of entries for the inserts via sparql
             :param list quadro_list: a list of tuples as outputted by Spcht.processData()
@@ -1489,12 +1488,12 @@ class Spcht:
             return f"<{quadro[0]}> <{quadro[1]}> \"{quadro[2]}\" . \n"
 
     @staticmethod
-    def process2RDF(quadro_list, format="turtle"):
+    def process2RDF(quadro_list: list, format_type="turtle") -> str:
         """
             Leverages RDFlib to format a given list of tuples into an RDF Format
 
             :param list quadro_list: List of tuples with 4 entries as provided by `processData`
-            :param str format: one of the offered formats by rdf lib
+            :param str format_type: one of the offered formats by rdf lib
             :return: a string containing the entire list formated as rdf, turtle format per default
             :rtype: str
         """
@@ -1506,7 +1505,7 @@ class Spcht:
                 graph.add((rdflib.URIRef(each[0]), rdflib.URIRef(each[1]), rdflib.Literal(each[2])))
             else:
                 graph.add((rdflib.URIRef(each[0]), rdflib.URIRef(each[1]), rdflib.URIRef(each[2])))
-        return graph.serialize(format=format).decode("utf-8")
+        return graph.serialize(format=format_type).decode("utf-8")
 
     @staticmethod
     def check_format(descriptor, out=sys.stderr, base_path="", i18n=None):
