@@ -49,10 +49,14 @@ This also means that the source for data doesnt have to be an *Apache Solr* but 
 
 The next graphic shows a slightly differenciated view on the processing of data inside of the *spcht* processing:
 
-![](/home/jpk/PycharmProjects/EFRE2-LOD2/README/spcht-processing.svg)
+![](./README/spcht-processing.svg)
 
-  Before starting the actual mapping the entire block of data will be interpreted, per default its assume that the stream of provided data is in json format. The current standard also looks for a specific key titled `fullrecord` which may contain an encoded *Marc21* String. If this string is present it gets preprocessed to a more dictionary-like structure to allow further processing down the line. For that purpose every mark field gets a key corresponding to the field. (Example: Entry 700 becomes key `700: {'a': "name", 'e': "id"}`)
+  Before starting the actual mapping the entire block of data will be interpreted, per default its assumed that the stream of provided data is in json format. The current standard also looks for a specific key titled `fullrecord` which may contain an encoded *Marc21* String. If this string is present it gets preprocessed to a more dictionary-like structure to allow further processing down the line. 
+
+For that purpose every mark field gets a key corresponding to the field. (Example: Entry 700 becomes key `700: {'a': "name", 'e': "id"}`)
 If there is more than one field of type 700 (like in that example) cause it is a repeatable value the key 700 gets converted into a list of dictionary (`700: [{'a': "name1", 'e':"id1"}, {'a': "name2", 'e':"id2"}]`). The same is true for subfields like 'a' or 'b'. If there is an indicator for that specific field of the marc record its saved in the special field `id1` and `id2`. If there are no subfields another special field with name `none` will be create containing that value.
+
+This transformed dictionary data will then be cycled through the actual *Spcht Descriptor File* which is divided in so called *nodes*. Each *node* describes a triple or a group of triples. Creating a triple requires the data field or key to be present, if this is not the cases a number of alternative variants or fall back cases that apply. For the specific data this project birthed from the `fullrecord` field usually contains the original data that came from the provider and the *apache solr* has already interpreted and transformed data. In case of errors there might be more precise data in the `fullrecord` cause the solr is optimized for searching, not for providing honest to god data. Each node is taken separately, each fall back is a node of its own. It is possible to define a node as *mandatory*, if this is the case, and the data required to fill that node is not present, the entire set of processed data will be thrown away.	
 
 #### Node Mapping
 
@@ -64,7 +68,24 @@ Every other node is mapped in the aforementioned `node` List. Its supposed to be
 
 ##### General Node Architecture
 
-Each Node contains at least a `source`, `graph` and `type` field which define the surrounding note. It can also contain a `fallback`, `filter` or `match` field. Every fall back can contain another fall back. You can add any other *non-protected* field name you desire to make it more readable. The Example file usually sports a `name` dictionary entry despite it not being in use.
+Each Node contains at least a `source`, `graph` and `required` field which define the surrounding note. It can also contain a number of fields that work for all sources, a small number of functions are only available for `source: dict`. The following keys are generally applicable:
+
+* `if_condition` - restrains the use of the field to the value of another field ()
+* `match` - only uses the field if its content matches the specified regex
+* `prepend` - adds a string in front of the value
+* `append` - adds a string after the value
+* `cut` - removes the matched regex string inside the value
+* `replace` - needs `cut`, replaces the cut part with its value
+* `insert_into` - inserts the value in a string that contains a placeholder "{}"
+* `saveas` - saves the transformed value in a list inside the spcht-object, does nothing for itself, meant for after processing procedures. (Like searching databases for complimentary data)
+
+*Notice that `match` and `if_condition` are used before the value is transformed by `cut`, `replace`, `append` or `prepend`. Internally these are divided in pre and post processing. If there other trans formative functions like `mapping` these are used in between pre and post processing.*
+
+Additionally there is the fall back key that contains an entire new node but without the `graph` and `required` field. Every fall back can contain another fall back. 
+
+You can add any other *non-protected* field name you desire to make it more readable. The Example file usually sports a `name` dictionary entry despite it not being doing anything for the processing.
+
+#### In-depth explanation for the different keys
 
 * `nodes` - this contains the description of all nodes. I renounced the idea of calling it *feathers*, a metaphor can only be stretched so far.
   
@@ -137,6 +158,9 @@ Each Node contains at least a `source`, `graph` and `type` field which define th
   
 * other fields: the spcht descriptor format is meant to be a human readable configuration file, you can add any field you might like to make things more clear is not described to hold a function. For future extension it would be safest to stick to two particular dictionary-keys: `name` and `comment`
   *Note:* the aformentioned Spcht Gui program also uses the comment section as part of its displayed attributes, it matches every entry that starts with "comment*" which makes multiple comments possible.
+
+<span style="color:red;font-weight:bold;font-size:18px">This is not up to date:</span>
+
 ##### source: dict
 
 The primary use case for this program was the mapping or conversion of content from the library *Apache Solr* to a *linked data format*. The main way *solr* outputs data is as a list of dictionaries. If you don't have a *solr* based database the program might be still of use. The data just has to exists as a dictionary in some kind of listed value unit. The **source:dict** format is the most basic of the bunch. In its default state it will just create a graph connection for the entry found, if there is a list of entries in the described dictionary key it will create as many graphs. It also offers some basic processing for more complex data. If the `field` key cannot be found it will use `alternatives`, a list of dictionary keys before it goes to the fall-back node.
