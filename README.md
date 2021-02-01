@@ -1,6 +1,6 @@
 # Solr to Triplestore Bridge
 
-This project started out under a vastly different name. In its first live it was a very tightly build small tool aiming to provide a singular job. That objective remained mostly the same but the scope grew a bit larger and so a decision was made: a tool evolved from the first one takes the place and provides the ability to do more than a simple tool.
+This project started out under a vastly different name. In its first life it was a very tightly build small tool aiming to provide a singular job. That objective remained mostly the same but the scope grew a bit larger and so a decision was made: a tool evolved from the first one takes the place and provides the ability to do more than a simple tool.
 
 ![Simple diagram explaining the workflow](./README/simplediagram1.png)
 

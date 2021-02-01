@@ -57,6 +57,135 @@ class Spcht:
     def __iter__(self):
         return SpchtIterator(self)
 
+    def processData(self, raw_dict, graph, marc21="fullrecord", marc21_source="dict"):
+        """
+            takes a raw solr query and converts it to a list of sparql queries to be inserted in a triplestore
+            per default it assumes there is a marc entry in the solrdump but it can be provided directly
+            it also takes technically any dictionary with entries as input
+
+            :param dict raw_dict: a flat dictionary containing a key sorted list of values to be processes
+            :param str graph: beginning of the assigned graph all entries become triples of
+            :param str marc21: the raw_dict dictionary key that contains additional marc21 data
+            :param str marc21_source: source for marc21 data
+            :return: a list of tuples with 4 entries (subject, predicat, object, bit) - bit = 1 -> object is another triple. Returns True if absolutly nothing was matched but the process was a success otherwise. False if something didnt worked
+            :rtype: list or bool
+        """
+        # spcht descriptor format - sdf
+        # ! this is temporarily here, i am not sure how i want to handle the descriptor dictionary for now
+        # ! there might be a use case to have a different mapping file for every single call instead of a global one
+
+        # most elemental check
+        if self._DESCRI is None:
+            return False
+        # Preparation of Data to make it more handy in the further processing
+        marc21_record = None  # setting a default here
+        if marc21_source == "dict":
+            try:
+                marc21_record = Spcht.marc2list(raw_dict.get(marc21))
+            except AttributeError as e:
+                if e == "'str' object has no attribute 'get":
+                    raise AttributeError(f"str has no get {raw_dict}")
+                else:
+                    raise AttributeError(e)  # pay it forward
+            except ValueError as e:  # something is up
+                self.debug_print("ValueException:", colored(e, "red"))
+                marc21_record = None
+            except TypeError as e:
+                self.debug_print("TypeException:", colored(e, "red"))
+                marc21_record = None
+        elif marc21_source == "none":
+            pass  # this is more a nod to anyone reading this than actually doing anything
+        else:
+            raise NameError("The choosen Source option doesnt exists")  # TODO alternative marc source options
+            # ? what if there are just no marc data and we know that in advance?
+        # generate core graph, i presume we already checked the spcht for being correct
+        # ? instead of making one hard coded go i could insert a special round of the general loop right?
+        sub_dict = {
+            "name": "$Identifier$",  # this does nothing functional but gives the debug text a non-empty string
+            "source": self._DESCRI['id_source'],
+            "graph": "none",  # recursion node presumes a graph but we dont have that for the root, this is a dummy
+            # i want to throw this exceptions, but the format is checked anyway right?!
+            "field": self._DESCRI['id_field'],
+            "subfield": self._DESCRI.get('id_subfield', None),
+            # i am aware that .get returns none anyway, this is about you
+            "alternatives": self._DESCRI.get('id_alternatives', None),
+            "fallback": self._DESCRI.get('id_fallback', None)
+        }
+        # ? what happens if there is more than one resource?
+        ressource = self._recursion_node(sub_dict, raw_dict, marc21_record)
+        if isinstance(ressource, list) and len(ressource) == 1:
+            ressource = ressource[0][1]
+            self.debug_print("Ressource", colored(ressource, "green", attrs=["bold"]))
+        else:
+            self.debug_print("ERROR", colored(ressource, "green"))
+            raise TypeError("More than one ID found, SPCHT File unclear?")
+        if ressource is None:
+            raise ValueError("Ressource ID could not be found, aborting this entry")
+
+        triple_list = []
+        for node in self._DESCRI['nodes']:
+            facet = self._recursion_node(node, raw_dict, marc21_record)
+            # ! Data Output Modelling Try 2
+            if node.get('type', "literal") == "triple":
+                node_status = 1
+            else:
+                node_status = 0
+            # * mandatory checks
+            # there are two ways i could have done this, either this or having the checks split up in every case
+            if facet is None:
+                if node['required'] == "mandatory":
+                    return False
+                else:
+                    continue  # nothing happens
+            else:
+                if isinstance(facet, tuple):
+                    if facet[1] is None:  # all those string checks
+                        if node['required'] == "mandatory":
+                            self.debug_print(colored(f"{node.get('name')} is an empty, mandatory string"), "red")
+                            return False
+                        else:
+                            continue  # we did everything but found nothing, this happens
+                elif isinstance(facet, list):
+                    at_least_something = False  # i could have juxtaposition this to save a "not"
+                    for each in facet:
+                        if each[1] is not None:
+                            at_least_something = True
+                            break
+                    if not at_least_something:
+                        if node['required'] == "mandatory":
+                            self.debug_print(colored(f"{node.get('name')} is an empty, mandatory list"), "red")
+                            return False  # there are checks before this, so this should, theoretically, not happen
+                        else:
+                            continue
+                else:  # whatever it is, its weird if this ever happens
+                    if node['required'] == "mandatory":
+                        return False
+                    else:
+                        print(facet, colored("I cannot handle that for the moment", "magenta"), file=self.std_err)
+                        raise TypeError("Unexpected return from recursive processor, this shouldnt happen")
+
+            # * data output - singular form
+            if isinstance(facet, tuple):
+                triple_list.append(((graph + ressource), facet[0], facet[1], node_status))
+                # tuple form of 4
+                # [0] the identifier
+                # [1] the object name
+                # [2] the value or graph
+                # [3] meta info whether its a graph or a literal
+            # * data output - list form
+            elif isinstance(facet, list):  # list of tuples form
+                for each in facet:  # this is a new thing, me naming the variable "each", i dont know why
+                    if each[1] is not None:
+                        triple_list.append(((graph + ressource), each[0], each[1], node_status))
+                    # here was a check for empty elements, but we already know that not all are empty
+                    # this should NEVER return an empty list cause the mandatory check above checks for that
+        if len(triple_list) > 0:
+            return triple_list
+        else:
+            return True
+    # TODO: Error logs for known error entries and total failures as statistic
+    # TODO: Grouping of graph descriptors in an @context
+
     def debug_print(self, *args, **kwargs):
         """
             prints only text if debug flag is set, prints to *self._debug_out*
@@ -104,8 +233,8 @@ class Spcht:
 
     def load_json(self, filename):
         """
-            Encapsulates the loading of a json file into a simple command to save in lines
-
+            Encapsulates the loading of a json file into a simple command to save  lines
+            It also catches most exceptions that might happen
             :param: filename: full path to the file or relative from current position
             :type filename: string
             :return: Returns the loaded object (list or dictionary) or ''False'' if something happend
@@ -322,12 +451,12 @@ class Spcht:
         return zeichenkette
 
     @staticmethod
-    def extract_dictmarc_value(raw_dict: dict, sub_dict: dict, dict_field="field") -> list or None or False:
+    def extract_dictmarc_value(raw_dict: dict, sub_dict: dict, dict_field="field") -> list or None:
         """
         In the corner case and context of this program there are (for now) two different kinds of 'raw_dict', the first
         is a flat dictionary containing a key:value relationship where the value might be a list, the second is the
         transformed marc21_dict which is the data retrieved from the marc_string inside the datasource. The transformation
-        steps contained in spcht create a dictionary similar to the 'normal' raw_dict. There are additional exceptions
+        steps contained in spcht creates a dictionary similar to the 'normal' raw_dict. There are additional exceptions
         like that there are marc values without sub-key, for these the special subfield 'none' exists, there are also
         indicators that are actually standing outside of the normal data set but are included by the transformation script
         and accessable with 'i1' and 'i2'. This function abstracts those special cases and just takes the dictionary of
@@ -336,8 +465,9 @@ class Spcht:
         :param dict sub_dict: a spcht node describing the data source
         :param str dict_field: name of the field in sub_dict, usually this is just 'field'
         :return: Either the value extracted or None if no value could be found
-        :rtype: list or None or False
+        :rtype: list or None
         """
+        # 02.01.21 - Previously this also returned false, this behaviour was inconsistent
         if sub_dict['source'] == 'dict':
             if not Spcht.is_dictkey(raw_dict, sub_dict[dict_field]):
                 return None
@@ -367,10 +497,12 @@ class Spcht:
                     else:
                         pass  # ? for now we are just ignoring that iteration
                 if value is None:
+                    return None  # ! Exit 2 - Field around but not subfield
 
-                    return False  # ! Exit 2 - Field around but not subfield
-                else:
+                if isinstance(value ,list):
                     return value  # * Value Return
+                else:
+                    return [value]
 
             else:
                 if Spcht.is_dictkey(raw_dict[field], subfield):
@@ -378,13 +510,16 @@ class Spcht:
                         for every in raw_dict[field][subfield]:
                             value = Spcht.fill_var(value, every)
                         if value is None:  # i honestly cannot think why this should every happen, probably a faulty preprocessor
-                            return False  # ! Exit 2 - Field around but not subfield
-                        else:
+                            return None  # ! Exit 2 - Field around but not subfield
+
+                        if isinstance(value, list):
                             return value  # * Value Return
+                        else:
+                            return [value]
                     else:
-                        return raw_dict[field][subfield]  # * Value Return  # a singular value
+                        return [raw_dict[field][subfield]]  # * Value Return  # a singular value
                 else:
-                    return False  # ! Exit 2 - Field around but not subfield
+                    return None  # ! Exit 2 - Field around but not subfield
 
     @staticmethod
     def fill_var(current_var: list or str, new_var: any) -> list or any:
@@ -401,7 +536,7 @@ class Spcht:
         if current_var is None:
             return new_var
         if isinstance(current_var, str) and current_var == "":  # a single space would be enough to not do things
-            return new_var
+            return [new_var]
         if isinstance(current_var, list):
             current_var.append(new_var)
             return current_var
@@ -485,7 +620,18 @@ class Spcht:
             return False
 
     @staticmethod
-    def marc21_fixRecord(record="", record_id=0, validation=False, replace_method='decimal'):
+    def marc21_fixRecord(record, validation=False, record_id=0, replace_method='decimal'):
+        """
+        Not my own work. Attributed to Bernhard Hering (SLUB). Converts the raw string coming from a solr source into
+        something readable by replacing the special chars with the correct representation, further uses pymarc
+        to process  the given data.
+        :param str record: Marc21 raw record as given in a database field
+        :param int record_id: ID that gets displayed in the validation error message, default is 0
+        :param bool validation: if true pymarc is used to validate the record right here, returns false if not succesful
+        :param str replace_method: 'decimal', 'unicode' or 'hex'
+        :return: a fixed marc21 Record string with the correct characters, nothing else
+        :rtype: str
+        """
         # imported from the original finc2rdf.py
         # its needed cause the marc21_fullrecord entry contains some information not in the other solr entries
         # record id is only needed for the error text so its somewhat transparent where stuff went haywire
@@ -510,7 +656,7 @@ class Spcht:
                     RecordLengthInvalid, RecordLeaderInvalid, BaseAddressNotFound, BaseAddressInvalid,
                     RecordDirectoryInvalid,
                     NoFieldsFound, UnicodeDecodeError) as e:
-                print("record id {0}:".format(record_id) + str(e), file=sys.stderr)
+                print(f"record id {record_id}: {str(e)}", file=sys.stderr)
                 return False
         # TODO: Clean this up
         return marcFullRecordFixed
@@ -595,27 +741,33 @@ class Spcht:
                 key = next(iter(mini_dict))  # Python 3.7 feature
                 an_actual_dictionary[key] = mini_dict[key]
             return an_actual_dictionary
-        return False
+        raise ValueError("Spcht.normalize_marcdict: Couldnt find any fields")
 
     @staticmethod
     def marc2list(marc_full_record, validation=True, replace_method='decimal'):
         """
-            errrm
+            This Converts a given, binary marc record as contained in the files i have seen so far into something that is
+            actually usable -> a dictionary with proper keys and subkeys
 
             :param str marc_full_record: string containing the full marc21 record
             :param bool validation: Toogles whether the fixed record will be validated or not
             :param str replace_method: One of the three replacement methods: [decimal, unicode, hex]
             :return: Returns a dictionary of ONE Marc Record if there is only one or a list of dictionaries, each a marc21 entry
             :rtype: dict or list
+            :raises ValueError: In Case the normalize_marcdict function fails, probably due a failure before
+            :raises TypeError: If the given marc data is not a string but something else
         """
         clean_marc = Spcht.marc21_fixRecord(marc_full_record, validation=validation, replace_method=replace_method)
         if isinstance(clean_marc, str):  # would be boolean if something bad had happen
             reader = pymarc.MARCReader(clean_marc.encode('utf-8'))
             marc_list = []
             for record in reader:
-                record_dict = Spcht.normalize_marcdict(record.as_dict())  # for some reason i cannot access all fields,
-                # also funny, i could probably use this to traverse the entire thing ,but better save than sorry i guess
-                # sticking to the standard in case pymarc changes in a way or another
+                try:
+                    record_dict = Spcht.normalize_marcdict(record.as_dict())  # for some reason i cannot access all fields,
+                    # also funny, i could probably use this to traverse the entire thing ,but better save than sorry i guess
+                    # sticking to the standard in case pymarc changes in a way or another
+                except ValueError as err:
+                    raise err # usually when there is some none-dictionary given
                 marcdict = {}
                 for i in range(1000):
                     if record[f'{i:03d}'] is not None:
@@ -647,8 +799,7 @@ class Spcht:
                                     if temp is not None:
                                         marcdict[i]['none'] = temp
                             except TypeError:
-                                print(f'{i:03d}')
-                                print(record_dict.get(f'{i:03d}', None))
+                                print("NOTICE: TypeError in Spcht.Marc2List", f'{i:03d}', record_dict.get(f'{i:03d}', None))
                             # normal len doesnt work cause no method, flat element
                 marc_list.append(marcdict)
             if 0 < len(marc_list) < 2:
@@ -658,7 +809,7 @@ class Spcht:
             else:
                 return None
         else:
-            return False
+            raise TypeError("Spcht.marc2list: given 'clean_marc' is not of type str'")
         # i am astonished how diverse the return statement can be, False if something went wrong, None if nothing gets
         # returned but everything else went fine, although, i am not sure if that even triggers and under what circumstances
 
@@ -679,23 +830,35 @@ class Spcht:
         self.debug_print("Local Dir:", colored(os.getcwd(), "blue"))
         self.debug_print("Spcht Dir:", colored(spcht_path.parent, "cyan"))
         if isinstance(descriptor, bool):  # load json goes wrong if something is wrong with the json
-            return None
+            return False
         if not Spcht.check_format(descriptor, base_path=spcht_path.parent):
-            return None
+            return False
         # * goes through every mapping node and adds the reference files, which makes me basically rebuild the thing
         # ? python iterations are not with pointers, so this will expose me as programming apprentice but this will work
         new_node = []
         for item in descriptor['nodes']:
-            a_node = self._load_ref_node(item, str(spcht_path.parent))
-            if isinstance(a_node, bool):  # if something goes wrong we abort here
-                self.debug_print("spcht_ref")
+            try:
+                a_node = self._load_ref_node(item, str(spcht_path.parent))
+            except Exception as e:
+                self.debug_print("spcht_ref", colored(e, "red"))
+                #raise ValueError(f"ValueError while working through Reference Nodes: '{e}'")
                 return False
             new_node.append(a_node)
         descriptor['nodes'] = new_node  # replaces the old node with the new, enriched ones
         self._DESCRI = descriptor
         return True
 
-    def _load_ref_node(self, node_dict, base_path):
+    def _load_ref_node(self, node_dict, base_path) -> dict:
+        """
+
+        :param dict node_dict:
+        :param str base_path:
+        :return: Returns
+        :rtype:  dict
+        :raises ValueError:
+        :raises TypeError: if the loaded file is the wrong format
+        :raises FileNotFounderror: if the given file could not be found
+        """
         # We are again in beautiful world of recursion. Each node can contain a mapping and each mapping can contain
         # a reference to a mapping json. i am actually quite worried that this will lead to performance issues
         # TODO: Research limits for dictionaries and performance bottlenecks
@@ -703,9 +866,10 @@ class Spcht:
         # that i can check for isinstance easier than for None, i might be wrong and i have not looked into the
         # cost of that operation if that is ever a concern
         if Spcht.is_dictkey(node_dict, 'fallback'):
-            node_dict['fallback'] = self._load_ref_node(node_dict['fallback'], base_path)  # ! there it is again, the cursed recursion thing
-            if isinstance(node_dict['fallback'], bool):
-                return False
+            try:
+                node_dict['fallback'] = self._load_ref_node(node_dict['fallback'], base_path)  # ! there it is again, the cursed recursion thing
+            except Exception as e:
+                raise e  # basically lowers the exception by one level
         if Spcht.is_dictkey(node_dict, 'mapping_settings') and node_dict['mapping_settings'].get('$ref') is not None:
             file_path = node_dict['mapping_settings']['$ref']  # ? does it always has to be a relative path?
             self.debug_print("Reference:", colored(file_path, "green"))
@@ -713,17 +877,17 @@ class Spcht:
                 map_dict = self.load_json(os.path.normpath(os.path.join(base_path, file_path)))
             except FileNotFoundError:
                 self.debug_print("Reference File not found")
-                return False
+                raise FileNotFoundError(f"Reference File not found: '{file_path}'")
             # iterate through the dict, if manual entries have the same key ignore
             if not isinstance(map_dict, dict):  # we expect a simple, flat dictionary, nothing else
-                return False  # funnily enough, this also includes bool which happens when json loads fails
+                raise TypeError("Structure of loaded Mapping Settings is incorrect")
             # ! this here is the actual logic that does the thing:
             # there might no mapping key at all
             node_dict['mapping'] = node_dict.get('mapping', {})
             for key, value in map_dict.items():
                 if not isinstance(value, str):  # only flat dictionaries, no nodes
                     self.debug_print("spcht_map")
-                    return False
+                    raise TypeError("Value of mapping_settings is not a string")
                 if not Spcht.is_dictkey(node_dict['mapping'], key):  # existing keys have priority
                     node_dict['mapping'][key] = value
             del map_dict
@@ -736,12 +900,12 @@ class Spcht:
             file_path = node_dict['graph_map_ref']
             map_dict = self.load_json(os.path.normpath(os.path.join(base_path, file_path)))
             if not isinstance(map_dict, dict):
-                return False
+                raise TypeError("Structure of loaded graph_map_reference is not a dictionary")
             node_dict['graph_map'] = node_dict.get('graph_map', {})
             for key, value in map_dict.items():
                 if not isinstance(value, str):
                     self.debug_print("spcht_map")
-                    return False
+                    raise TypeError("Value of graph_map is not a string")
                 node_dict['graph_map'][key] = node_dict['graph_map'].get(key, value)
             del map_dict
             del node_dict['graph_map_ref']
@@ -1237,129 +1401,6 @@ class Spcht:
         self.debug_print(colored(f"✗ {sub_dict['if_field']} was not {sub_dict['if_condition']} {sub_dict['if_value']} but {failure_list} instead", "magenta"), end="-> ")
         return False
 
-    def processData(self, raw_dict, graph, marc21="fullrecord", marc21_source="dict"):
-        """
-            takes a raw solr query and converts it to a list of sparql queries to be inserted in a triplestore
-            per default it assumes there is a marc entry in the solrdump but it can be provided directly
-            it also takes technically any dictionary with entries as input
-
-            :param dict raw_dict: a flat dictionary containing a key sorted list of values to be processes
-            :param str graph: beginning of the assigned graph all entries become triples of
-            :param str marc21: the raw_dict dictionary key that contains additional marc21 data
-            :param str marc21_source: source for marc21 data
-            :return: a list of tuples with 4 entries (subject, predicat, object, bit) - bit = 1 -> object is another triple. Returns True if absolutly nothing was matched but the process was a success otherwise. False if something didnt worked
-            :rtype: list or bool
-        """
-        # spcht descriptor format - sdf
-        # ! this is temporarily here, i am not sure how i want to handle the descriptor dictionary for now
-        # ! there might be a use case to have a different mapping file for every single call instead of a global one
-
-        # most elemental check
-        if self._DESCRI is None:
-            return False
-        # Preparation of Data to make it more handy in the further processing
-        marc21_record = None  # setting a default here
-        if marc21_source == "dict":
-            try:
-                marc21_record = Spcht.marc2list(raw_dict.get(marc21))
-            except AttributeError as e:
-                if e == "'str' object has no attribute 'get":
-                    raise AttributeError(f"str has no get {raw_dict}")
-                else:
-                    raise AttributeError(e)  # pay it forward
-        elif marc21_source == "none":
-            pass  # this is more a nod to anyone reading this than actually doing anything
-        else:
-            return False  # TODO alternative marc source options
-            # ? what if there are just no marc data and we know that in advance?
-        # generate core graph, i presume we already checked the spcht for being correct
-        # ? instead of making one hard coded go i could insert a special round of the general loop right?
-        sub_dict = {
-            "name": "$Identifier$",  # this does nothing functional but gives the debug text a non-empty string
-            "source": self._DESCRI['id_source'],
-            "graph": "none",  # recursion node presumes a graph but we dont have that for the root, this is a dummy
-            # i want to throw this exceptions, but the format is checked anyway right?!
-            "field": self._DESCRI['id_field'],
-            "subfield": self._DESCRI.get('id_subfield', None),
-            # i am aware that .get returns none anyway, this is about you
-            "alternatives": self._DESCRI.get('id_alternatives', None),
-            "fallback": self._DESCRI.get('id_fallback', None)
-        }
-        # ? what happens if there is more than one resource?
-        ressource = self._recursion_node(sub_dict, raw_dict, marc21_record)
-        if isinstance(ressource, list) and len(ressource) == 1:
-            ressource = ressource[0][1]
-            self.debug_print("Ressource", colored(ressource, "green", attrs=["bold"]))
-        else:
-            self.debug_print("ERROR", colored(ressource, "green"))
-            raise TypeError("More than one ID found, SPCHT File unclear?")
-        if ressource is not None:
-            triple_list = []
-            for node in self._DESCRI['nodes']:
-                facet = self._recursion_node(node, raw_dict, marc21_record)
-                # ! Data Output Modelling Try 2
-                if node.get('type', "literal") == "triple":
-                    node_status = 1
-                else:
-                    node_status = 0
-                # * mandatory checks
-                # there are two ways i could have done this, either this or having the checks split up in every case
-                if facet is None:
-                    if node['required'] == "mandatory":
-                        return False
-                    else:
-                        continue  # nothing happens
-                else:
-                    if isinstance(facet, tuple):
-                        if facet[1] is None:  # all those string checks
-                            if node['required'] == "mandatory":
-                                self.debug_print(colored(f"{node.get('name')} is an empty, mandatory string"), "red")
-                                return False
-                            else:
-                                continue  # we did everything but found nothing, this happens
-                    elif isinstance(facet, list):
-                        at_least_something = False  # i could have juxtaposition this to save a "not"
-                        for each in facet:
-                            if each[1] is not None:
-                                at_least_something = True
-                                break
-                        if not at_least_something:
-                            if node['required'] == "mandatory":
-                                self.debug_print(colored(f"{node.get('name')} is an empty, mandatory list"), "red")
-                                return False  # there are checks before this, so this should, theoretically, not happen
-                            else:
-                                continue
-                    else:  # whatever it is, its weird if this ever happens
-                        if node['required'] == "mandatory":
-                            return False
-                        else:
-                            print(facet, colored("I cannot handle that for the moment", "magenta"), file=self.std_err)
-                            raise TypeError("Unexpected return from recursive processor, this shouldnt happen")
-
-                # * data output - singular form
-                if isinstance(facet, tuple):
-                    triple_list.append(((graph + ressource), facet[0], facet[1], node_status))
-                    # tuple form of 4
-                    # [0] the identifier
-                    # [1] the object name
-                    # [2] the value or graph
-                    # [3] meta info whether its a graph or a literal
-                # * data output - list form
-                elif isinstance(facet, list):  # list of tuples form
-                    for each in facet:  # this is a new thing, me naming the variable "each", i dont know why
-                        if each[1] is not None:
-                            triple_list.append(((graph + ressource), each[0], each[1], node_status))
-                        # here was a check for empty elements, but we already know that not all are empty
-                        # this should NEVER return an empty list cause the mandatory check above checks for that
-            if len(triple_list) > 0:
-                return triple_list
-            else:
-                return True
-        else:
-            return False  # ? id finding failed, therefore nothing can be returned
-    # TODO: Error logs for known error entries and total failures as statistic
-    # TODO: Grouping of graph descriptors in an @context
-
     def get_node_fields(self):
         """
             Returns a list of all the fields that might be used in processing of the data, this includes all
@@ -1497,8 +1538,8 @@ class Spcht:
             :return: a string containing the entire list formated as rdf, turtle format per default
             :rtype: str
         """
-        if NORDF:
-            return False
+        if NORDF:  # i am quite sure that this is not the way to do such  things
+            raise ImportError("No RDF Library avaible, cannot process Spcht.process2RDF")
         graph = rdflib.Graph()
         for each in quadro_list:
             if each[3] == 0:
@@ -1527,6 +1568,8 @@ class Spcht:
         # for this reasons this has its own out target instead of using that of the instance
         # * what it does not check for is illogical entries like having alternatives for a pure marc source
         # for language stuff i give you now the ability to actually provide local languages
+        # 01.02.2021 i toyed with the thought of replacing all the 'return false' with Exceptions but i decided that had
+        # no use as i only ever return  true or false and nothing else
         error_desc = {
             "header_miss": "The main header informations [id_source, id_field, main] are missing, is this even the right file?",
             "header_mal": "The header information seems to be malformed",

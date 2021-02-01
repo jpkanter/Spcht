@@ -10,7 +10,6 @@ import sys
 import time
 from datetime import datetime, timedelta
 
-import pymarc
 from dateutil.relativedelta import relativedelta
 
 from local_tools import super_simple_progress_bar, sleepy_bar, super_simple_progress_bar_clear, \

@@ -249,8 +249,7 @@
             "source": "marc",
             "graph": "https://graphs.toucancorp.com/marcstring",
             "required": "optional",
-            "field": "001",
-            "subfield": "none",
+            "field": "001:none",
             "insert_into": "Field 3 {} - 40a: {} and 40b = {}",
             "insert_add_fields": ["40:a", "40:b"],
             "type": "literal"
