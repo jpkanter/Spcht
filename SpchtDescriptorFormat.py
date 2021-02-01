@@ -744,7 +744,7 @@ class Spcht:
         raise ValueError("Spcht.normalize_marcdict: Couldnt find any fields")
 
     @staticmethod
-    def marc2list(marc_full_record, validation=True, replace_method='decimal'):
+    def marc2list(marc_full_record, validation=True, replace_method='decimal', explicit_exception=False):
         """
             This Converts a given, binary marc record as contained in the files i have seen so far into something that is
             actually usable -> a dictionary with proper keys and subkeys
@@ -752,6 +752,7 @@ class Spcht:
             :param str marc_full_record: string containing the full marc21 record
             :param bool validation: Toogles whether the fixed record will be validated or not
             :param str replace_method: One of the three replacement methods: [decimal, unicode, hex]
+            :param bool explicit_exception: If true throws an actual exception while traversing the marc structure, usually this is just one of many entries whichs failure can savely ignored
             :return: Returns a dictionary of ONE Marc Record if there is only one or a list of dictionaries, each a marc21 entry
             :rtype: dict or list
             :raises ValueError: In Case the normalize_marcdict function fails, probably due a failure before
@@ -799,6 +800,8 @@ class Spcht:
                                     if temp is not None:
                                         marcdict[i]['none'] = temp
                             except TypeError:
+                                if explicit_exception:
+                                    raise TypeError(f"Spcht.Marc2List: '{i:03d}', {record_dict.get(f'{i:03d}', None)}")
                                 print("NOTICE: TypeError in Spcht.Marc2List", f'{i:03d}', record_dict.get(f'{i:03d}', None))
                             # normal len doesnt work cause no method, flat element
                 marc_list.append(marcdict)
