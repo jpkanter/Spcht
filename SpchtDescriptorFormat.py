@@ -952,9 +952,16 @@ class Spcht:
                 self.debug_print(colored(f"✗ field found but subfield not present in marc21 dict", "magenta"), end=" > ")
                 return self._call_fallback(sub_dict, raw_dict, marc21_dict)
 
+            """Explanation:
+            I am rereading this and its quite confusing on the first glance, so here some prosa. This assumes three modes,
+            either returned value gets replaced by the graph_field function that works like a translation, or it inserts
+            something, if it doesnt do  that it does the normal stuff where it adds some parts, divides some and does 
+            all the other pre&post processing things. Those 3 modi are exclusive. If any value gets filtered by the 
+            if function above we never get here, as of now only one valid value in a list of value is enough to get here
+            02.02.2021"""
             if Spcht.is_dictkey(sub_dict, 'graph_field'):  # original boilerplate from dict
                 graph_value = self._graph_map(marc21_dict, sub_dict)
-                if graph_value is not None:  # ? why i am even checking for that? Fallbacks, that's why
+                if graph_value is not None:  # ? why i am even checking for that? Fallbacks, that's why, if this fails we end on the bottom of this function
                     self.debug_print(colored("✓ graph_field", "green"))
                     return graph_value
                 self.debug_print(colored(f"✗ graph mapping could not be fullfilled", "magenta"), end=" > ")
@@ -966,7 +973,7 @@ class Spcht:
                     # ! this handling of the marc format is probably too simply
             else:
                 temp_value = Spcht._node_preprocessing(m21_value, sub_dict)
-                if temp_value is None or len(temp_value) <= 0:
+                if temp_value is None or len(temp_value) <= 0:  # not sure how i feal about the explicit check of len<0
                     self.debug_print(colored(f"✗ value preprocessing returned no matches", "magenta"), end=" > ")
                     return self._call_fallback(sub_dict, raw_dict, marc21_dict)
 
@@ -1065,15 +1072,15 @@ class Spcht:
         raise TypeError("Could handle graph, subject pair")
 
     @staticmethod
-    def _node_preprocessing(value: str or list, sub_dict: dict, key_prefix="") -> str or list or None:
+    def _node_preprocessing(value: str or list, sub_dict: dict, key_prefix="") -> list or None:
         """
         used in the processing after entries were found, this acts basically as filter for everything that does
         not match the provided regex in sub_dict
 
         :param str or list value: value of the found field/subfield, can be a list
         :param dict sub_dict: sub dictionary containing a match key, if not nothing happens
-        :return: None if not a single match was found, str or list if one or more matches were made or no 'match'
-        :rtype: str or list or None
+        :return: None if not a single match was found, always a list of values, even its just one
+        :rtype: list or None
         """
         # if there is a match-filter, this filters out the entry or all entries not matching
         if not Spcht.is_dictkey(sub_dict, f'{key_prefix}match'):
@@ -1081,7 +1088,7 @@ class Spcht:
         if isinstance(value, str):
             finding = re.search(sub_dict[f'{key_prefix}match'], str(value))
             if finding is not None:
-                return finding.string
+                return [finding.string]
             else:
                 return None
         elif isinstance(value, list):
@@ -1090,17 +1097,15 @@ class Spcht:
                 finding = re.search(sub_dict[f'{key_prefix}match'], str(item))
                 if finding is not None:
                     list_of_returns.append(finding.string)
-            if 0 < len(list_of_returns) < 2:
-                return list_of_returns[0]  # if there is only one surviving element there is no point in returning a list
-                # although an argument could be made that always list would be more uniform....
-            elif len(list_of_returns) > 1:
-                return list_of_returns
-            else:
+            if len(list_of_returns) <= 0:
                 return None
+            else:
+                return list_of_returns
         else:  # fallback if its anything else i dont intended to handle with this
-            return value
+            raise TypeError(f"SPCHT.node_preprocessing - Found a {type(value)}")
+            #return value
 
-    def _node_postprocessing(self, value: str or list, sub_dict: dict, key_prefix=""):
+    def _node_postprocessing(self, value: str or list, sub_dict: dict, key_prefix="") -> list:
         """
         Used after filtering and mapping took place, this appends the pre and post text before the value if provided,
         further also replaces part of the value with the replacement text or just removes the part that is
@@ -1109,19 +1114,20 @@ class Spcht:
 
         :param str or list value: the content of the field that got mapped till now
         :param dict sub_dict: the subdictionary of the node containing the 'cut', 'prepend', 'append' and 'replace' key
-        :return: returns the same number of provided entries as input, if only one its just a string
-        :rtype: str or list
+        :return: returns the same number of provided entries as input, always a list
+        :rtype: list
         """
         # after having found a value for a given key and done the appropriate mapping the value gets transformed
         # once more to change it to the provided pattern
 
+        # as i have manipulated the preprocessing there should be no strings anymore
         if isinstance(value, str):
             if Spcht.is_dictkey(sub_dict, f'{key_prefix}cut'):
                 value = re.sub(sub_dict.get(f'{key_prefix}cut', ""), sub_dict.get(f'{key_prefix}replace', ""), value)
                 self._addToSaveAs(value, sub_dict)
             else:
                 self._addToSaveAs(value, sub_dict)
-            return sub_dict.get(f'{key_prefix}prepend', "") + value + sub_dict.get(f'{key_prefix}append', "")
+            return [sub_dict.get(f'{key_prefix}prepend', "") + value + sub_dict.get(f'{key_prefix}append', "")]
         elif isinstance(value, list):
             list_of_returns = []
             for item in value:
@@ -1135,20 +1141,11 @@ class Spcht:
                     if key_prefix != "":
                         self._addToSaveAs(pure_filter, sub_dict)
                 list_of_returns.append(rest_str)
-            if len(list_of_returns) == 1:
-                return list_of_returns[0]  # we are handling lists later anyway, but i am cleaning here a bit
-            else:
-                return list_of_returns  # there should always be elements, even if they are empty, we are staying faithful here
+            if len(list_of_returns) < 0:
+                return None
+            return list_of_returns
         else:  # fallback if its anything else i dont intended to handle with this
             return value
-
-    def _addToSaveAs(self, value, sub_dict):
-        # this was originally 3 lines of boilerplate inside postprocessing, i am not really sure if i shouldn't have
-        # left it that way, i kinda dislike those mini functions, it divides the code
-        if Spcht.is_dictkey(sub_dict, "saveas"):
-            if self._SAVEAS.get(sub_dict['saveas'], None) is None:
-                self._SAVEAS[sub_dict['saveas']] = []
-            self._SAVEAS[sub_dict['saveas']].append(value)
 
     def _node_mapping(self, value, mapping, settings):
         """
@@ -1403,6 +1400,15 @@ class Spcht:
             failure_list.append(each)
         self.debug_print(colored(f"✗ {sub_dict['if_field']} was not {sub_dict['if_condition']} {sub_dict['if_value']} but {failure_list} instead", "magenta"), end="-> ")
         return False
+
+
+    def _addToSaveAs(self, value, sub_dict):
+        # this was originally 3 lines of boilerplate inside postprocessing, i am not really sure if i shouldn't have
+        # left it that way, i kinda dislike those mini functions, it divides the code
+        if Spcht.is_dictkey(sub_dict, "saveas"):
+            if self._SAVEAS.get(sub_dict['saveas'], None) is None:
+                self._SAVEAS[sub_dict['saveas']] = []
+            self._SAVEAS[sub_dict['saveas']].append(value)
 
     def get_node_fields(self):
         """

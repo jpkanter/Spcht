@@ -59,6 +59,19 @@ if __name__ == "__main__":
     print(f"Result of Extract Test: {stat['list']} Lists, {stat['none']} Nones, {stat['string']} Strings, {stat['other']} Others")
     print("Should be only Lists and Nones.")
 
+    # Insert String
+    print("Testing Insert String")
+    testNode = { 'source': 'dict',
+                 'field': 'author',
+                 'insert_add_fields': ['author2', 'language'],
+                 'insert_into': 'Author: {}, Author2: {} & Langugage: {}'
+                 }
+    for entry in testdata:
+        testVar = my_little_feather._inserter_string(entry, testNode)
+        print(type(testVar), len(testVar))
+
+
+
     stat['processing'] = 0
     for entry in testdata:
         try:
