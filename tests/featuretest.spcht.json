@@ -1,0 +1,416 @@
+{
+  "id_source": "dict",
+    "id_field": "id",
+    "id_fallback": {
+        "source": "marc",
+        "field": "001",
+        "subfield": "none"
+    },
+  "nodes": [
+    {
+      "name": "Simple Dict",
+      "source": "dict",
+      "graph": "https://simple.dict/",
+      "required": "optional",
+      "field": "id"
+    },
+    {
+      "name": "Simple Dict with alternatives",
+      "source": "dict",
+      "graph": "https://simple.dict.alternatives/",
+      "required": "optional",
+      "field": "something_that_does_not_exist",
+      "alternatives":  ["author"]
+    },
+    {
+      "name": "Simple dict with multiple alternatives",
+      "source": "dict",
+      "graph": "https://simple.dict.more.alternatives/",
+      "required": "optional",
+      "field": "this_does_not_exists",
+      "alternatives": ["aufor", "fromat", "language"]
+    },
+    {
+      "name": "Simple marc with none field",
+      "source": "marc",
+      "graph": "https://simple.marc.none.field/",
+      "required": "optional",
+      "field": "001:none"
+    },
+    {
+      "name": "Simple marc with none field that should fail",
+      "source": "marc",
+      "graph": "https://simple.marc.none.field.that.fails/",
+      "required": "optional",
+      "field": "100:none"
+    },
+    {
+      "name": "Simple marc with subfield that should fail",
+      "source": "marc",
+      "graph": "https://simple.marc.subfield.that.fails/",
+      "required": "optional",
+      "field": "003:a"
+    },
+    {
+      "name": "Simple marc with repeateable subfield",
+      "source": "marc",
+      "graph": "https://simple.marc.subfield.repeatable/",
+      "required": "optional",
+      "field": "700:a"
+    },
+    {
+      "name": "Simple marc",
+      "source": "marc",
+      "graph": "https://simple.marc.subfield/",
+      "required": "optional",
+      "field": "100:a"
+    },
+    {
+      "name": "Simple Dict with Marc Fallback",
+      "source": "dict",
+      "graph": "https://simple.dict.fallback/",
+      "required": "optional",
+      "field": "a-non-existing-field",
+      "fallback": {
+          "source": "marc",
+          "graph": "https://simple.dict.fallback.to.simple.marc.none.field/",
+          "field": "001:none"
+        }
+    },
+    {
+      "name": "Simple marc with append",
+      "source": "marc",
+      "graph": "https://simple.marc.append/",
+      "required": "optional",
+      "field": "100:a",
+      "append": "SUFFIX"
+    },
+    {
+      "name": "Simple marc with prepend",
+      "source": "marc",
+      "graph": "https://simple.marc.prepend/",
+      "required": "optional",
+      "field": "100:a",
+      "prepend": "PREFIX"
+    },
+    {
+      "name": "Simple marc with match",
+      "source": "marc",
+      "graph": "https://simple.marc.match/",
+      "required": "optional",
+      "field": "100:a",
+      "match": "bla"
+    },
+    {
+      "name": "Simple marc cut",
+      "source": "marc",
+      "graph": "https://simple.marc.cut/",
+      "required": "optional",
+      "field": "100:a",
+      "cut": "bla"
+    },
+    {
+      "name": "Simple Dict with Marc Fallback",
+      "source": "dict",
+      "graph": "https://simple.dict.fallback/",
+      "required": "optional",
+      "field": "a-non-existing-field",
+      "fallback": {
+          "source": "marc",
+          "graph": "https://simple.dict.fallback.to.simple.marc.subfield.field/",
+          "field": "300:b"
+        }
+    },
+    {
+      "name": "Simple marc with fallback",
+      "source": "marc",
+      "graph": "https://simple.marc.fallback/",
+      "required": "optional",
+      "field": "999:a",
+      "fallback": {
+        "source": "dict",
+        "graph": "https://simple.marc.fallback.non.field/",
+        "field": "publishPlace"
+      }
+    },
+    {
+      "name": "Simple marc with fallback due non-subfield",
+      "source": "marc",
+      "graph": "https://simple.marc.fallback/",
+      "required": "optional",
+      "field": "100:zz",
+      "fallback": {
+        "source": "dict",
+        "graph": "https://simple.marc.fallback.non.subfield/",
+        "field": "record_id"
+      }
+    },
+     {
+      "name": "Complex Dict-String that is built from a string, only one inserts",
+      "source": "dict",
+      "graph": "https://complex.dict.insert_into_ONE/",
+      "required": "optional",
+      "field": "topic_facet",
+      "insert_into": "This is the topic_fact: {}"
+    },
+    {
+      "name": "Complex Dict-String that is built from a string, odd inserts",
+      "source": "dict",
+      "graph": "https://complex.dict.insert_into_odd/",
+      "required": "optional",
+      "field": "id",
+      "insert_into": "This is <{}>, has topic: {} and Part-Author {}",
+      "insert_add_fields": ["topic_facet", "author_facet"]
+    },
+    {
+      "name": "Complex Dict-String that is built from a string, even inserts",
+      "source": "dict",
+      "graph": "https://complex.dict.insert_into_even/",
+      "required": "optional",
+      "field": "id",
+      "insert_into": "This is <{}>, has topic: {}",
+      "insert_add_fields": ["topic_facet"]
+    },
+    {
+      "name": "Complex Marc-String that is built from a string, only one inserts",
+      "source": "marc",
+      "graph": "https://complex.marc.insert_into_one/",
+      "required": "optional",
+      "field": "264:a",
+      "insert_into": "This is the Marcfield 264:a : {}"
+    },
+    {
+      "name": "Complex Marc-String that is built from a string, odd number of inserts",
+      "source": "marc",
+      "graph": "https://complex.marc.insert_into_odd/",
+      "required": "optional",
+      "field": "250:a",
+      "insert_into": "Here 250:a : {}, also 700:a: {} and 700:4: {}",
+      "insert_add_fields": ["700:a", "700:4"]
+    },
+    {
+      "name": "Complex Marc-String that is built from a string, even number of inserts",
+      "source": "marc",
+      "graph": "https://complex.marc.insert_into_even/",
+      "required": "optional",
+      "field": "336:a",
+      "insert_into": "Here 336:a : {}, also 264:c {}",
+      "insert_add_fields": ["264:c"]
+    },
+    {
+      "name": "Simple Dict with prepend text",
+      "source": "dict",
+      "graph": "https://simple.dict.with.prepend/",
+      "required": "optional",
+      "field": "genre",
+      "prepend": "Some Prefix"
+    },
+     {
+      "name": "Simple Dict with append text",
+      "source": "dict",
+      "graph": "https://simple.dict.with.append/",
+      "required": "optional",
+      "field": "title",
+      "prepend": "<><>xXx<><>POSTFIX"
+    },
+    {
+      "name": "Simple marc with prepend",
+      "source": "marc",
+      "graph": "https://simple.marc.with.prepend/",
+      "required": "optional",
+      "field": "001",
+      "subfield": "none",
+      "prepend": "PREFIX"
+    },
+    {
+      "name": "Simple marc with append",
+      "source": "marc",
+      "graph": "https://simple.marc.with.append/",
+      "required": "optional",
+      "field": "001",
+      "subfield": "none",
+      "append": "POSTFIX"
+    },
+    {
+      "name": "Simple Dict with cut",
+      "source": "dict",
+      "graph": "https://simple.dict.with.cut/",
+      "required": "optional",
+      "field": "ctrlnum",
+      "cut": "(\\(DE-627\\))"
+    },
+    {
+      "name": "Simple Dict with cut & replace",
+      "source": "dict",
+      "graph": "https://simple.dict.with.cut.replace/",
+      "required": "optional",
+      "field": "ctrlnum",
+      "cut": "(\\(DE-627\\))",
+      "replace": "SE-999 "
+    },
+    {
+      "name": "Simple Dict with match",
+      "source": "dict",
+      "graph": "https://simple.dict.with.match/",
+      "required": "optional",
+      "field": "ctrlnum",
+      "match": "(\\(DE-627\\))"
+    },
+    {
+      "name": "Simple Dict with match, cut & replace",
+      "source": "dict",
+      "graph": "https://simple.dict.with.match.cut.replace/",
+      "required": "optional",
+      "field": "ctrlnum",
+      "match": "(\\(DE-627\\))",
+      "cut": "(\\(DE-627\\))",
+      "replace": "ES-665 "
+    },
+    {
+      "name": "Dict Mapping",
+      "source": "dict",
+      "graph": "https://complex.dict.mapping.to.value",
+      "field": "author_role",
+      "alternatives": ["author_corporate_role", "author2_role", "author_corporate2_role"],
+      "required": "optional",
+      "mapping_settings": {
+          "$ref": "../translation_maps/roles.json",
+          "$default": true
+          },
+      "mapping": {
+        "aut": "https://this.overwrites.the.loaded.mapping"
+      }
+    },
+    {
+      "name": "Dict Mapping with append/prepend",
+      "source": "dict",
+      "graph": "https://dict.mapping.but.with.append.prepend",
+      "field": "author_role",
+      "alternatives": ["author_corporate_role", "author2_role", "author_corporate2_role"],
+      "required": "optional",
+      "mapping_settings": {
+          "$ref": "../translation_maps/roles.json",
+          "$default": true
+          },
+      "mapping": {
+        "aut": "https://this.overwrites.the.loaded.mapping"
+      },
+      "prepend": "PREFIX",
+      "append": "SUFFIX"
+    },
+    {
+      "name": "Dict Graph Map",
+      "source": "dict",
+      "graph": "http://complex.dict.two.fields.to.graph.map",
+      "graph_map": {
+          "aus": "https://this.overwrites.the.loaded.graph.map",
+          "aut": "http://purl.org/dc/elements/1.1/creator"
+          },
+      "graph_map_ref": "../translation_maps/role_graphs.json",
+      "graph_field": "author2_role",
+      "field": "author2",
+      "required": "optional"
+    },
+    {
+      "name": "Dict Graph Map with append, prepend",
+      "source": "dict",
+      "graph": "http://i.cannot.really.imagine.a.use.case.for.this.honestly",
+      "graph_map": {
+          "aus": "https://this.overwrites.the.loaded.graph.map",
+          "aut": "http://purl.org/dc/elements/1.1/creator"
+          },
+      "graph_map_ref": "../translation_maps/role_graphs.json",
+      "graph_field": "author2_role",
+      "field": "author2",
+      "prepend": "PREFIX",
+      "append": "SUFFIX",
+      "required": "optional"
+    },
+    {
+      "name": "Dict Graph Map with additional mapping of value",
+      "source": "dict",
+      "graph": "http://complex.dict.two.fields.to.graph.map.and.map.value",
+      "graph_map": {
+          "aus": "https://this.overwrites.the.loaded.graph.map",
+          "aut": "http://purl.org/dc/elements/1.1/creator",
+          "act": "https://if.this.is.gary.oldman.it.wont.say.so/"
+          },
+      "mapping_settings": {
+          "$default": true
+          },
+      "mapping": {
+        "Heisig, Bernhard": "<<><NOT Bernhard Heisig <<>>",
+        "J\u00e4ger, Wolfram": "Jörgen Wolfram?",
+        "Oldman, Gary": "xXx Geralt Altmann xXx"
+      },
+      "graph_map_ref": "../translation_maps/role_graphs.json",
+      "graph_field": "author2_role",
+      "field": "author2",
+      "required": "optional"
+    },
+    {
+      "name": "Simple Dict with if condition",
+      "source": "dict",
+      "graph": "https://simple.dict.with.if/",
+      "required": "optional",
+      "field": "building",
+      "if_condition": "equal",
+      "if_field": "institution",
+      "if_value": "DE-14"
+    },
+    {
+      "name": "Simple Dict with if comparator",
+      "source": "dict",
+      "graph": "https://simple.dict.with.if/",
+      "required": "optional",
+      "field": "language",
+      "if_condition": ">=",
+      "if_field": "publishDateSort",
+      "if_value": 2014
+    },
+    {
+      "name": "Simple marc with a subfield and if-condition",
+      "source": "marc",
+      "graph": "https://simple.marc.subfield.with.if/",
+      "required": "optional",
+      "field": "100:a",
+      "if_condition": "equal",
+      "if_value": "ger",
+      "if_field": "41:a"
+    },
+    {
+      "name": "Simple marc with a subfield and if-condition on existence",
+      "source": "marc",
+      "graph": "https://simple.marc.subfield.with.if.existence/",
+      "required": "optional",
+      "field": "852:a",
+      "if_condition": "exi",
+      "if_field": "856:x"
+    },
+    {
+      "name": "Combo Marc",
+      "source": "marc",
+      "graph": "https://complex.marc.with.graph.map//",
+      "required": "optional",
+      "field": "700:a",
+      "graph_field": "700:4",
+      "graph_map": {
+            "aus": "https://this.overwrites.the.loaded.graph.map",
+            "aut": "http://purl.org/dc/elements/1.1/creator"
+            },
+      "graph_map_ref": "../translation_maps/role_graphs.json",
+      "fallback": {
+        "name": "Dict Graph Map in fallback for non-fullrecord",
+        "source": "dict",
+        "graph": "http://i.cannot.really.imagine.a.use.case.for.this.honestly",
+        "graph_map": {
+            "aus": "https://this.overwrites.the.loaded.graph.map",
+            "aut": "http://purl.org/dc/elements/1.1/creator"
+            },
+        "graph_map_ref": "../translation_maps/role_graphs.json",
+        "graph_field": "author2_role",
+        "field": "author2"
+      }
+    }
+  ]
+}

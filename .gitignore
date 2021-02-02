@@ -105,7 +105,6 @@ ENV/
 helperscripts
 luigi
 processing
-tests
 /errors.txt
 /debug.json
 /bridgeoutput.txt
