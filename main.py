@@ -242,51 +242,55 @@ def full_process(solr, graph, spcht, sparql, sparql_user="", sparql_pw="", log=F
     print(f"Detected {n} chunks of a total of {req_rows} entries with a chunk size of {req_chunk}", file=stormwarden)
     print(f"Start Loading Remote chunks - {delta_now(start_time)}", file=stormwarden)
     print(("#" * n)[:0] + (" " * n)[:n], f"{0+1} / {n}")
-    for i in range(0, n):
-        print(f"New Chunk started: [{i+1}/{n-1}] - {delta_now(start_time)} ms", file=stormwarden)
-        if i + 1 != n:
-            req_para['rows'] = req_chunk
-        else:
-            req_para['rows'] = int(int(req_rows) % int(req_chunk))
-        print(f"\tUsing request URL: {solr}/{req_para}", file=stormwarden)
-        data = test_json(load_remote_content(solr, req_para))
-        if data:  # no else required, test_json already gives us an error if something fails
-            print(f"Chunk finished, using SPCHT - {delta_now(start_time)}", file=stormwarden)
-            chunk_data = slice_header_json(data)
-            big_data += chunk_data
-            number = 0
-            # test 1 - chunkwise data import
-            inserts = []
-            for entry in chunk_data:
-                temp = habicht.processData(entry, graph)
-                if temp:
-                    number += len(temp)
-                    inserts.append(Spcht.quickSparql(temp, graph))  # just by coincidence this is the same in this example
-                    big_data.append(temp)
-            total_nodes += number
-            print(f"Pure Maping for current Chunk done, doing http sparql requests - {delta_now(start_time)}",
-                  file=stormwarden)
-            incrementor = 0
-            for pnguin in inserts:
-                sparqlQuery(pnguin, sparql, auth=sparql_user, pwd=sparql_pw)
-                incrementor += 1
-                super_simple_progress_bar(incrementor, len(inserts), "HTTP ", f"{incrementor} / {len(inserts)} [{number}]")
-            print(f"\n{incrementor} Inserts done, {number} entries, commencing")
-            print(f"SPARQL Requests finished total of {number} entries - {delta_now(start_time)}",
-                  file=stormwarden)
-        print(("#" * n)[:i] + (" " * n)[:(n - i)], f"{i+1} / {n}", f"- {delta_now(start_time)}")
+    try:
+        for i in range(0, n):
+            print(f"New Chunk started: [{i+1}/{n-1}] - {delta_now(start_time)} ms", file=stormwarden)
+            if i + 1 != n:
+                req_para['rows'] = req_chunk
+            else:
+                req_para['rows'] = int(int(req_rows) % int(req_chunk))
+            print(f"\tUsing request URL: {solr}/{req_para}", file=stormwarden)
+            data = test_json(load_remote_content(solr, req_para))
+            if data:  # no else required, test_json already gives us an error if something fails
+                print(f"Chunk finished, using SPCHT - {delta_now(start_time)}", file=stormwarden)
+                chunk_data = slice_header_json(data)
+                big_data += chunk_data
+                number = 0
+                # test 1 - chunkwise data import
+                inserts = []
+                for entry in chunk_data:
+                    temp = habicht.processData(entry, graph)
+                    if temp:
+                        number += len(temp)
+                        inserts.append(Spcht.quickSparql(temp, graph))  # just by coincidence this is the same in this example
+                        big_data.append(temp)
+                total_nodes += number
+                print(f"Pure Maping for current Chunk done, doing http sparql requests - {delta_now(start_time)}",
+                      file=stormwarden)
+                incrementor = 0
+                for pnguin in inserts:
+                    sparqlQuery(pnguin, sparql, auth=sparql_user, pwd=sparql_pw)
+                    incrementor += 1
+                    super_simple_progress_bar(incrementor, len(inserts), "HTTP ", f"{incrementor} / {len(inserts)} [{number}]")
+                print(f"\n{incrementor} Inserts done, {number} entries, commencing")
+                print(f"SPARQL Requests finished total of {number} entries - {delta_now(start_time)}",
+                      file=stormwarden)
+            print(("#" * n)[:i] + (" " * n)[:(n - i)], f"{i+1} / {n}", f"- {delta_now(start_time)}")
 
-        if data.get("nextCursorMark", "*") != "*" and data['nextCursorMark'] != req_para['cursorMark']:
-            req_para['cursorMark'] = data['nextCursorMark']
-        else:
-            printing(
-                f"{delta_now(start_time)}\tNo further CursorMark was received, therefore there are less results than expected rows. Aborting cycles",
-                file=stormwarden)
-            break
-    print(f"Overall Executiontime was {delta_now(start_time, 3)} seconds", file=stormwarden)
-    print(f"Total size of all entries is {sys.getsizeof(big_data)}", file=stormwarden)
-    print(f"There was a total of {total_nodes} triples", file=stormwarden)
-    stormwarden.close()
+            if data.get("nextCursorMark", "*") != "*" and data['nextCursorMark'] != req_para['cursorMark']:
+                req_para['cursorMark'] = data['nextCursorMark']
+            else:
+                printing(
+                    f"{delta_now(start_time)}\tNo further CursorMark was received, therefore there are less results than expected rows. Aborting cycles",
+                    file=stormwarden)
+                break
+    except KeyboardInterrupt:
+        print(f"Process was interrupted by user interaction", file=stormwarden)
+    finally:
+        print(f"Overall Executiontime was {delta_now(start_time, 3)} seconds", file=stormwarden)
+        print(f"Total size of all entries is {sys.getsizeof(big_data)}", file=stormwarden)
+        print(f"There was a total of {total_nodes} triples", file=stormwarden)
+        stormwarden.close()
 
 
 def downloadTest(req_rows=100, req_chunk=120, wait_time=0, wait_incrementor=0):
