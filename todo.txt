@@ -34,4 +34,5 @@
     [-] command line interface
     [x] probably rewriting the entire SPCHT into a class
     [x] format checking is inconclusive, alternatives check not properly working
+    [ ] check if a remote server is actually reacheable
 

@@ -1,3 +1,25 @@
+# coding: utf-8
+
+# Copyright 2021 by Leipzig University Library, http://ub.uni-leipzig.de
+#                   JP Kanter, <kanter@ub.uni-leipzig.de>
+#
+# This file is part of some open source application.
+#
+# Some open source application is free software: you can redistribute
+# it and/or modify it under the terms of the GNU General Public
+# License as published by the Free Software Foundation, either
+# version 3 of the License, or (at your option) any later version.
+#
+# Some open source application is distributed in the hope that it will
+# be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
+# of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Foobar.  If not, see <http://www.gnu.org/licenses/>.
+#
+# @license GPL-3.0-only <https://www.gnu.org/licenses/gpl-3.0.en.html>
+
 import sys
 import time
 import json
@@ -20,6 +42,38 @@ def slice_header_json(data):
     if isinstance(data.get(STRUCTURE['body']), dict):
         return data.get(STRUCTURE['body']).get(STRUCTURE['content'])
     raise TypeError("unex_struct")
+
+
+def solr_handle_return(data):
+    """
+    Handles the returned json of an apache solr, throws some "meaningful" TypeErrors in case not everything
+    went alright. Otherwise it returns the main body which should be a list of dictionaries
+
+    :param dict data: json-like object coming from an apache solr
+    :return: a list of dictionary objects containing the queried content
+    :rtype: list
+    :raises: TypeError on inconsistencies or error 400
+    """
+    if 'responseHeader' not in data:
+        raise TypeError("no response header found")
+    code = data.get('responseHeader').get('status')
+    if code == 400:
+        if 'error' in data:
+            raise TypeError(f"response 400 - {data.get('error').get('msg')}")
+        else:
+            raise TypeError("response 400 BUT no error identifier!")
+
+    if code != 0:  # currently unhandled errors
+        if 'error' in data:
+            raise TypeError(f"response code {code} - {data.get('error').get('msg')}")
+        else:
+            raise TypeError(f"response code {code}, unknown cause")
+
+    if code == 0:
+        if not 'response' in data:
+            raise TypeError("Code 0 (all okay), BUT no response")
+
+        return data.get('response').get('docs')
 
 
 def load_remote_content(url, params, response_type=0, mode="GET"):

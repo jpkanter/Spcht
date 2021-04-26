@@ -12,7 +12,7 @@
   },
   "para": {
     "solr": "http://<fqdn>/solr/biblio/select",
-    "virtuoso-write": "http://<fqdn>/sparql-auth/",
+    "sparql": "http://<fqdn>/sparql-auth/",
     "spcht": "default.spcht.json",
     "sparql_user": "<user>",
     "sparql_pw": "<password>",
