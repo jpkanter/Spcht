@@ -1643,8 +1643,12 @@ class Spcht:
         if base_path == "":
             base_path = os.path.abspath('.')
         # checks basic infos
-        if not Spcht.is_dictkey(descriptor, 'id_source', 'id_field', 'nodes'):
-            print(error_desc['header_miss'], file=out)
+        try:
+            if not Spcht.is_dictkey(descriptor, 'id_source', 'id_field', 'nodes'):
+                print(error_desc['header_miss'], file=out)
+                return False
+        except TypeError as e:
+            print(f"{error_desc['header_mal']} - {e}: {type(descriptor)}...", file=out)
             return False
         # transforms header in a special node to avoid boiler plate code
         header_node = {

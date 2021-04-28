@@ -102,14 +102,17 @@ def load_from_json(file_path):
     try:
         with open(file_path, mode='r') as file:
             return json.load(file)
-
     except FileNotFoundError:
         send_error("nofile")
     except ValueError:
         send_error("json_parser")
     except Exception as error:
         send_error("graph_parser " + str(error))
-    return False
+    except KeyboardInterrupt:
+        print("Aboard Loading due user request")
+        exit(2)
+
+    raise Exception("File loading went wrong somewhere")
 
 
 def spcht_object_test():
@@ -743,7 +746,27 @@ if you see this message, not all mandatory parameters were providedh"""
                     PARA.get('sparql_pw'), PARA['time'], PARA.get('log'), PARA['rows'], PARA['parts'], PARA['query'])
     # +++ SPCHT Checker +++
     if args.CheckSpcht:
-        Spcht.check_format(args.CheckSpcht)
+        if not Spcht.is_dictkey(PARA, 'spcht'):
+            print("Need to specifcy spcht descriptor file with --spcht <file>")
+            exit(1)
+        print(f"Loading file {args.spcht}")
+        try:
+            with open(args.spcht, "r") as file:
+                testdict = json.load(file)
+        except json.decoder.JSONDecodeError as e:
+            print(f"JSON Error: {str(e)}", file=sys.stderr)
+            exit(2)
+        except FileNotFoundError as e:
+            print(f"File not Found: {str(e)}", file=sys.stderr)
+            exit(1)
+        taube = Spcht()
+        if taube.load_descriptor_file(args.spcht):
+            print("Spcht Discriptor could be succesfully loaded, everything should be okay")
+            exit(0)
+        else:
+            print("There was an Error loading the Spcht Descriptor")
+        #jsoned_spcht = load_from_json(args.CheckSpcht)
+        #Spcht.check_format(jsoned_spcht)
 
     # +++ SPCHT Compile
     if args.CompileSpcht:
