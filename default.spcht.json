@@ -16,8 +16,7 @@
             "comment": "abweichend von DINI-KIM-Empfehlung schema.org statt bibo",
             "fallback": {
                 "source": "marc",
-                "field": "020",
-                "subfield": "a"
+                "field": "020:a"
             }
         },
         {
@@ -29,8 +28,7 @@
             "comment": "abweichend von DINI-KIM-Empfehlung schema.org statt bibo",
             "fallback": {
                 "source": "marc",
-                "field": "022",
-                "subfield": "a"
+                "field": "022:a"
             }
         },
         {
@@ -55,8 +53,7 @@
             "required": "optional",
                 "fallback": {
                 "source": "marc",
-                "field": "245",
-                "subfield": "b"
+                "field": "245:b"
                 }
         },
         {
@@ -68,8 +65,7 @@
             "comment": "ohne Marc-Fallback; in den SOLR gelangen nur URNs nach einem bestimmten Muster aus 024a:037n:856u",
             "fallback": {
                 "source": "marc",
-                "field": "856",
-                "subfield": "u"
+                "field": "856:u"
             }
         },
         {
@@ -88,12 +84,10 @@
             "required": "optional",
             "fallback": {
                 "source": "marc",
-                "field": "260",
-                "subfield": "a",
+                "field": "260:a",
                 "fallback": {
                         "source": "marc",
-                        "field": "264",
-                        "subfield": "a"
+                        "field": "264:a"
                 }
             }
         },
@@ -105,12 +99,10 @@
             "required": "optional",
             "fallback": {
                 "source": "marc",
-                "field": "260",
-                "subfield": "b",
+                "field": "260:b",
                 "fallback": {
                     "source": "marc",
-                    "field": "264",
-                    "subfield": "b"
+                    "field": "264:b"
                 }
             }
         },
@@ -124,12 +116,10 @@
             "comment": "ggf. nur publishDateSort (normalisiertes Datum) verwenden, ohne bibliographische Feinheiten und damit auch ohne Klammern, Kreuze etc.?",
             "fallback": {
                 "source": "marc",
-                "field": "260",
-                "subfield": "c",
+                "field": "260:c",
                 "fallback": {
                     "source": "marc",
-                    "field": "264",
-                    "subfield": "c"
+                    "field": "264:c"
                 }
             }
         },
@@ -141,8 +131,7 @@
             "required": "optional",
             "fallback": {
                 "source": "marc",
-                "field": "300",
-                "subfield": "a"
+                "field": "300:a"
             }
         },
         {
@@ -155,16 +144,13 @@
             "comment": "# 773t:773s:773a, first",
             "fallback": {
                 "source": "marc",
-                "field": "773",
-                "subfield": "t",
+                "field": "773t",
                 "fallback": {
                      "source": "marc",
-                     "field": "773",
-                     "subfield": "s",
+                     "field": "773s",
                      "fallback": {
                           "source": "marc",
-                          "field": "773",
-                           "subfield": "a"
+                          "field": "773:a"
                      }
                 }
             }
@@ -178,8 +164,7 @@
             "comment": "Neu: das Solr-Feld dissertation_note wird inzwischen nicht mehr befüllt",
             "fallback": {
                 "source": "marc",
-                "field": "502",
-                "subfield": "a"
+                "field": "502:a"
             }
         },
         {

@@ -594,18 +594,29 @@ class Spcht:
             return False
 
     @staticmethod
-    def if_possible_make_this_numerical(value: str):
+    def if_possible_make_this_numerical(value: str or list):
         """Converts a given var in the best kind of numerical value that it can, if it can be an int it will be one,
-        :param str value: any kind of value, hopefully something 1-dimensional
+        :param str or list value: any kind of value, hopefully something 1-dimensional, lists are okay too
         :return: the converted value, might be an int, might be a float, or just the object that came
         :rtype: int or float or any
         """
-        if Spcht.is_int(value):
-            return int(value)
-        elif Spcht.is_float(value):
-            return float(value)
+        if isinstance(value, list):
+            possible_numerical_list = []
+            for every in value:
+                if Spcht.is_int(every):
+                    possible_numerical_list.append(int(every))
+                elif Spcht.is_float(every):
+                    possible_numerical_list.append(float(every))
+                else:
+                    possible_numerical_list.append(every)
+            return possible_numerical_list
         else:
-            return value
+            if Spcht.is_int(value):
+                return int(value)
+            elif Spcht.is_float(value):
+                return float(value)
+            else:
+                return value
 
     @staticmethod
     def slice_marc_shorthand(string: str) -> tuple:
@@ -1376,7 +1387,7 @@ class Spcht:
             if sub_dict['if_condition'] == "=" or sub_dict['if_condition'] == "<" or sub_dict['if_condition'] == "<=":
                 self.debug_print(colored(f"✗ no if_field found", "blue"), end=" ")
                 return False
-            else:  # redundant else
+            else:  # redundant elsej
                 self.debug_print(colored(f"✓ no if_field found", "blue"), end=" ")
                 return True
             # the logic here is that if you want to have something smaller or equal that not exists it always will be
@@ -1392,35 +1403,53 @@ class Spcht:
         # much performance
         comparator_value = Spcht.list_wrapper(comparator_value)
         # ? i really hope one day i learn how to do this better, this seems SUPER clunky, i am sorry
-        failure_list = []
-        for each in comparator_value:
-            each = Spcht.if_possible_make_this_numerical(each)
-            if sub_dict['if_condition'] == "==":
-                if each == sub_dict['if_value']:
-                    self.debug_print(colored(f"✓{sub_dict['if_field']}=={each}", "blue"), end=" ")
-                    return True
-            if sub_dict['if_condition'] == ">":
-                if each > sub_dict['if_value']:
-                    self.debug_print(colored(f"✓{sub_dict['if_field']}<{each}", "blue"), end=" ")
-                    return True
-            if sub_dict['if_condition'] == "<":
-                if each < sub_dict['if_value']:
-                    self.debug_print(colored(f"✓{sub_dict['if_field']}<{each}", "blue"), end=" ")
-                    return True
-            if sub_dict['if_condition'] == ">=":
-                if each >= sub_dict['if_value']:
-                    self.debug_print(colored(f"✓{sub_dict['if_field']}>={each}", "blue"), end=" ")
-                    return True
-            if sub_dict['if_condition'] == "<=":
-                if each <= sub_dict['if_value']:
-                    self.debug_print(colored(f"✓{sub_dict['if_field']}<={each}", "blue"), end=" ")
-                    return True
-            if sub_dict['if_condition'] == "!=":
-                if each != sub_dict['if_value']:
-                    self.debug_print(colored(f"✓{sub_dict['if_field']}!={each}", "blue"), end=" ")
-                    return True
-            failure_list.append(each)
-        self.debug_print(colored(f"✗ {sub_dict['if_field']} was not {sub_dict['if_condition']} {sub_dict['if_value']} but {failure_list} instead", "magenta"), end="-> ")
+        # * New Feature, compare to list of values, its a bit more binary:
+        # * its either one of many is true or all of many are false
+        if isinstance(sub_dict['if_value'], list):
+            for each in comparator_value:
+                for value in sub_dict['if_value']:
+                    if sub_dict['if_condition'] == "==":
+                        if each == value:
+                            self.debug_print(colored(f"✓{value}=={each}", "blue"), end=" ")
+                            return True
+                    if sub_dict['if_condition'] == "!=":
+                        if each == value:
+                            self.debug_print(colored(f"✗{value}=={each} (but should not be)", "red"), end=" ")
+                            return False  # ! the big difference, ALL values must be unequal
+                    if sub_dict['if_condition'] == ">" or sub_dict['if_condition'] == "<" or sub_dict['if_condition'] == ">=" or sub_dict['if_condition'] == "<=":
+                        raise TypeError("Cannot do greater/lesser than with a list of Values")
+                    # i mean..why bother checking of something is smaller than 15, 20 and 35 if you could easily just check smaller than 35
+                    # in theory i could implement this and rightify someone else illogical behaviour
+        else:
+            failure_list = []
+            for each in comparator_value:
+                each = Spcht.if_possible_make_this_numerical(each)
+                if sub_dict['if_condition'] == "==":
+                    if each == sub_dict['if_value']:
+                        self.debug_print(colored(f"✓{sub_dict['if_field']}=={each}", "blue"), end=" ")
+                        return True
+                if sub_dict['if_condition'] == ">":
+                    if each > sub_dict['if_value']:
+                        self.debug_print(colored(f"✓{sub_dict['if_field']}<{each}", "blue"), end=" ")
+                        return True
+                if sub_dict['if_condition'] == "<":
+                    if each < sub_dict['if_value']:
+                        self.debug_print(colored(f"✓{sub_dict['if_field']}<{each}", "blue"), end=" ")
+                        return True
+                if sub_dict['if_condition'] == ">=":
+                    if each >= sub_dict['if_value']:
+                        self.debug_print(colored(f"✓{sub_dict['if_field']}>={each}", "blue"), end=" ")
+                        return True
+                if sub_dict['if_condition'] == "<=":
+                    if each <= sub_dict['if_value']:
+                        self.debug_print(colored(f"✓{sub_dict['if_field']}<={each}", "blue"), end=" ")
+                        return True
+                if sub_dict['if_condition'] == "!=":
+                    if each != sub_dict['if_value']:
+                        self.debug_print(colored(f"✓{sub_dict['if_field']}!={each}", "blue"), end=" ")
+                        return True
+                failure_list.append(each)
+        self.debug_print(colored(f" {sub_dict['if_field']} was not {sub_dict['if_condition']} {sub_dict['if_value']} but {failure_list} instead", "magenta"), end="-> ")
         return False
 
 
@@ -1743,13 +1772,20 @@ class Spcht:
                 return False
             if Spcht.is_dictkey(node, 'if_value'):
                 if not isinstance(node['if_value'], str) \
-                        and not isinstance(node['if_value'], int) \
-                        and not isinstance(node['if_value'], float):
+                 and not isinstance(node['if_value'], int) \
+                 and not isinstance(node['if_value'], float) \
+                 and not isinstance(node['if_value'], list):
                     print(error_desc['if_value_types'], file=out)
                     return False
+                if isinstance(node['if_value'], list):
+                    for each in node['if_value']:
+                        if not isinstance(each,  str) \
+                         and not isinstance(each, int) \
+                         and not isinstance(each, float):
+                            print(error_desc['if_value_types'], file=out)
+                            return False
 
         if node['source'] == "marc":
-
             if Spcht.is_dictkey(node, 'insert_into'):
                 if not isinstance(node['insert_into'], str):
                     print(error_desc['must_str'].format('insert_into'), file=out)
