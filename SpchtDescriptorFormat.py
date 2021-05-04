@@ -986,7 +986,7 @@ class Spcht:
                 return self._call_fallback(sub_dict, raw_dict, marc21_dict)
 
             """Explanation:
-            I am rereading this and its quite confusing on the first glance, so here some prosa. This assumes three modes,
+            I am rereading this and its quite confusing on the first glance, so here some prose. This assumes three modes,
             either returned value gets replaced by the graph_field function that works like a translation, or it inserts
             something, if it doesnt do  that it does the normal stuff where it adds some parts, divides some and does 
             all the other pre&post processing things. Those 3 modi are exclusive. If any value gets filtered by the 
@@ -1010,7 +1010,8 @@ class Spcht:
                     self.debug_print(colored(f"✗ value preprocessing returned no matches", "magenta"), end=" > ")
                     return self._call_fallback(sub_dict, raw_dict, marc21_dict)
 
-                self.debug_print(colored(f"✓ field&subfield", "green"))
+                self.debug_print(colored(f"✓ field", "green"))
+                temp_value = self._node_mapping(temp_value, sub_dict.get('mapping'), sub_dict.get('mapping_settings'))
                 return Spcht._node_return_iron(sub_dict['graph'], self._node_postprocessing(temp_value, sub_dict))
 
             # TODO: gather more samples of awful marc and process it
@@ -1239,6 +1240,7 @@ class Spcht:
                 return None
                 # ? i was contemplating whether it should return value or None. None is the better one i think
                 # ? cause if we no default is defined we probably have a reason for that right?
+                # ! stupid past me, it should throw an exception
         else:
             print("field contains a non-list, non-string: {}".format(type(value)), file=self.std_err)
 
@@ -1334,7 +1336,11 @@ class Spcht:
             return None
         value = Spcht.extract_dictmarc_value(raw_dict, sub_dict)
         if value is None or value is False:
-            return None
+            return None  # TODO: do proper exceptions for this
+        # inserted MAIN values get the processing
+
+        value = Spcht._node_preprocessing(value, sub_dict)
+        value = self._node_postprocessing(value, sub_dict)
         inserters.append(Spcht.list_wrapper(value))
 
         if Spcht.is_dictkey(sub_dict, 'insert_add_fields'):
@@ -1405,6 +1411,7 @@ class Spcht:
         # ? i really hope one day i learn how to do this better, this seems SUPER clunky, i am sorry
         # * New Feature, compare to list of values, its a bit more binary:
         # * its either one of many is true or all of many are false
+        failure_list = []
         if isinstance(sub_dict['if_value'], list):
             for each in comparator_value:
                 for value in sub_dict['if_value']:
@@ -1420,8 +1427,12 @@ class Spcht:
                         raise TypeError("Cannot do greater/lesser than with a list of Values")
                     # i mean..why bother checking of something is smaller than 15, 20 and 35 if you could easily just check smaller than 35
                     # in theory i could implement this and rightify someone else illogical behaviour
+                failure_list.append(each)
+            # if we get here and we checked for unequal to our condition was met
+            if sub_dict['if_condition'] == "!=":
+                self.debug_print(colored( f"✓{sub_dict['if_field']} was not {sub_dict['if_condition']} [conditions] but {failure_list} instead", "blue"), end="-> ")
+                return True
         else:
-            failure_list = []
             for each in comparator_value:
                 each = Spcht.if_possible_make_this_numerical(each)
                 if sub_dict['if_condition'] == "==":
@@ -1451,7 +1462,6 @@ class Spcht:
                 failure_list.append(each)
         self.debug_print(colored(f" {sub_dict['if_field']} was not {sub_dict['if_condition']} {sub_dict['if_value']} but {failure_list} instead", "magenta"), end="-> ")
         return False
-
 
     def _addToSaveAs(self, value, sub_dict):
         # this was originally 3 lines of boilerplate inside postprocessing, i am not really sure if i shouldn't have
@@ -1602,11 +1612,18 @@ class Spcht:
             raise ImportError("No RDF Library avaible, cannot process Spcht.process2RDF")
         graph = rdflib.Graph()
         for each in quadro_list:
-            if each[3] == 0:
-                graph.add((rdflib.URIRef(each[0]), rdflib.URIRef(each[1]), rdflib.Literal(each[2])))
-            else:
-                graph.add((rdflib.URIRef(each[0]), rdflib.URIRef(each[1]), rdflib.URIRef(each[2])))
-        return graph.serialize(format=format_type).decode("utf-8")
+            try:
+                if each[3] == 0:
+                    graph.add((rdflib.URIRef(each[0]), rdflib.URIRef(each[1]), rdflib.Literal(each[2])))
+                else:
+                    graph.add((rdflib.URIRef(each[0]), rdflib.URIRef(each[1]), rdflib.URIRef(each[2])))
+            except Exception:
+                print(f"RDF Exception occured with {each[1]}", file=sys.stderr)
+        try:
+            return graph.serialize(format=format_type).decode("utf-8")
+        except Exception as e:
+            print(f"serialisation couldnt be completed - {e}", file=sys.stderr)
+            return f"serialisation couldnt be completed - {e}"
 
     @staticmethod
     def check_format(descriptor, out=sys.stderr, base_path="", i18n=None):

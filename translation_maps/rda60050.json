@@ -1,0 +1,10 @@
+{
+    "audio": "http://rdaregistry.info/termList/RDAMediaType/1001",
+    "Mikroform": "http://rdaregistry.info/termList/RDAMediaType/1002",
+    "Computermedien": "http://rdaregistry.info/termList/RDAMediaType/1003",
+    "mikroskopisch": "http://rdaregistry.info/termList/RDAMediaType/1004",
+    "projizierbar": "http://rdaregistry.info/termList/RDAMediaType/1005",
+    "stereografisch": "http://rdaregistry.info/termList/RDAMediaType/1006",
+    "ohne Hilfsmittel zu benutzen": "http://rdaregistry.info/termList/RDAMediaType/1007",
+    "video": "http://rdaregistry.info/termList/RDAMediaType/1008"
+} 
