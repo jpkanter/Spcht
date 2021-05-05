@@ -127,6 +127,13 @@ You can add any other *non-protected* field name you desire to make it more read
   * optional key `insert_add_fields`: `list of str` - example: `["isbn", "release_year"]
   * Values: `a string with "{}" as Placeholder`
 
+* **If Conditions**
+
+  * Simple Types: there is one condition defined by `if_condition` that can be any basic boolean operator or `"exi"`. Every one **except** `"exi"` does need a defined `if_value` that might be a *string*, *integer* or *float* that gets compared with the content of `if_field`. The standard mode is that if **ANY** Field-Value satisfies the condition the node will be mapped. 
+    Example: *if we check for [1, 3, 5, 7] to be below 5 there will be a mapping for* every *of the fields, not just those that match the condition*
+  * List Types: it is possible to compare against a list of `if_values`, in this case every value of `if_field` will be compared to every `if_value`. It is only possible to check for equal or unequal in that case as it would make no sense to check if `if_field` is smaller than a list of value instead of just one. The condition is inclusive, the node will be used (return of true) if any of the `if_field` values matches any of the `if_value` . If you check for unequal there will only be a "true" return if none of the values matches. Any equal matching would lead to a "false" return as both list arent totally inequal to each other.
+    Example: *Value might be ["aut", "oth"], if we check for`!=` ["act", "edt"] the return will be* true*, if we would check for ["reg", "aut"] one of the values would match to each other and the return is* false
+
 * `if_condition`
 
   This function checks if the value of `if_field` is equal, greater (and so on...) as the value of `if_value`. Its also possible to check whether a field exists, in that case you don't need `if_value` Spcht will try to convert any String to a number if possible to allow comparison of numbers *(eg. for release years)*
@@ -188,7 +195,6 @@ It is possible to **map** the value of your dictionary key with the field `mappi
   * Value: `a string pointing with the filepath to a local file` *Files handled by OS, networked resources in LAN might work*
 * `alternatives` - there is possibility that a specific data field isn't always available in your given database but you know there are other keys that might contain the desired data. `alternatives` is a list of different dictionary keys which will be tried in order of their appearance.
   * Values: `a list of strings [str, str, str]`
-  
 ##### source: marc
 
 As of now a *Marc21* data source is inherently part of the main dictionary source, mostly to be found in a special, very big key. It contains the entire original *Marc21*-entry as received from another network. Usually it needs additional interpreting to be useful. The current source contains some methods to extract informations from the provided *Marc21* file. In its essence it just transform the *MARC21* information into a dictionary that follows the *MARC21*-structure.  There are minor differences in between *Marc21*-Data sources that might have to be handled with care and maybe additional preprocessing. The work on this part is not even nearly done.
