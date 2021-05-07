@@ -347,21 +347,15 @@ class Spcht:
         """
             I had the use case that i needed always a list of elements on a type i dont really care about as even when
             its just a list of one element.
-        :param some_element: any variable that will be wrapped in a list
+        :param some_element: any object that will be wrapped in a list
         :type some_element: any
-        :return: Will return the element wrapped in the list unless its already a list, its its something weird returns None
-        :rtype: list or None
+        :return: Will return the element wrapped in the list unless its already a list, its its something weird it gets wrapped in a list of one
+        :rtype: list
         """
         if isinstance(some_element, list):
             return some_element
-        elif isinstance(some_element, str) or isinstance(some_element, int) or isinstance(some_element, float):
-            return [some_element]
-        elif isinstance(some_element, bool):
-            return [some_element]
-        elif isinstance(some_element, dict):
-            return [some_element]
         else:
-            return None
+            return [some_element]
 
     @staticmethod
     def all_variants(variant_matrix: list) -> list:
