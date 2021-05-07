@@ -441,7 +441,6 @@ class Spcht:
         # ? and the next problem that has a solution somewhere but i couldn't find the words to find it
         positions = Spcht.match_positions(regex_pattern, zeichenkette)
         if len(the_string_list) > len(positions):  # more inserts than slots
-            print(f" {len(the_string_list)} > {len(positions)}")  # ? technically debug text
             if strict:
                 return None
             # else nothing for now, you would probably see that something isn't right right?
