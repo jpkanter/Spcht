@@ -31,6 +31,7 @@ import json
 import math
 import sys
 import time
+import logging
 from datetime import datetime, timedelta
 
 from dateutil.relativedelta import relativedelta
@@ -45,6 +46,9 @@ ERROR_TXT = {}
 PARA = {}
 SETTINGS = {}
 TESTFOLDER = "./testdata/"
+
+logging.basicConfig(filename='spcht_process.log', format='[%(asctime)s] %(levelname)s:%(message)s', level=logging.DEBUG)
+# logging.basicConfig(filename='spcht_process.log', encoding='utf-8', level=logging.DEBUG)  # Python 3.9
 
 
 def send_error(message, error_name=None):
@@ -637,6 +641,7 @@ def update_data(solr, graph, spcht, sparql, sparql_user, sparql_pw,
 
 
 if __name__ == "__main__":
+    logging.debug("Start of script")
     parser = argparse.ArgumentParser(
         description="LOD Data Interpreter",
         usage="Main functions: MarcView, SolrSpy, SolrStats, CheckSpcht, CheckFields, CompileSpcht and FullProcess. Each function needs the appropriated amount of commands to work properly",

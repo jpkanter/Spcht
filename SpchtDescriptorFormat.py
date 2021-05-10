@@ -331,6 +331,7 @@ class Spcht:
                 for each in key:
                     if each not in dictionary:
                         return False
+                return True  # all keys are inside the dictionary
             if key not in dictionary:
                 return False
         return True
@@ -421,7 +422,7 @@ class Spcht:
         for hit in pattern.finditer(zeichenkette):
             poslist.append((hit.start(), hit.end()))
         if len(poslist) <= 0:
-            return None
+            return None  # a tiny bit of inconsistency cause it works nicer this way with subsequent functions
         else:
             return poslist
 
@@ -551,7 +552,7 @@ class Spcht:
         if current_var is None:
             return new_var
         if isinstance(current_var, str) and current_var == "":  # a single space would be enough to not do things
-            return [new_var]
+            return new_var
         if isinstance(current_var, list):
             current_var.append(new_var)
             return current_var
