@@ -113,7 +113,7 @@ class Spcht:
                 self.debug_print("ValueException:", colored(e, "red"))
                 marc21_record = None
             except TypeError as e:
-                self.debug_print("TypeException:", colored(e, "red"))
+                self.debug_print(f"TypeException: (in {raw_dict.get('kxp_id_str', '')}", colored(e, "red"))
                 marc21_record = None
         elif marc21_source == "none":
             pass  # this is more a nod to anyone reading this than actually doing anything
