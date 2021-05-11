@@ -47,8 +47,8 @@ PARA = {}
 SETTINGS = {}
 TESTFOLDER = "./testdata/"
 
-logging.basicConfig(filename='spcht_process.log', format='[%(asctime)s] %(levelname)s:%(message)s', level=logging.DEBUG)
-# logging.basicConfig(filename='spcht_process.log', encoding='utf-8', level=logging.DEBUG)  # Python 3.9
+logging.basicConfig(filename='spcht_process.log', format='[%(asctime)s] %(levelname)s:%(message)s', level=logging.INFO)
+# logging.basicConfig(filename='spcht_process.log', format='[%(asctime)s] %(levelname)s:%(message)s', encoding='utf-8', level=logging.DEBUG)  # Python 3.9
 
 
 def send_error(message, error_name=None):
@@ -554,30 +554,26 @@ def update_data(solr, graph, spcht, sparql, sparql_user, sparql_pw,
     flock = []
     past_time = datetime.now() - timedelta(minutes=max_age)
     searchtime = "last_indexed:[" + past_time.strftime("%Y-%m-%dT%H:%M:%SZ") + " TO *]"
+    logging.info("Started new Update Spcht instance, Spcht name is 'greif'")
     query = f"{query} {searchtime}"
+    logging.info(f"Update Spcht Query is: '{query}'")
     req_para = {'q': query, 'rows': rows, 'wt': "json", "cursorMark": "*", "sort": "id asc"}
     fieldlist = greif.get_node_fields()
     req_para['fl'] = ""
     for each in fieldlist:
         req_para['fl'] += f"{each} "
     req_para['fl'] = req_para['fl'][:-1]
+    logging.debug(f"Fieldlist filter: '{req_para}'")
     time0 = time.time()
     iterator = 0
     n = math.floor(int(rows) / int(chunk)) + 1
-    if log:
-        try:
-            stormwarden = open(log, "w")
-        except FileNotFoundError:
-            stormwarden = sys.stdout
-    else:
-        stormwarden = sys.stdout
-    printing(f"{time.strftime('%d %b %Y %H:%M:%S', time.localtime(time0))} - {time0}", file=stormwarden)
-    printing(
+    logging.info(f"Internal Time (should be equal to log time) {time.strftime('%d %b %Y %H:%M:%S', time.localtime(time0))} - {time0}")
+    logging.info(
         f"The time difference to NOW() is {delta_time_human(minutes=max_age)}, which amounts for the oldest entry to be from {past_time.strftime('%d.%m.%Y %H:%M:%S')}")
-    printing(f"Starting update process, SOLR is {solr}", file=stormwarden)
-    printing(f"Detected {n} chunks of a total of {rows} entries with a chunk size of {chunk}", file=stormwarden)
+    logging.info(f"Starting update process, SOLR is {solr}")
+    logging.info(f"Detected {n} chunks of a total of {rows} entries with a chunk size of {chunk}")
     for i in range(0, n):
-        printing(f"{delta_now(time0)}\tStarting a new cycle, this is #{iterator + 1}", file=stormwarden)
+        logging.debug(f"{delta_now(time0)}\tStarting a new cycle, this is #{iterator + 1}")
         iterator += 1
         if i + 1 != n:
             req_para['rows'] = chunk
@@ -585,47 +581,57 @@ def update_data(solr, graph, spcht, sparql, sparql_user, sparql_pw,
             req_para['rows'] = int(int(rows) % chunk)
         if int(req_para['rows']) == 0:
             continue
+        try:
+            pureData = load_remote_content(solr, req_para, mode="POST")
+            current_dateset = test_json(pureData)
+        except Exception as generic:
+            logging.critical(f"Couldnt properly Handle remote content in first try- {generic}")
+            logging.info("Trying to load data again after 15 seconds")
+            time.sleep(15)
+            try:
+                pureData = load_remote_content(solr, req_para, mode="POST")
+                current_dateset = test_json(pureData)
+            except Exception as even_more_generic:
+                logging.critical(f"Second blind remote load try failed - {even_more_generic}")
+                logging.critical(f"Aborted update process in cycle {iterator + 1} / {n}, {delta_now(time0)}ms after start")
+                break
 
-        pureData = load_remote_content(solr, req_para, mode="POST")
-        current_dateset = test_json(pureData)
         if current_dateset:
             try:
-                printing(f"{delta_now(time0)}\tDownload done, subcycle begins, Cursor:  {req_para['cursorMark']}",
-                         file=stormwarden)
+                logging.debug(f"{delta_now(time0)}\tDownload done, subcycle begins, Cursor:  {req_para['cursorMark']}")
                 chunk_data = slice_header_json(current_dateset)
                 for entry in chunk_data:
                     temp = greif.processData(entry, graph)
                     if temp:  # successful spcht interpretation
                         flock.append(temp)
             except KeyError:
-                printing(f"KeyError, ", current_dateset, file=stormwarden)
+                logging.critical(f"KeyError, ", current_dateset)
                 return False
-            printing(f"{delta_now(time0)}\tCycle ended", file=stormwarden)
+            logging.debug(f"{delta_now(time0)}\tCycle ended")
 
             if current_dateset.get("nextCursorMark", "*") != "*" and current_dateset['nextCursorMark'] != req_para[
                 'cursorMark']:
                 req_para['cursorMark'] = current_dateset['nextCursorMark']
             else:
-                printing(
-                    f"{delta_now(time0)}\tNo further CursorMark was received, therefore there are less results than expected rows. Aborting cycles",
-                    file=stormwarden)
+                logging.critical(
+                    f"{delta_now(time0)}\tNo further CursorMark was received, therefore there are less results than expected rows. Aborting cycles")
                 break
-    printing(f"{delta_now(time0)}\tDownload & SPCHT finished, commencing updates", file=stormwarden)
-    printing(f"There are {len(flock)} updated entries since {past_time.strftime('%d.%m.%Y %H:%M:%S')}",
-             file=stormwarden)
+    logging.info(f"{delta_now(time0)}\tDownload & SPCHT finished, commencing updates")
+    logging.info(f"There are {len(flock)} updated entries since {past_time.strftime('%d.%m.%Y %H:%M:%S')}")
+
     if len(flock) > 0:
         counter = 0
         if not dryrun:
             len_of_flock = len(flock)
-            printing(f"{delta_now(time0)}\tDeleting all {len_of_flock} entries that are about to be replaced",
-                     file=stormwarden)
+            logging.info(f"{delta_now(time0)}\tDeleting all {len_of_flock} entries that are about to be replaced")
             for each in flock:
                 super_simple_progress_bar(counter, len_of_flock, "DEL ", f"{counter} / {len_of_flock}")
                 sparqlQuery(f"WITH <{graph}> DELETE {{ <{each[0][0]}> ?p ?o }} WHERE {{ <{each[0][0]}> ?p ?o }}",
                             sparql, auth=sparql_user, pwd=sparql_pw)
+                logging.debug(f"WITH <{graph}> DELETE {{ <{each[0][0]}> ?p ?o }} WHERE {{ <{each[0][0]}> ?p ?o }}")
                 counter += 1
             super_simple_progress_bar_clear()
-            printing(f"{delta_now(time0)}\tDeleting of entries complete, reinserting new data", file=stormwarden)
+            logging.info(f"{delta_now(time0)}\tDeleting of entries complete, reinserting new data")
             counter = 0
             for each in flock:
                 super_simple_progress_bar(counter, len_of_flock, "INS ", f"{counter} / {len_of_flock}")
@@ -633,11 +639,10 @@ def update_data(solr, graph, spcht, sparql, sparql_user, sparql_pw,
                 counter += 1
             super_simple_progress_bar_clear()
         else:
-            printing(f"{delta_now(time0)}\tDry run - nothing happens", file=stormwarden)
+            logging.info(f"{delta_now(time0)}\tDry run - nothing happens")
     else:
-        print("The set is empty, therefore no further processing is been done", file=stormwarden)
-    printing(f"{delta_now(time0)}\tProcess finished", file=stormwarden)
-    stormwarden.close()
+        logging.info("The set is empty, therefore no further processing is been done")
+    logging.info(f"{delta_now(time0)}\tProcess finished")
 
 
 if __name__ == "__main__":
@@ -700,11 +705,14 @@ if __name__ == "__main__":
         cfg_status = load_config(args.config)
 
     boring_parameters = ["spcht", "log", "outfile", "solr", "sparql", "sparql_user", "sparql_pw", "graph", "part",
-                         "rows", "filter", "time", "isolate", "MarcTest", "MarcView", "TestMode"]
+                         "rows", "filter", "time", "isolate", "MarcTest", "MarcView", "TestMode", "logging"]
 
     for arg in vars(args):
         if arg in boring_parameters and getattr(args, arg) is not None:
-            PARA[arg] = getattr(args, arg)
+            if arg == "logging":
+                logging.getLogger().setLevel(getattr(args, arg))
+            else:
+                PARA[arg] = getattr(args, arg)
     if Spcht.is_dictkey(PARA, 'log'):  # replacing part of the string with a datetime:
         time_string = datetime.now().strftime('%Y%m%d-%H%M%S')
         PARA['log'] = PARA['log'].replace("$time", time_string)
