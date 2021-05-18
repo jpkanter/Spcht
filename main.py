@@ -246,42 +246,38 @@ def full_process(solr, graph, spcht, sparql, sparql_user="", sparql_pw="", log=F
     big_data = []
     total_nodes = 0
     # "source_id:0+institution:DE-15"
+    logging.info("Started new Spcht Full Process, Spcht name is 'habicht'")
     req_para = {'q': query, 'rows': req_rows, 'wt': "json", "cursorMark": "*", "sort": "id asc"}
+    logging.info(f"Update Spcht Query is: '{query}'")
     # optimising requests a bit and pre filter for the stuff we need
     fieldlist = habicht.get_node_fields()
     req_para['fl'] = ""
     for each in fieldlist:
         req_para['fl'] += f"{each} "
     req_para['fl'] = req_para['fl'][:-1]
-    if log:
-        try:
-            stormwarden = open(log, "w")
-        except FileNotFoundError:
-            stormwarden = sys.stdout
-    else:
-        stormwarden = sys.stdout
+    logging.debug(f"Fieldlist filter: '{req_para}'")
     start_time = time.time()
-    print("Starting Process - Time Zero: {}".format(start_time), file=stormwarden)
+    logging.info("Starting Process - Time Zero: {}".format(start_time))
 
     # mechanism to not load 50000 entries in one go but use chunks for it
     n = math.floor(int(req_rows) / int(req_chunk)) + 1
-    print(f"Solr Source is {solr}", file=stormwarden)
-    print(f"Target Triplestore is {sparql}", file=stormwarden)
-    print(f"Target Graph is {graph}", file=stormwarden)
-    print(f"Detected {n} chunks of a total of {req_rows} entries with a chunk size of {req_chunk}", file=stormwarden)
-    print(f"Start Loading Remote chunks - {delta_now(start_time)}", file=stormwarden)
+    logging.info(f"Solr Source is {solr}")
+    logging.info(f"Target Triplestore is {sparql}")
+    logging.info(f"Target Graph is {graph}")
+    logging.info(f"Detected {n} chunks of a total of {req_rows} entries with a chunk size of {req_chunk}")
+    logging.info(f"Start Loading Remote chunks - {delta_now(start_time)}")
     print(("#" * n)[:0] + (" " * n)[:n], f"{0 + 1} / {n}")
     try:
         for i in range(0, n):
-            print(f"New Chunk started: [{i + 1}/{n - 1}] - {delta_now(start_time)} ms", file=stormwarden)
+            logging.info(f"New Chunk started: [{i + 1}/{n - 1}] - {delta_now(start_time)} ms")
             if i + 1 != n:
                 req_para['rows'] = req_chunk
             else:
                 req_para['rows'] = int(int(req_rows) % int(req_chunk))
-            print(f"\tUsing request URL: {solr}/{req_para}", file=stormwarden)
+            logging.info(f"\tUsing request URL: {solr}/{req_para}")
             data = test_json(load_remote_content(solr, req_para))
             if data is not None:  # no else required, test_json already gives us an error if something fails
-                print(f"Chunk finished, using SPCHT - {delta_now(start_time)}", file=stormwarden)
+                logging.info(f"Chunk finished, using SPCHT - {delta_now(start_time)}")
                 chunk_data = solr_handle_return(data)
                 big_data += chunk_data
                 number = 0
@@ -295,34 +291,32 @@ def full_process(solr, graph, spcht, sparql, sparql_user="", sparql_pw="", log=F
                             Spcht.quickSparql(temp, graph))  # just by coincidence this is the same in this example
                         big_data.append(temp)
                 total_nodes += number
-                print(f"Pure Maping for current Chunk done, doing http sparql requests - {delta_now(start_time)}",
-                      file=stormwarden)
+                logging.info(f"Pure Maping for current Chunk done, doing http sparql requests - {delta_now(start_time)}")
                 incrementor = 0
                 for pnguin in inserts:
                     sparqlQuery(pnguin, sparql, auth=sparql_user, pwd=sparql_pw)
                     incrementor += 1
                     super_simple_progress_bar(incrementor, len(inserts), "HTTP ",
                                               f"{incrementor} / {len(inserts)} [{number}]")
-                print(f"\n{incrementor} Inserts done, {number} entries, commencing")
-                print(f"SPARQL Requests finished total of {number} entries - {delta_now(start_time)}",
-                      file=stormwarden)
+                logging.info(f"\n{incrementor} Inserts done, {number} entries, commencing")
+                logging.info(f"SPARQL Requests finished total of {number} entries - {delta_now(start_time)}")
             print(("#" * n)[:i] + (" " * n)[:(n - i)], f"{i + 1} / {n}", f"- {delta_now(start_time)}")
 
             if data.get("nextCursorMark", "*") != "*" and data['nextCursorMark'] != req_para['cursorMark']:
                 req_para['cursorMark'] = data['nextCursorMark']
             else:
-                printing(
-                    f"{delta_now(start_time)}\tNo further CursorMark was received, therefore there are less results than expected rows. Aborting cycles",
-                    file=stormwarden)
+                logging.info(f"{delta_now(start_time)}\tNo further CursorMark was received, therefore there are less results than expected rows. Aborting cycles")
                 break
     except KeyboardInterrupt:
-        print(f"Process was interrupted by user interaction", file=stormwarden)
+        print(f"Process was interrupted by user interaction")
+        logging.info(f"Process was interrupted by user interaction")
     finally:
-        print(f"Overall Executiontime was {delta_now(start_time, 3)} seconds", file=stormwarden)
-        print(f"Total size of all entries is {sys.getsizeof(big_data)}", file=stormwarden)
-        print(f"There was a total of {total_nodes} triples", file=stormwarden)
-        if hasattr(stormwarden, 'seek'):  # in case its stdout instead of a file it shouldnt have 'seek'
-            stormwarden.close()
+        print(f"Overall Executiontime was {delta_now(start_time, 3)} seconds")
+        logging.info(f"Overall Executiontime was {delta_now(start_time, 3)} seconds")
+        print(f"Total size of all entries is {sys.getsizeof(big_data)}")
+        logging.info(f"Total size of all entries is {sys.getsizeof(big_data)}")
+        print(f"There was a total of {total_nodes} triples")
+        logging.info(f"There was a total of {total_nodes} triples")
 
 
 def SingleProcess(input_file, spcht_path, graph, output=sys.stdout, sparql_endpoint=None, sparql_user="", sparql_pw=""):
@@ -649,7 +643,7 @@ if __name__ == "__main__":
     logging.debug("Start of script")
     parser = argparse.ArgumentParser(
         description="LOD Data Interpreter",
-        usage="Main functions: MarcView, SolrSpy, SolrStats, CheckSpcht, CheckFields, CompileSpcht and FullProcess. Each function needs the appropriated amount of commands to work properly",
+        usage="Main functions: MarcView, SolrSpy, SolrStats, CheckSpcht, CheckFields, CompileSpcht, UpdateData and ProcessData. Each function needs the appropriated amount of commands to work properly",
         epilog="Individual settings overwrite settings from the config file",
         prefix_chars="-")
     parser.add_argument('--MarcView', '-mv', type=str,

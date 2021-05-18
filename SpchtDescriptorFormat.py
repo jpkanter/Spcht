@@ -1562,10 +1562,10 @@ class Spcht:
         return part_list
 
     @staticmethod
-    def quickSparql(quadro_list: list, graph: str) -> str:
+    def quickSparql(quadro_list: tuple, graph: str) -> str:
         """
             Does some basic string manipulation to create one solid block of entries for the inserts via sparql
-            :param list quadro_list: a list of tuples as outputted by Spcht.processData()
+            :param tuple quadro_list: a list of tuples as outputted by Spcht.processData()
             :param str graph: the mapped graph the triples are inserted into, part of the sparql query
             :return: a long, multilined string
             :rtype: str
@@ -1577,7 +1577,7 @@ class Spcht:
             sparkle += "}"
             return sparkle
         else:
-            return f"INSERT IN GRAPH <{graph}> {{ " + Spcht.quickSparqlEntry(quadro_list) + "}"
+            return f"INSERT IN GRAPH <{graph}> {{ {Spcht.quickSparqlEntry(quadro_list)} }}"
 
     @staticmethod
     def quickSparqlEntry(quadro):

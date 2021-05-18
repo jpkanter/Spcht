@@ -170,7 +170,7 @@
         {
             "name": "Typ der Dokument Art",
             "source": "dict",
-            "graph": "https://www.w3.org/TR/rdf-schema/#ch_required",
+            "graph": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
             "field": "format_finc",
             "required": "optional",
             "comment": "TODO",
