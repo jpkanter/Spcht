@@ -1922,3 +1922,431 @@ class SpchtIterator:
             return result
         raise StopIteration
 
+
+class SpchtNode:
+
+    pos_keys = ["name", "source", "type", "required", "graph", "alternatives", "fallback", "insert_into",
+                "insert_add_fields", "if_value", "if_condition", "if_field", "prepend", "append", "match",
+                "cut", "mapping", "mapping_settings", "graph_map", "graph_field"]
+
+    def __init__(self, dict = None):
+        self.name = ""
+        self.source = "dict"
+        self.type = "literal"
+        self.required = "optional"
+        self.graph = ""
+        self.alternatives = []
+        self.fallback = None
+        self.insert_into = ""
+        self.insert_add_fields = []
+        self.if_value = ""
+        self.if_condition = ""
+        self.if_field = ""
+        self.prepend = ""
+        self.append = ""
+        self.match = ""
+        self.cut = ""
+        self.mapping = {}
+        self.mapping_settings = {}
+        self.graph_map = {}
+        self.graph_field = ""
+
+    def __len__(self):
+        len = 0
+        # this feels expensive
+        for key in self.pos_keys:
+            if self.get(key) is not None:
+                len += 1
+        return len
+
+    def __getitem__(self, item):
+        if not isinstance(item, str):
+            raise TypeError("key must be a string")
+        if item in self.pos_keys:
+            temp = self.__getattribute__(item)
+            if temp is not None:
+                return temp
+            else:
+                raise KeyError(item)
+        else:
+            raise KeyError(item)
+
+    def __setitem__(self, key, value):
+        if key in self.pos_keys:
+            self.__setattr__(key, value)
+        else:
+            raise KeyError(f"SpchtNode doesnt accept custom keys")
+
+    def __contains__(self, item):
+        if item in self.pos_keys:
+            if self[item] is not None:
+                return True
+        else:
+            return False
+
+    def __iter__(self):
+        return SpchtNodeIterator(self)
+
+    def get(self, key, default=None):
+        # the save variant of calling something, i used to implement this as "try self[key] but it failed"
+        if not isinstance(key, str):
+            return default
+        if key in self.pos_keys:
+            temp = self.__getattribute__(key)
+            if temp is not None:
+                return temp
+            else:
+                return default
+        else:
+            return default
+
+    @property
+    def source(self):
+        return self._source
+
+    @source.setter
+    def source(self, source: str):
+        allowed = ["dict", "marc", "literal"]
+        if source in allowed:
+            self._source = source
+        else:
+            self._source = "dict"  # TODO: Subject of change
+
+    @property
+    def name(self):
+        return self._name
+
+    @name.setter
+    def name(self, name: str):
+        if isinstance(name, str):
+            self._name = name
+        else:
+            self._name = ""
+
+    @property
+    def type(self):
+        return self._type
+
+    @type.setter
+    def type(self, type: str):
+        allowed = ["literal", "triple"]
+        if type in allowed:
+            self._type = type
+        else:
+            self._type = "literal"
+
+    @property
+    def required(self):
+        return self._required
+
+    @required.setter
+    def required(self, required: str):
+        allowed = ["optional", "mandatory"]
+        if required in allowed:
+            self._required = required
+        else:
+            self._required = "optional"
+
+    @property
+    def fallback(self):
+        if self._fallback is not None:
+            return self._fallback
+        else:
+            return None
+
+    @fallback.setter
+    def fallback(self, fallback):
+        if isinstance(fallback, SpchtNode):
+            if self._recursive_check(fallback):
+                raise AttributeError("any Fallback cannot be this node")
+            # i realllly dont want recursion here, better check for subsequent sames
+            self._fallback = fallback
+        elif fallback is None:
+            self._fallback = None
+        else:
+            self._fallback = None
+
+    def _recursive_check(self, Node) -> bool:
+        """
+        I cannot think of a single use case for recursive nodes, this whole concept of having a node
+        in itself is already scary, therefore i try really hard to not allow self EVER in fallback
+        :param Node: a SpchtNode Object
+        :type Node: SpchtNode
+        :return: true if there is another instance of self
+        :rtype: bool
+        """
+        if Node == self:
+            return True
+        if Node.get('fallback') is not None:
+            if Node['fallback'] == self:
+                return True
+            else:
+                return self._recursive_check(Node['fallback'])
+        return False
+
+    @property
+    def graph(self):
+        return self._graph
+
+    @graph.setter
+    def graph(self, graph: str):
+        if isinstance(graph, str):
+            self._graph = graph
+        else:
+            self._graph = ""
+
+    @property
+    def alternatives(self):
+        if len(self._alternatives) <= 0:
+            return None
+        else:
+            return self._alternatives
+
+    @alternatives.setter
+    def alternatives(self, alternatives: list or str or None):
+        if isinstance(alternatives, str):
+            self._alternatives = [alternatives]
+        elif isinstance(alternatives, list):
+            self._alternatives = alternatives
+        elif alternatives is None:
+            self._alternatives = []
+        else:
+            self._alternatives = []
+
+    @property
+    def insert_into(self):
+        if self._insert_into == "":
+            return None
+        else:
+            return self._insert_into
+
+    @insert_into.setter
+    def insert_into(self, insert_into: str):
+        if isinstance(insert_into, str):
+            self._insert_into = insert_into
+        if insert_into is None:
+            self._insert_into = ""
+
+    @property
+    def insert_add_fields(self):
+        if len(self._insert_add_fields) > 0:
+            return self._insert_add_fields
+        else:
+            return None
+
+    @insert_add_fields.setter
+    def insert_add_fields(self, insert_add_fields: list):
+        if isinstance(insert_add_fields, list):
+            if len(insert_add_fields) > 0:
+                self._insert_add_fields = insert_add_fields
+            else:
+                self._insert_add_fields = []
+        elif isinstance(insert_add_fields, str):
+            if len(insert_add_fields) > 0:
+                self._insert_add_fields = [insert_add_fields]
+            else:
+                self._insert_add_fields = []
+        else:
+            self._insert_add_fields = []
+
+    @property
+    def if_value(self):
+        if isinstance(self._if_value, str) or isinstance(self._if_value, list):
+            if len(self._if_value) > 0:
+                return self._if_value
+            else:
+                return None
+        else:
+            return None
+
+    @if_value.setter
+    def if_value(self, if_value: str or list):
+        if isinstance(if_value, str):
+            self._if_value = if_value
+        elif isinstance(if_value, list):
+            self._if_value = if_value
+        else:
+            self._if_value = None
+
+    @property
+    def if_condition(self):
+        if len(self._if_condition) > 0:
+            return self._if_condition
+        else:
+            return None
+
+    @if_condition.setter
+    def if_condition(self, if_condition: str):
+        if if_condition in SPCHT_BOOL_OPS:
+            self._if_condition = if_condition
+
+    @property
+    def if_field(self):
+        if len(self._if_field) > 0:
+            return self._if_field
+        else:
+            return None
+
+    @if_field.setter
+    def if_field(self, if_field: str):
+        if isinstance(if_field, str):
+            self._if_field = if_field
+        else:
+            self._if_field = ""
+
+    # ! having properties which are named pre & append seems like a slight problem cause those are
+    # ! function names for dictionaries and SpchtNode behaves like one..in some sort
+    @property
+    def prepend(self):
+        if len(self._prepend) > 0:
+            return self._prepend
+        else:
+            return None
+
+    @prepend.setter
+    def prepend(self, prepend: str):
+        if isinstance(prepend, str):
+            self._prepend = prepend
+        else:
+            self._prepend = ""
+
+    @property
+    def append(self):
+        if len(self._append) > 0:
+            return self._append
+        else:
+            return None
+
+    @append.setter
+    def append(self, append: str):
+        if isinstance(append, str):
+            self._append = append
+        else:
+            self._append = ""
+
+    @property
+    def match(self):
+        if len(self._match) > 0:
+            return self._match
+        else:
+            return None
+
+    @match.setter
+    def match(self, match: str):
+        if isinstance(match, str):
+            self._match = match
+        else:
+            self._match = ""
+
+    @property
+    def cut(self):
+        if len(self._cut) > 0:
+            return self._cut
+        else:
+            return None
+
+    @cut.setter
+    def cut(self, cut: str):
+        if isinstance(cut, str):
+            self._cut = cut
+        else:
+            self._cut = ""
+
+    @property
+    def mapping(self):
+        if len(self._mapping) > 0:
+            return self._mapping
+        else:
+            return None
+
+    @mapping.setter
+    def mapping(self, mapping: dict):
+        """
+        Sets the mapping file, this first tests if the dictionary is 1-dimension, this might be a bit expensive
+        :param mapping:
+        :type mapping:
+        :return:
+        :rtype:
+        """
+        if isinstance(mapping, dict):
+            onward = True
+            for key, value in mapping.items():
+                if not isinstance(value, str) or not isinstance(key, str):
+                    # i thought about making this self correcting, like converting ints/floats to strings
+                    # decided against it
+                   onward = False
+                   break
+            if onward:
+                self._mapping = mapping
+        else:
+            self._mapping = {}
+
+    @property
+    def mapping_settings(self):
+        if len(self._mapping_settings) > 0:
+            return self._mapping_settings
+        else:
+            return None
+
+    @mapping_settings.setter
+    def mapping_settings(self, mapping_settings: dict):
+        # ? there is currently only one setting, and that is default, the other, reference gets
+        # ? resolved before it even can become a node object
+        if isinstance(mapping_settings, dict):
+            if mapping_settings.get('$default') is not None and isinstance(mapping_settings['$default'], str):
+                self._mapping_settings = {'$default': mapping_settings['$default']}
+            else:
+                self._mapping_settings = {}
+        else:
+            self._mapping_settings = {}
+
+    @property
+    def graph_field(self):
+        if len(self._graph_field) >= 0:
+            return self._graph_field
+        else:
+            return None
+
+    @graph_field.setter
+    def graph_field(self, graph_field: str):
+        if isinstance(graph_field, str):
+            self._graph_field = graph_field
+        else:
+            self._graph_field = ""
+
+    @property
+    def graph_map(self):
+        if len(self._graph_map) > 0:
+            return self._graph_map
+        else:
+            return None
+
+    @graph_map.setter
+    def graph_map(self, graph_map: dict):
+        if isinstance(graph_map, dict):
+            onward = True
+            for key in graph_map:
+                if not isinstance(graph_map[key], str):
+                    onward = False
+                    break
+            if onward:
+                self._graph_map = graph_map
+        else:
+            self._graph_map = {}
+
+
+class SpchtNodeIterator:
+    def __init__(self, spcht_node: SpchtNode):
+        self._spcht_node = spcht_node
+        self._index = 0
+        self._real_indices = []
+        for key in SpchtNode.pos_keys:
+            if self._spcht_node.get(key) is not None:
+                self._real_indices.append(key)
+
+    def __next__(self):
+        if self._index < len(self._real_indices):
+            result = self._real_indices[self._index]
+            self._index += 1
+            return result
+        raise StopIteration
