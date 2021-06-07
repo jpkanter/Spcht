@@ -19,14 +19,21 @@
 # along with Foobar.  If not, see <http://www.gnu.org/licenses/>.
 #
 # @license GPL-3.0-only <https://www.gnu.org/licenses/gpl-3.0.en.html>
-
+import math
+import os
 import sys
 import time
 import json
 import requests
+import logging
 
+from datetime import datetime, timedelta
+from dateutil.relativedelta import relativedelta
 from termcolor import colored
 from requests.auth import HTTPDigestAuth
+from SpchtDescriptorFormat import Spcht
+
+logger = logging.getLogger(__name__)
 
 # describes structure of the json response from solr Version 7.3.1 holding the ubl data
 
@@ -247,3 +254,165 @@ def super_simple_progress_bar_clear(out=sys.stdout):
         return False
     max_str, rows = shutil.get_terminal_size()
     print(" "*max_str, end="\r")
+
+
+def delta_now(zero_time, rounding=2):
+    return str(round(time.time() - zero_time, rounding))
+
+
+def delta_time_human(**kwargs):
+    # https://stackoverflow.com/a/11157649
+    attrs = ['years', 'months', 'days', 'hours', 'minutes', 'seconds', 'microseconds']
+    delta = relativedelta(**kwargs)
+    human_string = ""
+    for attr in attrs:
+        if getattr(delta, attr):
+            if human_string != "":
+                human_string += ", "
+            human_string += '%d %s' % (getattr(delta, attr), getattr(delta, attr) > 1 and attr or attr[:-1])
+    return human_string
+
+
+def test_json(json_str: str) -> dict or bool:
+    #  i am almost sure that there is already a build in function that does something very similar, embarrassing
+    try:
+        data = json.loads(json_str)
+        return data
+    except ValueError:
+        logger.error(f"Got supplied an errernous json, started with '{str[:100]}'")
+        return None
+
+
+def load_from_json(file_path):
+    # TODO: give me actually helpful insights about the json here, especially where its wrong, validation and all
+    try:
+        with open(file_path, mode='r') as file:
+            return json.load(file)
+    except FileNotFoundError:
+        logger.error(f"Couldnt open file '{file_path}' cause it couldnt be found")
+        return None
+    except ValueError as e:
+        logger.error(f"Couldnt open supposed json file due an error while parsing: '{e}'")
+        return None
+    except Exception as error:
+        logger.error(f"A general exception occured while tyring to open the supposed json file '{file_path}' - {error.args}")
+        return None
+
+
+def CreateInsertWorkOrder(solr, query="*", total_rows=500000, chunk_size=50000, loaded_spcht=None, order_name="work_order", sub_folder="",*args):
+    logger.info("Starting Process of creating a new work order")
+    parameters = {'q': query, 'rows': total_rows, 'wt': "json", "cursorMark": "*", "sort": "id asc"}
+    # you can specify a Spcht with loaded descriptor to filter field list
+    if order_name == "":
+        order_name = "work_order"
+    if isinstance(loaded_spcht, Spcht):
+        parameters['fl'] = ""
+        for each in loaded_spcht.get_node_fields():
+            parameters['fl'] += f"{each} "
+        parameters['fl'] = parameters['fl'][:-1]
+        logger.info(f"Using filtered field list: {parameters['fl']}")
+    start_time = time.time()
+    logger.info(f"Starting solrdump-like process - Time Zero: {start_time}")
+    n = math.floor(int(total_rows) / int(chunk_size)) + 1
+    work_order = {"meta":
+                      {"downloaded": datetime.now().isoformat(),
+                       "type": "insert",
+                       "max_chunks": n,
+                       "chunk_size": chunk_size,
+                       "total_rows": total_rows,
+                       "spcht_used": loaded_spcht is not None,
+                       },
+                  "file_list": {}
+                  }
+
+    logger.info(f"Solr Source is {solr}")
+    logger.info(f"Calculated {n} chunks of a total of {total_rows} entries with a chunk size of {chunk_size}")
+    logger.info(f"Start Loading Remote chunks - {delta_now(start_time)}")
+    base_path = os.path.join(os.getcwd(), sub_folder)
+    success = True
+    work_order_filename = None
+    try:
+        for i in range(0, n):
+            logger.info(f"New Chunk started: [{i + 1}/{n}] - {delta_now(start_time)} ms")
+            if i + 1 != n:
+                parameters['rows'] = chunk_size
+            else:  # the rest in the last chunk
+                parameters['rows'] = int(int(total_rows) % int(chunk_size))
+            if i == 0:  # only first run, no sense in clogging the log files with duplicated stuff
+                logger.info(f"\tUsing request URL: {solr}/{parameters}")
+            # ! call to solr for data
+            data = test_json(load_remote_content(solr, parameters))
+            if data is not None:
+                file_path = f"{order_name}_{hash(start_time)}_{i}-{n}.json"
+                filename = os.path.join(base_path, file_path)
+                extracted_data = solr_handle_return(data)
+                with open(filename, "w") as dumpfile:
+                    json.dump(extracted_data, dumpfile)
+                work_order["file_list"][i] = {"file": filename, "status": 0}
+
+                if data.get("nextCursorMark", "*") != "*" and data['nextCursorMark'] != parameters['cursorMark']:
+                    parameters['cursorMark'] = data['nextCursorMark']
+                else:
+                    logger.info(
+                        f"{delta_now(start_time)}\tNo further CursorMark was received, therefore there are less results than expected rows. Aborting cycles")
+                    break
+            else:
+                logger.info(f"Error in chunk {i+1} of {n}, no actual data was received, aborting process")
+                success = False
+                break
+        logger.info(f"Download finished, FullDownload={success}")
+        work_order["meta"]["full_download"] = success
+        work_order_filename = os.path.join(base_path, f"{order_name}-{datetime.now().isoformat().replace(':', '-')}.json")
+        logger.info(f"attempting to write order file to {work_order_filename}")
+        with open(work_order_filename, "w") as order_file:
+            json.dump(work_order, order_file, indent=4)
+
+    except KeyboardInterrupt:
+        print(f"Process was interrupted by user interaction")
+        logger.info(f"Process was interrupted by user interaction")
+    except OSError as e:
+        logger.info(f"Encountered OSError {e}")
+    finally:
+        print(f"Overall Executiontime was {delta_now(start_time, 3)} seconds")
+        logger.info(f"Overall Executiontime was {delta_now(start_time, 3)} seconds")
+    if work_order_filename is not None:
+        return work_order_filename
+    else:
+        return None  # unnecessary verbose
+
+
+def UseWorkOrder(filename, deep_check = False, **kwargs):
+    work_order = load_from_json(filename)
+    if work_order is not None:
+        try:
+            if work_order['meta']['type'] == "insert":
+                logger.info(f"Sorted order '{os.path.basename(filename)}' as type 'insert'")
+                FullfillInsertOrder(filename, work_order, **kwargs)
+        except KeyError as key:
+            logger.error(f"The supplied json file doesnt appear to have the needed data, '{key}' was missing")
+
+
+def FullfillInsertOrder(filename: str, work_order: dict, graph: str, spcht_object: Spcht, *args):
+    try:
+        logger.info(f"Starting processing on files of work order '{os.path.basename(filename)}', detected {len(work_order['file_list'])} Files")
+        for key in work_order['file_list']:
+            if work_order['file_list'][key]['status'] == 0: # Status 0 - Downloaded, not processed
+                mapping_data = load_from_json(work_order['file_list'][key]['file'])
+                quadros = []
+                for entry in mapping_data:
+                    quader = spcht_object.processData(entry, graph)
+                    quadros += quader
+                logger.info(f"Finished one file, {len(quadros)} triples")
+                rdf_dump = f"{work_order['file_list'][key]['file'][:-4]}_rdf.ttl"
+                with open(rdf_dump, "w") as rdf_file:
+                    rdf_file.write(Spcht.process2RDF(quadros))
+                work_order['file_list'][key]['status'] = 1
+                work_order['file_list'][key]['rdf_file'] = rdf_dump
+                with open(filename, "w") as work_order_file:  # * Writing status after each round
+                    json.dump(work_order, work_order_file, indent=4)
+        logger.info("Finished processing and creating turtle files")
+
+    except KeyError as key:
+        logger.error(f"The supplied work order doesnt appear to have the needed data, '{key}' was missing")
+    except Exception as e:
+        logger.error(f"Unknown type of exception: '{e}'")

@@ -32,12 +32,14 @@ import math
 import sys
 import time
 import logging
+import os
 from datetime import datetime, timedelta
 
 from dateutil.relativedelta import relativedelta
 
 from local_tools import super_simple_progress_bar, sleepy_bar, super_simple_progress_bar_clear, \
-    load_remote_content, slice_header_json, sparqlQuery, block_sparkle_insert, solr_handle_return
+    load_remote_content, slice_header_json, sparqlQuery, block_sparkle_insert, solr_handle_return, delta_now, test_json, \
+    delta_time_human, load_from_json
 from os import path
 from termcolor import colored
 from SpchtDescriptorFormat import Spcht
@@ -61,16 +63,6 @@ def send_error(message, error_name=None):
             sys.stderr.write(ERROR_TXT[error_name].format(message))
         else:
             sys.stderr.write(message)
-
-
-def test_json(json_str):
-    #  i am almost sure that there is already a build in function that does something very similar, embarrassing
-    try:
-        data = json.loads(json_str)
-        return data
-    except ValueError:
-        send_error("json")
-        return False
 
 
 def load_config(file_path="config.json"):
@@ -99,24 +91,6 @@ def load_config(file_path="config.json"):
             SETTINGS = None
             return False
     return True
-
-
-def load_from_json(file_path):
-    # TODO: give me actually helpful insights about the json here, especially where its wrong, validation and all
-    try:
-        with open(file_path, mode='r') as file:
-            return json.load(file)
-    except FileNotFoundError:
-        send_error("nofile")
-    except ValueError:
-        send_error("json_parser")
-    except Exception as error:
-        send_error("graph_parser " + str(error))
-    except KeyboardInterrupt:
-        print("Aboard Loading due user request")
-        exit(2)
-
-    raise Exception("File loading went wrong somewhere")
 
 
 def spcht_object_test():
@@ -238,7 +212,8 @@ def marc21_display():
 def marc21_test():
     global PARA
     mydata = load_from_json(TESTFOLDER + PARA['MarcTest'])
-    testdata = Spcht.marc2list(mydata[0].get('fullrecord'))
+    if mydata:
+        testdata = Spcht.marc2list(mydata[0].get('fullrecord'))
 
 
 def full_process(solr, graph, spcht, sparql, sparql_user="", sparql_pw="", log=False, req_rows=50000, req_chunk=10000, query=""):
@@ -248,7 +223,7 @@ def full_process(solr, graph, spcht, sparql, sparql_user="", sparql_pw="", log=F
     # "source_id:0+institution:DE-15"
     logging.info("Started new Spcht Full Process, Spcht name is 'habicht'")
     req_para = {'q': query, 'rows': req_rows, 'wt': "json", "cursorMark": "*", "sort": "id asc"}
-    logging.info(f"Update Spcht Query is: '{query}'")
+    logging.info(f"Spcht Query is: '{query}'")
     # optimising requests a bit and pre filter for the stuff we need
     fieldlist = habicht.get_node_fields()
     req_para['fl'] = ""
@@ -257,7 +232,7 @@ def full_process(solr, graph, spcht, sparql, sparql_user="", sparql_pw="", log=F
     req_para['fl'] = req_para['fl'][:-1]
     logging.debug(f"Fieldlist filter: '{req_para}'")
     start_time = time.time()
-    logging.info("Starting Process - Time Zero: {}".format(start_time))
+    logging.info(f"Starting Process - Time Zero: {start_time}")
 
     # mechanism to not load 50000 entries in one go but use chunks for it
     n = math.floor(int(req_rows) / int(req_chunk)) + 1
@@ -517,23 +492,6 @@ def printing(*args, **kwargs):
         print(*args, **kwargs)
     else:
         print(*args, **kwargs)
-
-
-def delta_now(zero_time, rounding=2):
-    return str(round(time.time() - zero_time, rounding))
-
-
-def delta_time_human(**kwargs):
-    # https://stackoverflow.com/a/11157649
-    attrs = ['years', 'months', 'days', 'hours', 'minutes', 'seconds', 'microseconds']
-    delta = relativedelta(**kwargs)
-    human_string = ""
-    for attr in attrs:
-        if getattr(delta, attr):
-            if human_string != "":
-                human_string += ", "
-            human_string += '%d %s' % (getattr(delta, attr), getattr(delta, attr) > 1 and attr or attr[:-1])
-    return human_string
 
 
 def update_data(solr, graph, spcht, sparql, sparql_user, sparql_pw,

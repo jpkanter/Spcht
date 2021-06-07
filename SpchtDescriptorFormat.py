@@ -42,6 +42,9 @@ try:
 except ImportError:
     NORDF = True
 
+import logging
+logger = logging.getLogger(__name__)
+
 
 SPCHT_BOOL_OPS = {"equal":"==", "eq":"==","greater":">","gr":">","lesser":"<","ls":"<",
                     "greater_equal":">=","gq":">=", "lesser_equal":"<=","lq":"<=",
@@ -1593,7 +1596,7 @@ class Spcht:
             return f"<{quadro[0]}> <{quadro[1]}> \"{quadro[2]}\" . \n"
 
     @staticmethod
-    def process2RDF(quadro_list: list, format_type="turtle") -> str:
+    def process2RDF(quadro_list: list, export_format_type="turtle", export=True) -> str or rdflib.Graph:
         """
             Leverages RDFlib to format a given list of tuples into an RDF Format
 
@@ -1606,15 +1609,21 @@ class Spcht:
             raise ImportError("No RDF Library avaible, cannot process Spcht.process2RDF")
         graph = rdflib.Graph()
         for each in quadro_list:
-            try:
-                if each[3] == 0:
-                    graph.add((rdflib.URIRef(each[0]), rdflib.URIRef(each[1]), rdflib.Literal(each[2])))
-                else:
-                    graph.add((rdflib.URIRef(each[0]), rdflib.URIRef(each[1]), rdflib.URIRef(each[2])))
-            except Exception:
-                print(f"RDF Exception occured with {each[1]}", file=sys.stderr)
+            try: # ! using an internal rdflib function is clearly dirty af
+                if rdflib.term._is_valid_uri(each[0]) and rdflib.term._is_valid_uri(each[1]):
+                    if each[3] == 0 :
+                        graph.add((rdflib.URIRef(each[0]), rdflib.URIRef(each[1]), rdflib.Literal(each[2])))
+                    elif each[3] == 1 and rdflib.term._is_valid_uri(each[2]):
+                        graph.add((rdflib.URIRef(each[0]), rdflib.URIRef(each[1]), rdflib.URIRef(each[2])))
+                    else:
+                        logger.error(f"URL Parsing for <{each[0]}> <{each[1]}> & ({each[2]}) failed due an URI check error")
+            except Exception as error:
+                print(f"RDF Exception occured with {each[1]} - {error}", file=sys.stderr)
         try:
-            return graph.serialize(format=format_type).decode("utf-8")
+            if export:
+                return graph.serialize(format=export_format_type).decode("utf-8")
+            else:
+                return graph
         except Exception as e:
             print(f"serialisation couldnt be completed - {e}", file=sys.stderr)
             return f"serialisation couldnt be completed - {e}"
