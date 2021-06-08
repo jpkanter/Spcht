@@ -26,6 +26,7 @@ import time
 import json
 import requests
 import logging
+import subprocess
 
 from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
@@ -317,6 +318,7 @@ def CreateInsertWorkOrder(solr, query="*", total_rows=500000, chunk_size=50000, 
     work_order = {"meta":
                       {"downloaded": datetime.now().isoformat(),
                        "type": "insert",
+                       "method": "isql",
                        "max_chunks": n,
                        "chunk_size": chunk_size,
                        "total_rows": total_rows,
@@ -387,12 +389,15 @@ def UseWorkOrder(filename, deep_check = False, **kwargs):
         try:
             if work_order['meta']['type'] == "insert":
                 logger.info(f"Sorted order '{os.path.basename(filename)}' as type 'insert'")
-                FullfillInsertOrder(filename, work_order, **kwargs)
+                FullfillProcessingOrder(filename, work_order, **kwargs)
+                if work_order['meta']['method'] == "isql":
+                    logger.info(f"Turtle Files created, commencing to Virtuoso insert")
+
         except KeyError as key:
             logger.error(f"The supplied json file doesnt appear to have the needed data, '{key}' was missing")
 
 
-def FullfillInsertOrder(filename: str, work_order: dict, graph: str, spcht_object: Spcht, *args):
+def FullfillProcessingOrder(filename: str, work_order: dict, graph: str, spcht_object: Spcht, *args):
     try:
         logger.info(f"Starting processing on files of work order '{os.path.basename(filename)}', detected {len(work_order['file_list'])} Files")
         for key in work_order['file_list']:
@@ -416,3 +421,16 @@ def FullfillInsertOrder(filename: str, work_order: dict, graph: str, spcht_objec
         logger.error(f"The supplied work order doesnt appear to have the needed data, '{key}' was missing")
     except Exception as e:
         logger.error(f"Unknown type of exception: '{e}'")
+
+
+def FullfillISqlOrder(filename:str, work_order: dict, isql_path: str, user: str, password: str, graph: str):
+    try:
+        for key in work_order['file_list']:
+            if work_order['file_list'][key]['status'] == 1:
+                f_path = work_order['file_list'][key]['rdf_file']
+                command = f"ld_dir('{os.path.dirname(f_path)}', '{os.path.basename(f_path)}', '{graph}');"
+                print(command)
+                temp = subprocess.call([isql_path, "1111", user, password, "VERBOSE=OFF", command, "rdf_loader_run();", "checkpoint;"])
+                print(temp)
+    except KeyError as foreign_key:
+        logger.error(f"Missing key in work order: '{foreign_key}'")
