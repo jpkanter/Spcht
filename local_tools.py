@@ -21,6 +21,7 @@
 # @license GPL-3.0-only <https://www.gnu.org/licenses/gpl-3.0.en.html>
 import math
 import os
+import shutil
 import sys
 import time
 import json
@@ -392,22 +393,26 @@ def UseWorkOrder(filename, deep_check = False, **kwargs):
                 FullfillProcessingOrder(filename, work_order, **kwargs)
                 if work_order['meta']['method'] == "isql":
                     logger.info(f"Turtle Files created, commencing to Virtuoso insert")
+                    work_order = load_from_json(filename)
+                    FullfillISqlOrder(filename, work_order, **kwargs)
 
         except KeyError as key:
             logger.error(f"The supplied json file doesnt appear to have the needed data, '{key}' was missing")
 
 
-def FullfillProcessingOrder(filename: str, work_order: dict, graph: str, spcht_object: Spcht, *args):
+def FullfillProcessingOrder(filename: str, work_order: dict, graph: str, spcht_object: Spcht, **kwargs):
     try:
         logger.info(f"Starting processing on files of work order '{os.path.basename(filename)}', detected {len(work_order['file_list'])} Files")
+        _ = 0
         for key in work_order['file_list']:
+            _ += 1
             if work_order['file_list'][key]['status'] == 0: # Status 0 - Downloaded, not processed
                 mapping_data = load_from_json(work_order['file_list'][key]['file'])
                 quadros = []
                 for entry in mapping_data:
                     quader = spcht_object.processData(entry, graph)
                     quadros += quader
-                logger.info(f"Finished one file, {len(quadros)} triples")
+                logger.info(f"Finished file {_} of {len(work_order['file_list'])}, {len(quadros)} triples")
                 rdf_dump = f"{work_order['file_list'][key]['file'][:-4]}_rdf.ttl"
                 with open(rdf_dump, "w") as rdf_file:
                     rdf_file.write(Spcht.process2RDF(quadros))
@@ -415,7 +420,7 @@ def FullfillProcessingOrder(filename: str, work_order: dict, graph: str, spcht_o
                 work_order['file_list'][key]['rdf_file'] = rdf_dump
                 with open(filename, "w") as work_order_file:  # * Writing status after each round
                     json.dump(work_order, work_order_file, indent=4)
-        logger.info("Finished processing and creating turtle files")
+        logger.info(f"Finished processing {len(work_order['file_list'])} files and creating turtle files")
 
     except KeyError as key:
         logger.error(f"The supplied work order doesnt appear to have the needed data, '{key}' was missing")
@@ -423,14 +428,45 @@ def FullfillProcessingOrder(filename: str, work_order: dict, graph: str, spcht_o
         logger.error(f"Unknown type of exception: '{e}'")
 
 
-def FullfillISqlOrder(filename:str, work_order: dict, isql_path: str, user: str, password: str, graph: str):
+def FullfillISqlOrder(filename:str, work_order: dict, isql_path: str, user: str, password: str, named_graph: str, isql_port=1111, virt_folder="/tmp/", **kwargs):
+    """
+    This utilizes the virtuoso bulk loader enginer to insert the previously processed data into the
+    virtuoso triplestore. For that it copies the files with the triples into a folder that virtuoso
+    accepts for this kind of input, those folders are usually defined in the virtuoso.ini. it then
+    manually calls the isql interface to put the file into the bulk loader scheduler, and, if done
+    so deleting the copied file. For now the script has no real way of knowing if the operation actually
+    succeeds. Only the execution time might be a hint, but that might vary depending on system load
+    and overall resources.
+    :param str filename: filename of the work order that is to be fullfilled, gets overwritten often
+    :param dict work_order: initial work order loaded from file
+    :param str isql_path: path to the virtuoso isql-v/isql executable
+    :param str user: name of a virtuoso user with enough rights to insert
+    :param str password: clear text password of the user from above
+    :param str named_graph: named graph the data is to be inserted into
+    :param int isql_port: port of the virtuoso sql database, usually 1111
+    :param str virt_folder: folder that virtuoso accepts as input for files, must have write
+    :return: nothing
+    :rtype: None
+    """
     try:
         for key in work_order['file_list']:
             if work_order['file_list'][key]['status'] == 1:
                 f_path = work_order['file_list'][key]['rdf_file']
-                command = f"ld_dir('{os.path.dirname(f_path)}', '{os.path.basename(f_path)}', '{graph}');"
-                print(command)
-                temp = subprocess.call([isql_path, "1111", user, password, "VERBOSE=OFF", command, "rdf_loader_run();", "checkpoint;"])
-                print(temp)
+                f_path = shutil.copy(f_path, virt_folder)
+                command = f"EXEC=ld_add('{f_path}', '{graph}');"
+                zero_time = time.time()
+                subprocess.call([isql_path, str(isql_port), user, password, "VERBOSE=OFF", command, "EXEC=rdf_loader_run();", "EXEC=checkpoint;"])
+                logger.info(f"Executed ld_add command via isql, execution time was {delta_now(zero_time)} (cannot tell if call was successfull, times below 10 ms are suspicious)")
+                # ? apparently i cannot really tell if the isql stuff actually works
+                if os.path.exists(f_path):
+                    os.remove(f_path)
+                work_order['file_list'][key]['status'] = 2
+                with open(filename, "w") as work_order_file:  # * Writing status after each round
+                    json.dump(work_order, work_order_file, indent=4)
+        logger.info(f"Successfully called {len(work_order['file_list'])} times the bulk loader")
     except KeyError as foreign_key:
         logger.error(f"Missing key in work order: '{foreign_key}'")
+    except PermissionError as folder:
+        logger.error(f"Cannot access folder {folder} to copy turtle into.")
+    except FileNotFoundError as file:
+        logger.error(f"Cannot find file {file}")
