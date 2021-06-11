@@ -19,6 +19,8 @@
 # along with Foobar.  If not, see <http://www.gnu.org/licenses/>.
 #
 # @license GPL-3.0-only <https://www.gnu.org/licenses/gpl-3.0.en.html>
+
+
 import math
 import os
 import shutil
@@ -29,6 +31,7 @@ import requests
 import logging
 import subprocess
 
+import SpchtErrors
 from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 from termcolor import colored
@@ -301,6 +304,89 @@ def load_from_json(file_path):
         return None
 
 
+def UpdateWorkOrder(file_path: str, **kwargs) -> dict:
+    """
+    Updates a work order file and does some sanity checks around the whole thing, sanity checks
+    involve:
+
+    * checking if the new status is lower than the old one
+    * overwritting file_paths for the original json or turtle
+
+    :param str file_path: file path to a valid work-order.json
+    :param tuple kwargs: 'insert' and/or 'update' as tuple, last value is the value for the nested dictionary keys when using update, when using insert n-1 key is the new key and n key the value
+    :return dict: returns a work order dictionary
+    """
+    # ! i activly decided against writting a file class for work order
+    work_order = load_from_json(file_path)
+    if work_order is not None:
+        if "update" in kwargs:
+            if len(kwargs['update']) < 2:
+                raise SpchtErrors.ParameterError("Not enough parameters")
+            old_value = UpdateNestedDictionaryKey(work_order, *kwargs['update'])
+            if old_value is None:
+                raise SpchtErrors.ParameterError("Couldnt update key")
+            if kwargs['update'][len(kwargs['update'])-2] == "status":
+                if old_value > kwargs['update'][len(kwargs['update'])-1]:
+                    raise SpchtErrors.WorkOrderInconsitencyError("New status higher than old one")
+        if "insert" in kwargs:
+            if len(kwargs['insert']) < 3:
+                raise SpchtErrors.ParameterError("Not enough parameters")
+            overwritten = AddNestedDictionaryKey(work_order, *kwargs['insert'])
+            if overwritten is True:
+                raise SpchtErrors.WorkOrderInconsitencyError("Cannot overwrite any one file path")
+        with open(file_path, "w") as work_order_file:
+            json.dump(work_order, work_order_file, indent=4)
+        return work_order
+
+    else:
+        raise SpchtErrors.WorkOrderError
+
+
+def UpdateNestedDictionaryKey(dictionary: dict, *args) -> None or any:
+    old_value = None
+    try:
+        keys = len(args)
+        _ = 0
+        value = dictionary
+        for key in args:
+            _ += 1
+            if _ + 1 >= keys:
+                old_value = value[key]
+                value[key] = args[_]  # * immutable dictionary objects are passed by reference
+                # * therefore i change the original object here which is precisly what i want
+                break  # * one more round to come..which we dont want
+            else:
+                value = value.get(key)
+                if value is None:
+                    raise SpchtErrors.ParameterError(key)
+        return old_value
+    except KeyError as key:
+        raise SpchtErrors.ParameterError(key)
+
+
+def AddNestedDictionaryKey(dictionary: dict, *args) -> bool:
+    overwritten = False
+    try:
+        keys = len(args)
+        _ = 0
+        value = dictionary
+        for key in args:
+            _ += 1
+            if _ + 2 >= keys:
+                print(f"My Key is {args[_]}")
+                if value[key].get(args[_]) is not None:
+                    overwritten = True
+                value[key][args[_]] = args[_+1]
+                break;
+            else:
+                value = value.get(key)
+                if value is None:
+                    raise SpchtErrors.ParameterError(key)
+        return overwritten
+    except KeyError as key:
+        raise SpchtErrors.ParameterError(key)
+
+
 def CreateInsertWorkOrder(solr, query="*", total_rows=500000, chunk_size=50000, loaded_spcht=None, order_name="work_order", sub_folder="",*args):
     logger.info("Starting Process of creating a new work order")
     parameters = {'q': query, 'rows': total_rows, 'wt': "json", "cursorMark": "*", "sort": "id asc"}
@@ -351,7 +437,7 @@ def CreateInsertWorkOrder(solr, query="*", total_rows=500000, chunk_size=50000, 
                 extracted_data = solr_handle_return(data)
                 with open(filename, "w") as dumpfile:
                     json.dump(extracted_data, dumpfile)
-                work_order["file_list"][i] = {"file": filename, "status": 0}
+                work_order["file_list"][i] = {"file": filename, "status": 1}
 
                 if data.get("nextCursorMark", "*") != "*" and data['nextCursorMark'] != parameters['cursorMark']:
                     parameters['cursorMark'] = data['nextCursorMark']
@@ -400,13 +486,22 @@ def UseWorkOrder(filename, deep_check = False, **kwargs):
             logger.error(f"The supplied json file doesnt appear to have the needed data, '{key}' was missing")
 
 
-def FullfillProcessingOrder(filename: str, work_order: dict, graph: str, spcht_object: Spcht, **kwargs):
+def FullfillProcessingOrder(filename: str, graph: str, spcht_object: Spcht, **kwargs):
     try:
+        # when traversing a list/iterable we cannot change the iterable while doing so
+        # but for proper use i need to periodically check if something has changed, as the program
+        # does not change the number of keys or the keys itself this should work well enough, although
+        # i question my decision to actually use files of any kind as transaction log
+        work_order0 = load_from_json(filename)
+        work_order = work_order0
         logger.info(f"Starting processing on files of work order '{os.path.basename(filename)}', detected {len(work_order['file_list'])} Files")
         _ = 0
-        for key in work_order['file_list']:
+        for key in work_order0['file_list']:
             _ += 1
-            if work_order['file_list'][key]['status'] == 0: # Status 0 - Downloaded, not processed
+            if work_order['file_list'][key]['status'] == 1:  # Status 0 - Downloaded, not processed
+                work_order = UpdateWorkOrder(filename,
+                                             update=('file_list', key, 'status', 2),
+                                             insert=('file_list', key, 'processing_date', datetime.now().isoformat()))
                 mapping_data = load_from_json(work_order['file_list'][key]['file'])
                 quadros = []
                 for entry in mapping_data:
@@ -416,10 +511,9 @@ def FullfillProcessingOrder(filename: str, work_order: dict, graph: str, spcht_o
                 rdf_dump = f"{work_order['file_list'][key]['file'][:-4]}_rdf.ttl"
                 with open(rdf_dump, "w") as rdf_file:
                     rdf_file.write(Spcht.process2RDF(quadros))
-                work_order['file_list'][key]['status'] = 1
-                work_order['file_list'][key]['rdf_file'] = rdf_dump
-                with open(filename, "w") as work_order_file:  # * Writing status after each round
-                    json.dump(work_order, work_order_file, indent=4)
+                work_order = UpdateWorkOrder(filename,
+                                update=('file_list', key, 'status', 3),
+                                insert=('file_list', key, 'rdf_file', rdf_dump))
         logger.info(f"Finished processing {len(work_order['file_list'])} files and creating turtle files")
 
     except KeyError as key:
@@ -428,7 +522,7 @@ def FullfillProcessingOrder(filename: str, work_order: dict, graph: str, spcht_o
         logger.error(f"Unknown type of exception: '{e}'")
 
 
-def FullfillISqlOrder(filename:str, work_order: dict, isql_path: str, user: str, password: str, named_graph: str, isql_port=1111, virt_folder="/tmp/", **kwargs):
+def FullfillISqlOrder(filename: str, isql_path: str, user: str, password: str, named_graph: str, isql_port=1111, virt_folder="/tmp/", **kwargs):
     """
     This utilizes the virtuoso bulk loader enginer to insert the previously processed data into the
     virtuoso triplestore. For that it copies the files with the triples into a folder that virtuoso
@@ -449,20 +543,24 @@ def FullfillISqlOrder(filename:str, work_order: dict, isql_path: str, user: str,
     :rtype: None
     """
     try:
-        for key in work_order['file_list']:
-            if work_order['file_list'][key]['status'] == 1:
+        work_order0 = load_from_json(filename)
+        work_order = work_order0
+        for key in work_order0['file_list']:
+            if work_order['file_list'][key]['status'] == 3:
+                work_order = UpdateWorkOrder(filename,
+                                             update=('file_list', key, 'status', 4),
+                                             insert=('file_list', key, 'insert_date', datetime.now().isoformat()))
                 f_path = work_order['file_list'][key]['rdf_file']
                 f_path = shutil.copy(f_path, virt_folder)
-                command = f"EXEC=ld_add('{f_path}', '{graph}');"
+                command = f"EXEC=ld_add('{f_path}', '{named_graph}');"
                 zero_time = time.time()
                 subprocess.call([isql_path, str(isql_port), user, password, "VERBOSE=OFF", command, "EXEC=rdf_loader_run();", "EXEC=checkpoint;"])
                 logger.info(f"Executed ld_add command via isql, execution time was {delta_now(zero_time)} (cannot tell if call was successfull, times below 10 ms are suspicious)")
                 # ? apparently i cannot really tell if the isql stuff actually works
                 if os.path.exists(f_path):
                     os.remove(f_path)
-                work_order['file_list'][key]['status'] = 2
-                with open(filename, "w") as work_order_file:  # * Writing status after each round
-                    json.dump(work_order, work_order_file, indent=4)
+                # reloading work order in case something has changed since then
+                work_order = UpdateWorkOrder(filename, update=('file_list', key, 'status', 5))
         logger.info(f"Successfully called {len(work_order['file_list'])} times the bulk loader")
     except KeyError as foreign_key:
         logger.error(f"Missing key in work order: '{foreign_key}'")
