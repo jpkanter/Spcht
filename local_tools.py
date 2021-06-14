@@ -27,9 +27,12 @@ import shutil
 import sys
 import time
 import json
+import xml
+
 import requests
 import logging
 import subprocess
+import rdflib
 
 import SpchtErrors
 from datetime import datetime, timedelta
@@ -120,12 +123,14 @@ def sparqlQuery(sparql_query, base_url, get_format="application/json", **kwargs)
         "default-graph": "",
         "should-sponge": "soft",
         "query": sparql_query,
-        "debug": "on",
+        "debug": "off",
         "timeout": "",
         "format": get_format,
         "save": "display",
         "fname": ""
     }
+    if "named_graph" in kwargs:
+        params['default-graph'] = kwargs['named_graph']
     try:
         if kwargs.get("auth", False) and kwargs.get("pwd", False):
             # response = requests.get(base_url, auth=HTTPDigestAuth(kwargs.get("auth"), kwargs.get("pwd")), params=params)
@@ -568,3 +573,56 @@ def FullfillISqlOrder(filename: str, isql_path: str, user: str, password: str, n
         logger.error(f"Cannot access folder {folder} to copy turtle into.")
     except FileNotFoundError as file:
         logger.error(f"Cannot find file {file}")
+
+
+def FullfillSparqlInsertOrder(work_order_file: str, sparql_endpoint: str, user: str, password: str, named_graph: str, **kwargs):
+    # WITH GRAPH_IRI INSERT { bla } WHERE {};
+    SPARQL_CHUNK = 50
+    try:
+        work_order0 = load_from_json(work_order_file)
+        if work_order0['meta']['method'] != "sparql":
+            raise SpchtErrors.WorkOrderError(f"Method in work order file is {work_order0['meta']['method']} but must be 'sparql' for this method")
+        work_order = work_order0
+        for key in work_order0['file_list']:
+            if work_order['file_list'][key]['status'] == 3:
+                work_order = UpdateWorkOrder(work_order_file,
+                     update=('file_list', key, 'status', 4),
+                     insert=('file_list', key, 'insert_date', datetime.now().isoformat()))
+                f_path = work_order['file_list'][key]['rdf_file']
+                this_graph = rdflib.Graph()
+                this_graph.parse(f_path, format="turtle")
+                triples = ""
+                rounds = 0
+                for sub, pred, obj in this_graph:
+                    rounds += 1
+                    if obj is rdflib.term.URIRef:
+                        triples += f"<{sub}> <{pred}> <{obj}> . \n"
+                    else:
+                        triples += f"<{sub}> <{pred}> \"{obj}\" . \n"
+                    # ! TODO: can optimize here, grouped queries
+                    if rounds > SPARQL_CHUNK:
+                        query = f"""WITH <{named_graph}> INSERT {{ {triples}}}"""
+                        sparqlQuery(query,
+                                    sparql_endpoint,
+                                    auth=user,
+                                    pwd=password,
+                                    named_graph=named_graph
+                                    )
+                        triples = ""
+                        rounds = 0
+                # END OF FOR LOOP
+                if rounds > 0 and triples != "":
+                    query = f"""WITH <{named_graph}> INSERT {{ {triples}}}"""
+                    sparqlQuery(query,
+                                sparql_endpoint,
+                                auth=user,
+                                pwd=password,
+                                named_graph=named_graph
+                                )
+                work_order = UpdateWorkOrder(work_order_file, update=('file_list', key, 'status', 5))
+    except KeyError as foreign_key:
+        logger.error(f"Missing key in work order: '{foreign_key}'")
+    except FileNotFoundError as file:
+        logger.error(f"Cannot find file {file}")
+    except xml.parsers.expat.ExpatError as e:
+        logger.error(f"Parsing of triple file failed: {e}")
