@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # coding: utf-8
 
 # Copyright 2021 by Leipzig University Library, http://ub.uni-leipzig.de
