@@ -42,6 +42,13 @@ class WorkOrderError(TypeError):
     pass
 
 
+class WorkOrderTypeError(TypeError):
+    """
+    For incorrect file types in work order parameters
+    """
+    pass
+
+
 class ParameterError(KeyError):
     """
     The given parameter lead to an outcome that did not work

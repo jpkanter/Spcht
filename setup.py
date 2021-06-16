@@ -48,7 +48,7 @@ with open("README.md", "r") as readme:
             ],
         install_requires=[
             "rdflib>=4.2.2",
-            "pyodb",
+            "pyodbc",
             "requests",
             "pymarc>=4.0.0",
             "python-dateutil"

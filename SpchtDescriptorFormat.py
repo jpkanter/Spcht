@@ -54,20 +54,20 @@ SPCHT_BOOL_OPS = {"equal":"==", "eq":"==","greater":">","gr":">","lesser":"<","l
 
 
 class Spcht:
-    _DESCRI = None  # the finally loaded descriptor file with all references solved
-    _SAVEAS = {}
-    # * i do all this to make it more customizable, maybe it will never be needed, but i like having options
-    std_out = sys.stdout
-    std_err = sys.stderr
-    debug_out = sys.stdout
-    _debug = False
-    _default_fields = ['fullrecord']
-
     def __init__(self, filename=None, check_format=False, debug=False):
-        self.debugmode(debug)
+        self._DESCRI = None  # the finally loaded descriptor file with all references solved
+        self._SAVEAS = {}
+        # * i do all this to make it more customizable, maybe it will never be needed, but i like having options
+        self.std_out = sys.stdout
+        self.std_err = sys.stderr
+        self.debug_out = sys.stdout
+        self._debug = debug
+        self._default_fields = ['fullrecord']
+        self.descriptor_file = None
         if filename is not None:
             if not self.load_descriptor_file(filename):
                 raise FileNotFoundError("Something with the specified Spcht file was wrong")
+
         # does absolutely nothing in itself
 
     def __repr__(self):
@@ -78,6 +78,12 @@ class Spcht:
             return some_text[:-3]
         else:
             return "Empty Spcht"
+
+    def __str__(self):
+        if self.descriptor_file is not None:
+            return f"SPCHT{{{self.descriptor_file}}}"
+        else:
+            return "SPCHT{_empty_}"
 
     def __iter__(self):
         return SpchtIterator(self)
@@ -879,6 +885,7 @@ class Spcht:
             new_node.append(a_node)
         descriptor['nodes'] = new_node  # replaces the old node with the new, enriched ones
         self._DESCRI = descriptor
+        self.descriptor_file = filename
         return True
 
     def _load_ref_node(self, node_dict, base_path) -> dict:
