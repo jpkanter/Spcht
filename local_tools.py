@@ -301,9 +301,11 @@ def load_from_json(file_path):
             return json.load(file)
     except FileNotFoundError:
         logger.error(f"Couldnt open file '{file_path}' cause it couldnt be found")
+        print("File not found", file=sys.stderr)
         return None
     except ValueError as e:
         logger.error(f"Couldnt open supposed json file due an error while parsing: '{e}'")
+        print("JSON Parsing error", file=sys.stderr)
         return None
     except Exception as error:
         logger.error(f"A general exception occured while tyring to open the supposed json file '{file_path}' - {error.args}")
@@ -392,6 +394,22 @@ def AddNestedDictionaryKey(dictionary: dict, *args) -> bool:
         raise SpchtErrors.ParameterError(key)
 
 
+def CheckWorkOrder(work_order_file: str):
+    work_order = load_from_json(work_order_file)
+    main_status = ("Freshly created", "fetch started", "fetch completed", "processing started", "processing completed", "inserting started", "insert completed/finished", "fullfilled")
+    try:
+        print("+++++++WORK ORDER INFO+++++++")
+        print(f"Current Status:           {main_status[work_order['meta']['status']]}")
+        print(f"Data retrieval:           {work_order['meta']['fetch']}")
+        print(f"Processing Type:          {work_order['meta']['type']}")
+        if 'processing' in work_order['meta']:
+            print(f"Multiprocessing, threads: {work_order['meta']['processing']}")
+        print(f"Insert method:            {work_order['meta']['method']}")
+    except KeyError as key:
+        print("####WORK ORDER LACKS KEYS, ERROR#####")
+        print(f"Missing Key {key}")
+
+
 def UseWorkOrder(filename, deep_check = False, **kwargs):
     work_order = load_from_json(filename)
     if work_order is not None:
@@ -437,22 +455,33 @@ def ProcessOrderMultiCore(work_order_file, **kwargs):
         raise SpchtErrors.WorkOrderInconsitencyError("Cannot call multi core process without defined 'processes' parameter")
     if not isinstance(kwargs['processes'], int):
         raise SpchtErrors.WorkOrderTypeError("Processes must be defined as integer")
+    logger.info("Started MultiProcess function, duplicated entries might appear in the log files for each instance of the processing procedure")
     processes = []
-    mod_kwargs = {}
+    #mod_kwargs = {}
+    # ? RE: the zombie commented out parts for copies of kwargs, in the parameters there is this innocent
+    # ? looking object called spcht_object which is an entire class with some data, thing of it as enzyme
+    # ? in theory nothing the processing does should change anything about the spcht itself, it does it
+    # ? it thing and once initiated it shall just process data from one state into another
+    # ? if any problems with the finished data arise i would definitely first check if the multiprocessing
+    # ? causes problems due some kind of racing condition
+    if kwargs['processes'] < 1:
+        kwargs['processes'] = 1
+        logger.info("Number of processes set to 1, config file review is advised")
+    else:
+        UpdateWorkOrder(work_order_file, insert=("meta", "processes", kwargs['processes']))
     for i in range(1, kwargs['processes']):
-        del mod_kwargs
-        mod_kwargs = copy.copy(kwargs)
-        mod_kwargs['spcht_object'] = Spcht(kwargs['spcht_object'].descriptor_file)
-        time.sleep(1)
-        print(kwargs)
-        p = multiprocessing.Process(target=FullfillProcessingOrder, args=work_order_file, kwargs=mod_kwargs)
+        #del mod_kwargs
+        #mod_kwargs = copy.copy(kwargs)
+        #mod_kwargs['spcht_object'] = Spcht(kwargs['spcht_object'].descriptor_file)
+        time.sleep(1)  # ! this all is file based, this is the sledgehammer way of avoiding problems
+        p = multiprocessing.Process(target=FullfillProcessingOrder, args=(work_order_file, ), kwargs=kwargs)
         processes.append(p)
         p.start()
     for process in processes:
         process.join()
 
 
-def CreateInsertWorkOrder(order_name, fetch: str, typus: str, method: str,**kwargs):
+def CreateWorkOrder(order_name, fetch: str, typus: str, method: str, **kwargs):
     """
     Creates a basic work order file that serves as origin for all further operation, desribes
     the steps necessary to fullfill the order
@@ -501,7 +530,7 @@ def CreateInsertWorkOrder(order_name, fetch: str, typus: str, method: str,**kwar
 
 
 def FetchWorkOrderSolr(work_order_file: str,
-                       solr_addr:str,
+                       solr_addr: str,
                        query="*",
                        total_rows=50000,
                        chunk_size=10000,
@@ -586,20 +615,41 @@ def FetchWorkOrderSolr(work_order_file: str,
         logger.info(f"Overall Executiontime was {delta_now(start_time, 3)} seconds")
 
 
-def FullfillProcessingOrder(filename: str, graph: str, spcht_object: Spcht, **kwargs):
+def FullfillProcessingOrder(work_order_file: str, graph: str, spcht_object: Spcht, **kwargs):
+    """
+    Processes all raw data files specified in the work order file list
+    :param str work_order_file: filename of a work order file
+    :param str graph: graph the data gets mapped to, technically a subject in the <subject> <predicate> <object> chain
+    :param Spcht spcht_object: ready loaded Spcht object
+    :return: True if everything worked, False if something is not working
+    :rtype: boolean
+    """
+    # ! checks cause this gets more or less directly called via cli
+    if not os.path.exists(work_order_file):
+        print("Work order does not exists")
+        return False
+    if not isinstance(graph, str):
+        print("Graph/Subject mst be a string")
+        return False
+    if not isinstance(spcht_object, Spcht):
+        print("Provided Spcht Object is not a genuine Spcht Object")
+        return False
+    if spcht_object.descriptor_file is None:
+        print("Spcht object must be succesfully loaded")
+        return False
     try:
         # when traversing a list/iterable we cannot change the iterable while doing so
         # but for proper use i need to periodically check if something has changed, as the program
         # does not change the number of keys or the keys itself this should work well enough, although
         # i question my decision to actually use files of any kind as transaction log
-        work_order0 = load_from_json(filename)
+        work_order0 = load_from_json(work_order_file)
         work_order = work_order0
-        logger.info(f"Starting processing on files of work order '{os.path.basename(filename)}', detected {len(work_order['file_list'])} Files")
+        logger.info(f"Starting processing on files of work order '{os.path.basename(work_order_file)}', detected {len(work_order['file_list'])} Files")
         _ = 0
         for key in work_order0['file_list']:
             _ += 1
             if work_order['file_list'][key]['status'] == 1:  # Status 0 - Downloaded, not processed
-                work_order = UpdateWorkOrder(filename,
+                work_order = UpdateWorkOrder(work_order_file,
                                              update=('file_list', key, 'status', 2),
                                              insert=('file_list', key, 'processing_date', datetime.now().isoformat()))
                 mapping_data = load_from_json(work_order['file_list'][key]['file'])
@@ -611,9 +661,9 @@ def FullfillProcessingOrder(filename: str, graph: str, spcht_object: Spcht, **kw
                 rdf_dump = f"{work_order['file_list'][key]['file'][:-4]}_rdf.ttl"
                 with open(rdf_dump, "w") as rdf_file:
                     rdf_file.write(Spcht.process2RDF(quadros))
-                work_order = UpdateWorkOrder(filename,
-                                update=('file_list', key, 'status', 3),
-                                insert=('file_list', key, 'rdf_file', rdf_dump))
+                work_order = UpdateWorkOrder(work_order_file,
+                                             update=('file_list', key, 'status', 3),
+                                             insert=('file_list', key, 'rdf_file', rdf_dump))
         logger.info(f"Finished processing {len(work_order['file_list'])} files and creating turtle files")
         return True
     except KeyError as key:

@@ -55,3 +55,10 @@ class ParameterError(KeyError):
     """
     pass
 
+
+class OperationalError(TypeError):
+    """
+    Something that stops the overall operation from proceeding
+    """
+    pass
+

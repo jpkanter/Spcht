@@ -37,6 +37,8 @@ from datetime import datetime, timedelta
 
 from dateutil.relativedelta import relativedelta
 
+import SpchtErrors
+import local_tools
 from local_tools import super_simple_progress_bar, sleepy_bar, super_simple_progress_bar_clear, \
     load_remote_content, slice_header_json, sparqlQuery, block_sparkle_insert, solr_handle_return, delta_now, test_json, \
     delta_time_human, load_from_json
@@ -66,30 +68,21 @@ def send_error(message, error_name=None):
 
 
 def load_config(file_path="config.json"):
-    # loads json file with all the config settings, uses defaults when possible
-    global ERROR_TXT, PARA, SETTINGS
-    if not path.exists(file_path):
-        return False
-    with open(file_path) as json_file:
-        data = json.load(json_file)
-        try:
-            ERROR_TXT = data.get('errors')
-        except KeyError:
-            send_error("Cannot find 'error' Listings in {} File".format(file_path))  # in this there is not error field
-            ERROR_TXT = None
-            return False
-        try:
-            PARA = data['para']
-        except KeyError:
-            send_error("urls")
-            PARA = None
-            return False
-        try:
-            SETTINGS = data.get('settings')
-        except KeyError:
-            send_error("SETTINGS")
-            SETTINGS = None
-            return False
+    """
+    Simple config file loader, will raise exceptions if files arent around, will input parameters
+    in global var PARA
+    :param file_path str: file path to a flat json containing a dictionary with key-value relations
+    :return: True if everything went well, will raise exception otherwise
+    """
+    expected_settings = ["solr_addr", "query", "total_rows", "chunk_size", "spcht_path", "save_folder",
+                         "graph", "named_graph", "isql_path", "user", "password", "isql_port", "virt_folder",
+                         "processes"]
+    config_dict = load_from_json(file_path)
+    if not config_dict:
+        raise SpchtErrors.OperationalError("Cannot load config file")
+    for setting_name in config_dict:
+        if setting_name in expected_settings and expected_settings[setting_name] != "":
+            PARA[setting_name] = expected_settings[setting_name]
     return True
 
 
@@ -216,282 +209,10 @@ def marc21_test():
         testdata = Spcht.marc2list(mydata[0].get('fullrecord'))
 
 
-def full_process(solr, graph, spcht, sparql, sparql_user="", sparql_pw="", log=False, req_rows=50000, req_chunk=10000, query=""):
-    habicht = Spcht(spcht)
-    big_data = []
-    total_nodes = 0
-    # "source_id:0+institution:DE-15"
-    logging.info("Started new Spcht Full Process, Spcht name is 'habicht'")
-    req_para = {'q': query, 'rows': req_rows, 'wt': "json", "cursorMark": "*", "sort": "id asc"}
-    logging.info(f"Spcht Query is: '{query}'")
-    # optimising requests a bit and pre filter for the stuff we need
-    fieldlist = habicht.get_node_fields()
-    req_para['fl'] = ""
-    for each in fieldlist:
-        req_para['fl'] += f"{each} "
-    req_para['fl'] = req_para['fl'][:-1]
-    logging.debug(f"Fieldlist filter: '{req_para}'")
-    start_time = time.time()
-    logging.info(f"Starting Process - Time Zero: {start_time}")
-
-    # mechanism to not load 50000 entries in one go but use chunks for it
-    n = math.floor(int(req_rows) / int(req_chunk)) + 1
-    logging.info(f"Solr Source is {solr}")
-    logging.info(f"Target Triplestore is {sparql}")
-    logging.info(f"Target Graph is {graph}")
-    logging.info(f"Detected {n} chunks of a total of {req_rows} entries with a chunk size of {req_chunk}")
-    logging.info(f"Start Loading Remote chunks - {delta_now(start_time)}")
-    print(("#" * n)[:0] + (" " * n)[:n], f"{0 + 1} / {n}")
-    try:
-        for i in range(0, n):
-            logging.info(f"New Chunk started: [{i + 1}/{n - 1}] - {delta_now(start_time)} ms")
-            if i + 1 != n:
-                req_para['rows'] = req_chunk
-            else:
-                req_para['rows'] = int(int(req_rows) % int(req_chunk))
-            logging.info(f"\tUsing request URL: {solr}/{req_para}")
-            data = test_json(load_remote_content(solr, req_para))
-            if data is not None:  # no else required, test_json already gives us an error if something fails
-                logging.info(f"Chunk finished, using SPCHT - {delta_now(start_time)}")
-                chunk_data = solr_handle_return(data)
-                big_data += chunk_data
-                number = 0
-                # test 1 - chunkwise data import
-                inserts = []
-                for entry in chunk_data:
-                    temp = habicht.processData(entry, graph)
-                    if temp:
-                        number += len(temp)
-                        inserts.append(
-                            Spcht.quickSparql(temp, graph))  # just by coincidence this is the same in this example
-                        big_data.append(temp)
-                total_nodes += number
-                logging.info(f"Pure Maping for current Chunk done, doing http sparql requests - {delta_now(start_time)}")
-                incrementor = 0
-                for pnguin in inserts:
-                    sparqlQuery(pnguin, sparql, auth=sparql_user, pwd=sparql_pw)
-                    incrementor += 1
-                    super_simple_progress_bar(incrementor, len(inserts), "HTTP ",
-                                              f"{incrementor} / {len(inserts)} [{number}]")
-                logging.info(f"\n{incrementor} Inserts done, {number} entries, commencing")
-                logging.info(f"SPARQL Requests finished total of {number} entries - {delta_now(start_time)}")
-            print(("#" * n)[:i] + (" " * n)[:(n - i)], f"{i + 1} / {n}", f"- {delta_now(start_time)}")
-
-            if data.get("nextCursorMark", "*") != "*" and data['nextCursorMark'] != req_para['cursorMark']:
-                req_para['cursorMark'] = data['nextCursorMark']
-            else:
-                logging.info(f"{delta_now(start_time)}\tNo further CursorMark was received, therefore there are less results than expected rows. Aborting cycles")
-                break
-    except KeyboardInterrupt:
-        print(f"Process was interrupted by user interaction")
-        logging.info(f"Process was interrupted by user interaction")
-    finally:
-        print(f"Overall Executiontime was {delta_now(start_time, 3)} seconds")
-        logging.info(f"Overall Executiontime was {delta_now(start_time, 3)} seconds")
-        print(f"Total size of all entries is {sys.getsizeof(big_data)}")
-        logging.info(f"Total size of all entries is {sys.getsizeof(big_data)}")
-        print(f"There was a total of {total_nodes} triples")
-        logging.info(f"There was a total of {total_nodes} triples")
-
-
-def SingleProcess(input_file, spcht_path, graph, output=sys.stdout, sparql_endpoint=None, sparql_user="", sparql_pw=""):
-    """
-    Processes a single file to either the console, a file as sparql queries or directly to a sparql endpoint
-    """
-    try:
-        toucan = Spcht(spcht_path)
-    except FileNotFoundError:
-        print(f"The Spcht Descriptor File {spcht_path} could not be loaded", sys.stderr)
-        exit(1)  # its not like those exit codes mean anything to me
-
-    try:
-        with open(input_file, "r") as single_file:
-            jsoned = json.load(single_file)
-    except FileNotFoundError:
-        print(f"File {single_file} not found", file=sys.stderr)
-        exit(2)
-    except ValueError as error:
-        print(f"Error while parsing JSON:\n\r{error}", file=sys.stderr)
-        exit(3)
-    except KeyError as dictKey:
-        print(f"A KeyError exeption has occured, key: {dictKey}", file=sys.stderr)
-        exit(4)  # i dont see how this could ever happen upon json load
-    except Exception as e:
-        print(f"Unexpected Exception: {e.args}", file=sys.stderr)
-        exit(5)
-
-    if isinstance(jsoned, dict):
-        jsoned = [jsoned]  # putting data in a list to standardize workflow
-
-    if output != sys.stdout:
-        try:
-            output = open(output, "w")
-        except IOError as e:
-            if e.errno == errno.EACCES:
-                print(f"No access to file {output} for the current user, falling back to stdout")
-                output = sys.stdout
-            elif e.errno == errno.EISDIR:
-                print(f"The output 'file' {output} is a directory, falling back to stdout")
-                output = sys.stdout
-
-    for entry in jsoned:
-        une_block = toucan.processData(entry, graph)
-        for line in une_block:
-            print(f"{line[0]} - {line[1]} - {line[2]}", file=output)
-
-
-        # insert into sparql endpoint
-        if sparql_endpoint is not None:
-            sparqlQuery(Spcht.quickSparql(une_block, graph), sparql_endpoint, auth=sparql_user, pwd=sparql_pw)
-
-
-def downloadTest(req_rows=100, req_chunk=120, wait_time=0, wait_incrementor=0):
-    global PARA, SPCHT
-    load_config()
-    total_nodes = 0
-    head_start = 0
-    req_para = {'q': "*:*", 'rows': req_rows, 'wt': "json", "cursorMark": "*", "sort": "id asc", "fl": "source_id:0"}
-    temp_url_param = copy.deepcopy(req_para)
-    n = math.floor(int(req_rows) / req_chunk) + 1
-
-    start_time = time.time()
-    now = datetime.now()
-    try:
-        time_string = now.strftime('%d%m%Y-%H%M-%S')
-        stormwarden = open(TESTFOLDER + f"downloads-{time_string}.log", "w")
-    except Exception as e:
-        print("Random exception", e)
-        return False
-
-    printing(f"API Source is {PARA['solr3']}", file=stormwarden)
-    printing(f"Initial wait time is {wait_time} with a cycling increment of {wait_incrementor}", file=stormwarden)
-    printing(f"Detected {n} chunks of a total of {req_rows} entries with a chunk size of {req_chunk}", file=stormwarden)
-    printing(f"Start Loading Remote chunks - {delta_now(start_time)}", file=stormwarden)
-    cursorMark = "*"
-    for i in range(0, n):
-
-        temp_url_param['cursorMark'] = cursorMark
-        if i + 1 != n:
-            temp_url_param['rows'] = req_chunk
-        else:
-            temp_url_param['rows'] = int(int(req_rows) % req_chunk)
-        if int(temp_url_param['rows']) == 0:
-            continue
-        printing(f"New Chunk started: [{i + 1}/{n}] - {delta_now(start_time)} ms", file=stormwarden)
-        printing(f"\tDownload at {delta_now(start_time)}", PARA['solr3'], temp_url_param, file=stormwarden)
-        pureData = load_remote_content(PARA['solr3'], temp_url_param)
-        if test_json(pureData):
-            big_data = test_json(pureData)
-            with open(TESTFOLDER + f"downloads-{time_string}-{i}.json", "w") as quickfile:
-                json.dump(big_data, quickfile, indent=2)
-            cursorMark = big_data['nextCursorMark']
-            printing(f"Download of Chunk is good json, next Cursor: {cursorMark}", file=stormwarden)
-        else:
-            printing(pureData, file=stormwarden)
-        printing(f"Chunk {i + 1} finished, current time: {delta_now(start_time)}", file=stormwarden)
-        printing(f"Sleeping now for {wait_time} seconds", file=stormwarden)
-        sleepy_bar(wait_time)
-        wait_time += wait_incrementor
-    stormwarden.close()
-
-
 def used_field_test():
     load_config()
     rolf = Spcht("default.spcht.json", debug=True)
     print(rolf.get_node_fields())
-
-
-def solr_spy(req_url="", req_rows=100000, wait_time=0.0, mode=0):
-    # mode 0 - light mode
-    # mode 1 - heavy mode
-    # ? REGEX ^.*[-][a-zA-Z0-9]{9}$    Not needed
-    global PARA
-    req_para = {'q': "*:*", 'rows': req_rows, 'wt': "json", "cursorMark": "*", "sort": "id asc", "fl": "id, source_id"}
-    castle_going = True  # i wrote KeepGoing before, twisted mind and here we are
-
-    list_of_known_abb = {}
-    iterator = 0
-    start_time = time.time()
-    now = datetime.now()
-
-    try:
-        time_string = now.strftime('%d%m%Y-%H%M-%S')
-        stormwarden = open(TESTFOLDER + f"SolrSpy-{time_string}.log", "w")
-    except Exception as e:
-        print("Random exception", e)
-        return False
-
-    printing(f"API Source is {req_url}", file=stormwarden)
-    printing(f"Retrieving all entries, this might take a while, chunk size is {req_rows}", file=stormwarden)
-    while castle_going:
-        printing(f"{delta_now(start_time)}\tStarting a new cycle, this is #{iterator + 1}", file=stormwarden)
-        # various fluff stuff
-        stat = {'new': 0, 'add': 0}
-        iterator += 1
-        # actual logic
-        castle_going = False  # precaution
-        pureData = load_remote_content(req_url, req_para, mode="POST")
-        current_dateset = test_json(pureData)
-        if current_dateset:
-            if current_dateset.get("nextCursorMark", "*") != "*" and current_dateset['nextCursorMark'] != req_para['cursorMark']:
-                castle_going = True
-                req_para['cursorMark'] = current_dateset['nextCursorMark']
-            try:
-                printing(f"{delta_now(start_time)}\tDownload done, subcycle begins, Cursor:  {req_para['cursorMark']}",
-                         file=stormwarden)
-                for each in current_dateset['response']['docs']:
-                    id_key = each.get('source_id')
-                    if Spcht.is_dictkey(list_of_known_abb, id_key):
-                        list_of_known_abb[id_key]['count'] += 1
-                        stat['add'] += 1
-                    else:
-                        list_of_known_abb[id_key] = {}
-                        list_of_known_abb[id_key]['xmpl'] = each['id']
-                        list_of_known_abb[id_key]['count'] = 1
-                        printing(f"{delta_now(start_time)}\tNew key found: {id_key}", file=stormwarden)
-                        stat['new'] += 1
-            except KeyError:
-                printing(f"KeyError, ", current_dateset, file=stormwarden)
-                return False
-        printing(f"{delta_now(start_time)}\tCycle ended. Stats: Added: {stat['add']}, Newfound: {stat['new']}",
-                 file=stormwarden)
-
-        if mode == 0:  # light mode with iterating filter
-            req_para['q'] = ""
-            for each in list_of_known_abb.keys():
-                if req_para['q'] != "":
-                    req_para['q'] += " AND "
-                req_para['q'] += "!source_id:" + each
-            printing(f"{delta_now(start_time)}\tNew Query {req_para['q']}", file=stormwarden)
-            req_para['cursorMark'] = "*"  # resets cursor Mark then
-
-        if iterator > 500:
-            castle_going = False
-            printing(f"{delta_now(start_time)}\tHALT Condition triggered, curios", file=stormwarden)
-        sleepy_bar(wait_time)
-
-    printing(f"{delta_now(start_time)}\tProcess finished, {len(list_of_known_abb)} elements found", file=stormwarden)
-    # json.dump(list_of_known_abb, stormwarden, indent=2)
-    for each in list_of_known_abb.keys():
-        printing(f"{each}\t{list_of_known_abb[each]['count']}\t{list_of_known_abb[each]['xmpl']}", file=stormwarden)
-
-    stormwarden.close()
-
-
-def printing(*args, **kwargs):
-    """
-        function that double print things, to be meant to be used with a set file=
-        :param object args: stringeable objects that will be printed
-        :param any kwargs: anything, the parameter "file" will be replaced in the second printing with std.out
-        :return: Nothing, but prints to std.out AND a file
-        :rtype: None:
-    """
-    if Spcht.is_dictkey(kwargs, "file") and kwargs['file'] != sys.stdout:
-        print(*args, **kwargs)
-        del kwargs['file']
-        print(*args, **kwargs)
-    else:
-        print(*args, **kwargs)
 
 
 def update_data(solr, graph, spcht, sparql, sparql_user, sparql_pw,
@@ -598,20 +319,183 @@ def update_data(solr, graph, spcht, sparql, sparql_user, sparql_pw,
 
 
 if __name__ == "__main__":
+    arguments = {
+        "CreateOrder":
+            {
+                "type": str,
+                "help": "Creates a blank order without executing it",
+                "metavar": ("order_name", "fetch_method", "processing_type", "insert_method"),
+                "nargs": 4,
+            },
+        "CreateOrderPara":
+            {
+                "action": "store_true",
+                "help": "Creates a blank order with executing it with provided variables: --order_name, --fetch, --process and --insert",
+            },
+        "order_name":
+            {
+                "type": str,
+                "help": "name for a new order",
+            },
+        "fetch":
+            {
+                "type": str,
+                "help": "Type of fetch mechanismn for data: 'solr' or 'file'"
+            },
+        "process":
+            {
+                "type": str,
+                "help": "Processing type, either 'insert' or 'update'"
+            },
+        "insert":
+            {
+                "type": str,
+                "help": "method of inserting into triplestore: 'isql', 'obdc' or 'sparql'",
+            },
+        "FetchSolrOrder":
+            {
+                "type": str,
+                "help": "Executes a fetch order provided, if the work order file has that current status",
+                "metavar": ("work_file", "solr_url", "query", "total_rows", "chunk_size", "spcht_descriptor", "save_folder"),
+                "nargs": 7,
+            },
+        "FetchSolrOrderPara":
+            {
+                "action": "store_true",
+                "help": "Executes a solr fetch work order, needs parameters --work_order_file, --solr_url, --query, --query_rows, --chunk_size, --spcht_descriptor, --save_folder",
+            },
+        "work_order_file":
+            {
+                "type": str,
+                "help": "Path to work order file",
+            },
+        "solr_url":
+            {
+                "type": str,
+                "help": "Url to a solr query endpoint"
+            },
+        "query":
+            {
+                "type": str,
+                "help": "Query for solr ('*' fetches everything)",
+                "default": "*",
+            },
+        "query_rows":
+            {
+                "type": int,
+                "help": "Number of rows that are fetched in total from an external datasource",
+                "default": 25000,
+            },
+        "chunk_size":
+            {
+                "type": int,
+                "help": "Size of a single chunk, determines the number of queries",
+                "default": 5000,
+            },
+        "spcht_descriptor":
+            {
+                "type": str,
+                "help": "Path to a spcht descriptor file, usually ends with '.spcht.json'"
+            },
+        "save_folder":
+            {
+                "type": str,
+                "help": "The folder were downloaded data is to be saved, will be referenced in work order",
+                "default": "./"
+            },
+        "SpchtProcessing":
+            {
+                "type": str,
+                "help": "Processes the provided work order file",
+                "metavar": ("work_file", "graph/subject", "spcht_descriptor"),
+                "nargs": 3
+            },
+        "SpchtProcessingMulti":
+            {
+                "type": str,
+                "help": "Processes the provided work order file in multiple threads",
+                "metavar": ("work_file", "graph/subject", "spcht_descriptor", "processes"),
+                "nargs": 4,
+            },
+        "SpchtProcessingPara":
+            {
+                "action": "store_true",
+                "help": "Processes the given work_order file with parameters, needs: --work_order_file, --graph, --spcht_descriptor",
+            },
+        "SpchtProcessingMultiPara":
+            {
+                "action": "store_true",
+                "help": "Procesesses the given order with multiple processes, needs: --work_order_file, --graph, --spcht_descriptor, --processes",
+            },
+        "graph":
+            {
+                "type": str,
+                "help": "URI of the subject part the graph gets mapped to in the <subject> <predicate> <object> triple",
+            },
+        "processes":
+            {
+                "type": int,
+                "help": "Number of parallel processes used, should be <= cpu_count",
+                "default": 4,
+            },
+        "InsertISQLOrder":
+            {
+                "type": str,
+                "help": "Inserts the given work order via the isql interface of virtuoso, copies files in a temporary folder where virtuoso has access, needs credentials",
+                "metavar": ("work_file", "isql_path", "user", "password", "named_graph", "virt_folder"),
+                "nargs": 6,
+            },
+        "InsertISQLOrderPara":
+            {
+                "action": "store_true",
+                "help": "Inserts the given order via the isql interace of virtuoso, copies files in a temporary folder, needs paramters: --isql_path, --user, --password, --named_graph, --virt_folder",
+            },
+        "HandleWorkOrderPara":
+            {
+                "action": "store_true",
+                "help": "Takes any one work order and processes it to the next step, needs all parameters the corresponding steps need",
+            },
+        "CheckWorkOrder":
+            {
+                "type": str,
+                "help": "Checks the status of any given work order and displays it in the console"
+            },
+        "config":
+            {
+                "type": str,
+                "help": "loads the defined config file, must be a json file containing a flat dictionary",
+                "metavar": ("path/to/config.json"),
+                "short": "-c",
+            },
+        "UpdateData":
+            {
+                "help": "Special form of full process, fetches data with a filter, deletes old data and inserts new ones",
+                "action": "store_true",
+            },
+    }
+
     logging.debug("Start of script")
     parser = argparse.ArgumentParser(
-        description="LOD Data Interpreter",
+        description="solr2virtuoso bridge",
         usage="Main functions: MarcView, SolrSpy, SolrStats, CheckSpcht, CheckFields, CompileSpcht, UpdateData and ProcessData. Each function needs the appropriated amount of commands to work properly",
         epilog="Individual settings overwrite settings from the config file",
         prefix_chars="-")
+    # ? in case we want to load arguments from a json
+    parser.register('type', 'float', float)
+    parser.register('type', 'int', int)
+    parser.register('type', 'str', str)
+    for key, item in arguments.items():
+        if "short" in item:
+            short = item["short"]
+            del arguments[key]["short"]
+            parser.add_argument(f'--{key}', short, **item)
+        else:
+            parser.add_argument(f'--{key}', **item)
+
     parser.add_argument('--MarcView', '-mv', type=str,
                         help="Loads the specified json file and displays the mark content", metavar="MARCFILE")
     parser.add_argument('--MarcTest', '-mt', type=str,
                         help="Loads the specified json file does a throughtest", metavar="MARCFILE")
-    parser.add_argument('--SolrSpy', '-sy', action="store_true", help="finds and counts different entries for a field")
-    parser.add_argument('--ProcessData', '-P', action="store_true",
-                        help="Processes the given data from solr to virtuoso with given spcht")
-    parser.add_argument('--UpdateData', '-U', action="store_true", help="Updates the Data with a specific time-diff")
     parser.add_argument('--SolrStat', '-st', action="store_true", help="Creates statitistics regarding the Solr Fields")
     parser.add_argument('--CheckSpcht', '-cs', action="store_true",
                         help="Tries to load and validate the specified Spcht JSON File")
@@ -619,11 +503,7 @@ if __name__ == "__main__":
                         help="Loads a spcht file and displays all dictionary keys used in that descriptor")
     parser.add_argument('--CompileSpcht', '-ct', action="store_true",
                         help="Loads a SPCHT File, validates and then compiles it to $file")
-    parser.add_argument('--SingleFile', type=str, help="processes a single json to console or to --out")
-
     parser.add_argument('--spcht', '-S', type=str, help="The spcht descriptor file for the mapping", metavar="FILEPATH")
-    parser.add_argument('--config', '-c', type=str, help="Defines a config file load general settings from",
-                        metavar="FILEPATH")
     parser.add_argument('--log', '-l', type=str, help="Name of the logfile", metavar="FILEPATH")
     parser.add_argument('--outfile', '-o', type=str, help="file where results will be saved", metavar="FILEPATH")
     parser.add_argument('--solr', '-s', type=str, help="URL auf the /select/ interface of a Apache solr", metavar="URL")
@@ -634,7 +514,6 @@ if __name__ == "__main__":
                         metavar="NAME")
     parser.add_argument('--sparql_pw', '-sp', type=str, help="Password for the sparql authentification",
                         metavar="PASSWORD")
-    parser.add_argument('--graph', '-g', type=str, help="Main Graph for the insert Operations", metavar="URI")
     parser.add_argument('--part', '-p', type=int, help="Size of one chunk/part when loading data from solr",
                         metavar="number")
     parser.add_argument('--rows', '-r', type=int, help="Total Numbers of rows requested for the Operation",
@@ -644,12 +523,9 @@ if __name__ == "__main__":
 
     parser.add_argument('--urls', '-u', action="store_true",
                         help="Lists all urls the procedure knows after loading data")
-    parser.add_argument('--dry', '-d', action="store_true",
-                        help="Pulls (and loads) all data as per protocol but doesnt change anything permanently")
     parser.add_argument('--TestMode', type=str, help="Executes some 'random', flavour of the day testscript")
     parser.add_argument('--FullTest', action="store_true",
                         help="Progressing mappings with the config specified ressources")
-    parser.add_argument('--DownloadTest', action="store_true", help="Tries to Download multiple chunks from solr")
 
     args = parser.parse_args()
     # +++ CONFIG FILE +++
@@ -669,39 +545,23 @@ if __name__ == "__main__":
         time_string = datetime.now().strftime('%Y%m%d-%H%M%S')
         PARA['log'] = PARA['log'].replace("$time", time_string)
 
+    if args.CreateOrder:
+        par = args.CreateOrder
+        order_name = local_tools.CreateWorkOrder(par[0], par[1], par[2], par[3])
+        print(f"Created Order '{order_name}'")
+
+    if args.FetchSolrOrder:
+        par = args.FetchSolrOrder
+        ara = Spcht(par[5])
+        local_tools.FetchWorkOrderSolr(par[0], par[1], par[2], int(par[3]), int(par[4]), ara, par[5])
+
+    if args.CheckWorkOrder:
+        local_tools.CheckWorkOrder(args.CheckWorkOrder)
+
     if args.urls:
         print("URL Entries from Config and Parameters")
         for key in PARA:
             print(f"\t{key}\t{PARA[key]}")
-
-    # ! FullProcess, main meat of the code
-    if args.ProcessData:
-        if not Spcht.is_dictkey(PARA, 'solr', 'graph', 'spcht', 'sparql', 'rows', 'parts', 'query'):
-            long_text = """+++processing Data+++
-downloads data from the specified solr as json in the defined chunk size, it uses CursorMark
-to save strain on the solr. It pre-filters the selection with query, an empty query is '*:*'. 
-Afterwards it inserts into the given spaqrl endpoint, a username and password combination are probably 
-needed if not secured. For the inserts a main graph has to be specified and a spcht file
-## mandatory Parameters / config entries:
-\t solr - URL of the '[URL]/select/ part of the SOLR endpoint
-\t graph - named graph
-\t spcht - file path to the SPCHT Descriptor file
-\t sparql - URL of the sparql endpoint
-\t query - query for solr ('*:* is an empty one)
-\t rows - number of total rows that get requested (script will halt if solr provides less than that)
-\t parts - size of the chunks
-## optional parameters:
-\t sparql_user - user account for the sparql endpoint
-\t sparql_pw - password for the aformentioned user account
-\t log - filepath for the process log file
-
-if you see this message, not all mandatory parameters were providedh"""
-            print(long_text)
-            exit(0)
-        full_process(PARA['solr'], PARA['graph'], PARA['spcht'], PARA['sparql'], PARA.get('sparql_user'),
-                     PARA.get('sparql_pw'), PARA.get('log'), PARA['rows'], PARA['parts'], PARA['query'])
-        exit(0)  # does only one of the big commands
-
     # ! UpdateProcess - in parts a copy of full process
     if args.UpdateData:
         if not Spcht.is_dictkey(PARA, 'solr', 'graph', 'spcht', 'sparql', 'sparql_user', 'sparql_pw', 'time'):
@@ -739,16 +599,6 @@ if you see this message, not all mandatory parameters were providedh"""
         sperber.export_full_descriptor(TESTFOLDER + "fll_spcht.json")
         print(colored("Succesfully compiled spcht, file:", "cyan"), colored(TESTFOLDER + "fll_spcht.json", "blue"))
 
-    # +++ SPCHT SingleFile Convert +++
-    if args.SingleFile:
-        if not Spcht.is_dictkey(PARA, 'graph', 'spcht'):
-            exit(1)
-        SingleProcess(args.SingleFile, PARA['spcht'], PARA['graph'], output=PARA.get('outfile', sys.stdout),
-                      sparql_endpoint=PARA.get('sparql', None),
-                      sparql_user=PARA.get('sparql_user', ""),
-                      sparql_pw=PARA.get('sparql_pw', "")
-                      )
-
     # +++ Daily Debugging +++
     if args.TestMode:
         spcht_object_test()
@@ -756,14 +606,8 @@ if you see this message, not all mandatory parameters were providedh"""
         marc21_display()
     if args.MarcTest:
         marc21_test()
-    if args.FullTest:
-        full_process(PARA['solr'], PARA['graph'], PARA['spcht'], PARA['sparql'])
-    if args.SolrSpy:
-        solr_spy("", 2, 0.5, 0)
     if args.CheckFields:
         used_field_test()
-    if args.DownloadTest:
-        downloadTest(req_rows=100000, req_chunk=10000, wait_time=2, wait_incrementor=0)
     # TODO Insert Arg Interpretation here
     #
     # main_test()
