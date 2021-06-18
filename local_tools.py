@@ -312,7 +312,7 @@ def load_from_json(file_path):
         return None
 
 
-def UpdateWorkOrder(file_path: str, **kwargs) -> dict:
+def UpdateWorkOrder(file_path: str, **kwargs: tuple or list) -> dict:
     """
     Updates a work order file and does some sanity checks around the whole thing, sanity checks
     involve:
@@ -321,27 +321,33 @@ def UpdateWorkOrder(file_path: str, **kwargs) -> dict:
     * overwritting file_paths for the original json or turtle
 
     :param str file_path: file path to a valid work-order.json
-    :param tuple kwargs: 'insert' and/or 'update' as tuple, last value is the value for the nested dictionary keys when using update, when using insert n-1 key is the new key and n key the value
+    :param tuple or list kwargs: 'insert' and/or 'update' as tuple, last value is the value for the nested dictionary keys when using update, when using insert n-1 key is the new key and n key the value
     :return dict: returns a work order dictionary
     """
-    # ! i activly decided against writting a file class for work order
+    # ! i actively decided against writing a file class for work order
     work_order = load_from_json(file_path)
     if work_order is not None:
         if "update" in kwargs:
-            if len(kwargs['update']) < 2:
-                raise SpchtErrors.ParameterError("Not enough parameters")
-            old_value = UpdateNestedDictionaryKey(work_order, *kwargs['update'])
-            if old_value is None:
-                raise SpchtErrors.ParameterError("Couldnt update key")
-            if kwargs['update'][len(kwargs['update'])-2] == "status":
-                if old_value > kwargs['update'][len(kwargs['update'])-1]:
-                    raise SpchtErrors.WorkOrderInconsitencyError("New status higher than old one")
+            if isinstance(kwargs['update'], tuple):
+                kwargs['update'] = [kwargs['update']]
+            for update in kwargs['update']:
+                if len(update) < 2:
+                    raise SpchtErrors.ParameterError("Not enough parameters")
+                old_value = UpdateNestedDictionaryKey(work_order, *update)
+                if old_value is None:
+                    raise SpchtErrors.ParameterError("Couldnt update key")
+                if update[len(update)-2] == "status":
+                    if old_value > update[len(update)-1]:
+                        raise SpchtErrors.WorkOrderInconsitencyError("New status higher than old one")
         if "insert" in kwargs:
-            if len(kwargs['insert']) < 3:
-                raise SpchtErrors.ParameterError("Not enough parameters")
-            overwritten = AddNestedDictionaryKey(work_order, *kwargs['insert'])
-            if overwritten is True:
-                raise SpchtErrors.WorkOrderInconsitencyError("Cannot overwrite any one file path")
+            if isinstance(kwargs['insert'], tuple):
+                kwargs['insert'] = [kwargs['insert']]
+            for insert in kwargs['insert']:
+                if len(insert) < 3:
+                    raise SpchtErrors.ParameterError("Not enough parameters")
+                overwritten = AddNestedDictionaryKey(work_order, *insert)
+                if overwritten is True:
+                    raise SpchtErrors.WorkOrderInconsitencyError("Cannot overwrite any one file path")
         with open(file_path, "w") as work_order_file:
             json.dump(work_order, work_order_file, indent=4)
         return work_order
@@ -439,6 +445,11 @@ def UseWorkOrder(filename, deep_check = False, **kwargs):
                     UpdateWorkOrder(filename, update=("meta", "status", 5))
                     FullfillISqlOrder(filename, **kwargs)
                     UpdateWorkOrder(filename, update=("meta", "status", 6))
+                elif work_order['meta']['method'] == "sparql":
+                    logger.info(f"Sorted order '{os.path.basename(filename)}' with method 'sparql'")
+                    UpdateWorkOrder(filename, update=("meta", "status", 5))
+                    FullfillSparqlInsertOrder(filename, **kwargs)
+                    UpdateWorkOrder(filename, update=("meta", "status", 6))
             if work_order['meta']['status'] == 5:  # inserting started
                 pass
             if work_order['meta']['status'] == 6:  # inserting completed
@@ -469,7 +480,7 @@ def ProcessOrderMultiCore(work_order_file, **kwargs):
         logger.info("Number of processes set to 1, config file review is advised")
     else:
         UpdateWorkOrder(work_order_file, insert=("meta", "processes", kwargs['processes']))
-    for i in range(1, kwargs['processes']):
+    for i in range(0, kwargs['processes']):
         #del mod_kwargs
         #mod_kwargs = copy.copy(kwargs)
         #mod_kwargs['spcht_object'] = Spcht(kwargs['spcht_object'].descriptor_file)
@@ -548,7 +559,6 @@ def FetchWorkOrderSolr(work_order_file: str,
         work_order['meta']['chunk_size'] = chunk_size
         work_order['meta']['total_rows'] = total_rows
         work_order['meta']['spcht_user'] = spcht_object is not None
-        work_order['meta']['downloaded'] = datetime.now().isoformat()
         work_order['meta']['full_download'] = False
         with open(work_order_file, "w") as order_file:
             json.dump(work_order, order_file, indent=4)
@@ -572,6 +582,7 @@ def FetchWorkOrderSolr(work_order_file: str,
     logger.info(f"Solr Source is {solr_addr}")
     logger.info(f"Calculated {n} chunks of a total of {total_rows} entries with a chunk size of {chunk_size}")
     logger.info(f"Start Loading Remote chunks - {delta_now(start_time)}")
+    UpdateWorkOrder(work_order_file, insert=("meta", "solr_start", datetime.now().isoformat()))
 
     try:
         for i in range(0, n):
@@ -603,7 +614,7 @@ def FetchWorkOrderSolr(work_order_file: str,
                 logger.info(f"Error in chunk {i + 1} of {n}, no actual data was received, aborting process")
                 break
         logger.info(f"Download finished, FullDownload successfull")
-        UpdateWorkOrder(work_order_file, update=("meta", "full_download", True))
+        UpdateWorkOrder(work_order_file, update=("meta", "full_download", True), insert=("meta", "solr_finish", datetime.now().isoformat()))
     except KeyboardInterrupt:
         print(f"Process was interrupted by user interaction")
         UpdateWorkOrder(work_order_file, insert=("meta", "completed_chunks", n))
@@ -663,7 +674,9 @@ def FullfillProcessingOrder(work_order_file: str, graph: str, spcht_object: Spch
                     rdf_file.write(Spcht.process2RDF(quadros))
                 work_order = UpdateWorkOrder(work_order_file,
                                              update=('file_list', key, 'status', 3),
-                                             insert=('file_list', key, 'rdf_file', rdf_dump))
+                                             insert=[('file_list', key, 'rdf_file', rdf_dump),
+                                                     ('file_list', key, 'processing_done', datetime.now().isoformat())
+                                                     ])
         logger.info(f"Finished processing {len(work_order['file_list'])} files and creating turtle files")
         return True
     except KeyError as key:
@@ -679,7 +692,7 @@ def FullfillISqlOrder(work_order_file: str,
                       named_graph: str,
                       isql_port=1111,
                       virt_folder="/tmp/",
-                      **kwargs):
+                      **kwargs):  # ! random kwarg is so i can enter more stuff than necessary that can be ignored
     """
     This utilizes the virtuoso bulk loader enginer to insert the previously processed data into the
     virtuoso triplestore. For that it copies the files with the triples into a folder that virtuoso
@@ -706,7 +719,7 @@ def FullfillISqlOrder(work_order_file: str,
             if work_order['file_list'][key]['status'] == 3:
                 work_order = UpdateWorkOrder(work_order_file,
                                              update=('file_list', key, 'status', 4),
-                                             insert=('file_list', key, 'insert_date', datetime.now().isoformat()))
+                                             insert=('file_list', key, 'insert_start', datetime.now().isoformat()))
                 f_path = work_order['file_list'][key]['rdf_file']
                 f_path = shutil.copy(f_path, virt_folder)
                 command = f"EXEC=ld_add('{f_path}', '{named_graph}');"
@@ -717,7 +730,7 @@ def FullfillISqlOrder(work_order_file: str,
                 if os.path.exists(f_path):
                     os.remove(f_path)
                 # reloading work order in case something has changed since then
-                work_order = UpdateWorkOrder(work_order_file, update=('file_list', key, 'status', 5))
+                work_order = UpdateWorkOrder(work_order_file, update=('file_list', key, 'status', 5), insert=('file_list', key, 'insert_finish', datetime.now().isoformat()))
         logger.info(f"Successfully called {len(work_order['file_list'])} times the bulk loader")
     except KeyError as foreign_key:
         logger.error(f"Missing key in work order: '{foreign_key}'")
@@ -744,7 +757,7 @@ def FullfillSparqlInsertOrder(work_order_file: str,
             if work_order['file_list'][key]['status'] == 3:
                 work_order = UpdateWorkOrder(work_order_file,
                      update=('file_list', key, 'status', 4),
-                     insert=('file_list', key, 'insert_date', datetime.now().isoformat()))
+                     insert=('file_list', key, 'insert_start', datetime.now().isoformat()))
                 f_path = work_order['file_list'][key]['rdf_file']
                 this_graph = rdflib.Graph()
                 this_graph.parse(f_path, format="turtle")
@@ -759,6 +772,7 @@ def FullfillSparqlInsertOrder(work_order_file: str,
                     # ! TODO: can optimize here, grouped queries
                     if rounds > SPARQL_CHUNK:
                         query = f"""WITH <{named_graph}> INSERT {{ {triples}}}"""
+                        # * i have the sneaking suspicion that i defined the named graph twice
                         sparqlQuery(query,
                                     sparql_endpoint,
                                     auth=user,
@@ -776,7 +790,7 @@ def FullfillSparqlInsertOrder(work_order_file: str,
                                 pwd=password,
                                 named_graph=named_graph
                                 )
-                work_order = UpdateWorkOrder(work_order_file, update=('file_list', key, 'status', 5))
+                work_order = UpdateWorkOrder(work_order_file, update=('file_list', key, 'status', 5), insert=('file_list', key, 'insert_finish', datetime.now().isoformat()))
     except KeyError as foreign_key:
         logger.error(f"Missing key in work order: '{foreign_key}'")
     except FileNotFoundError as file:
