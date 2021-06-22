@@ -62,3 +62,10 @@ class OperationalError(TypeError):
     """
     pass
 
+
+class RequestError(ConnectionError):
+    """
+    For requests that might fail for this or that reason within the bellows of the script
+    """
+    pass
+

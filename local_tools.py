@@ -100,6 +100,8 @@ def load_remote_content(url, params, response_type=0, mode="GET"):
             resp = requests.get(url, params=params)
         else:
             resp = requests.post(url, data=params)
+        if resp.status_code != 200:
+            raise SpchtErrors.RequestError("Request couldnt be fullfilled, check url")
         if response_type == 0 or response_type > 2:  # this seems ugly
             return resp.text
         elif response_type == 1:
@@ -292,6 +294,9 @@ def test_json(json_str: str) -> dict or bool:
     except ValueError:
         logger.error(f"Got supplied an errernous json, started with '{str[:100]}'")
         return None
+    except SpchtErrors.RequestError as e:
+        logger.error(f"Connection Error: {e}")
+        return None
 
 
 def load_from_json(file_path):
@@ -403,14 +408,80 @@ def AddNestedDictionaryKey(dictionary: dict, *args) -> bool:
 def CheckWorkOrder(work_order_file: str):
     work_order = load_from_json(work_order_file)
     main_status = ("Freshly created", "fetch started", "fetch completed", "processing started", "processing completed", "inserting started", "insert completed/finished", "fullfilled")
+    time_infos = ("processing", "insert")
     try:
-        print("+++++++WORK ORDER INFO+++++++")
-        print(f"Current Status:           {main_status[work_order['meta']['status']]}")
+        extremes = {"min_processing": None, "max_processing": None,
+                    "min_insert": None, "max_insert": None,
+                    "min_all": None, "max_all": None,
+                    "min_solr": None, "max_solr": None}
+        if 'solr_start' in work_order['meta']:
+            extremes['min_all'] = datetime.fromisoformat(work_order['meta']['solr_start'])
+            extremes['min_solr'] = datetime.fromisoformat(work_order['meta']['solr_start'])
+        if 'solr_stop' in work_order['meta']:
+            extremes['max_all'] = datetime.fromisoformat(work_order['meta']['solr_finish'])
+            extremes['max_solr'] = datetime.fromisoformat(work_order['meta']['solr_finish'])
+        counts = { 'rdf_files': 0, 'files': 0, 'un_processing': 0, 'un_insert': 0}
+        for key in work_order['file_list']:
+            # ? why, yes 'for key, item in dict.items()' is a thing
+            for method in time_infos:
+                if f'{method}_start' in work_order['file_list'][key]:
+                    temp = datetime.fromisoformat(work_order['file_list'][key][f'{method}_start'])
+                    if extremes[f'min_{method}'] is None or extremes[f'min_{method}'] > temp:
+                        extremes[f'min_{method}'] = temp
+                    if extremes[f'min_all'] is None or extremes['min_all'] > temp:
+                        extremes[f'min_all'] = temp
+                if f'{method}_finish' in work_order['file_list'][key]:
+                    temp = datetime.fromisoformat(work_order['file_list'][key][f'{method}_finish'])
+                    if extremes[f'max_{method}'] is None or extremes[f'max_{method}'] < temp:
+                        extremes[f'max_{method}'] = temp
+                    if extremes[f'max_all'] is None or extremes['max_all'] < temp:
+                        extremes[f'max_all'] = temp
+            if 'rdf_file' in work_order['file_list'][key]:
+                counts['rdf_files'] += 1
+            if 'file' in work_order['file_list'][key]:
+                counts['files'] += 1
+            if work_order['file_list'][key]['status'] == 2:
+                counts['un_processing'] += 1
+            if work_order['file_list'][key]['status'] == 4:
+                counts['un_insert'] += 1
+
+        print("+++++++++++++++++++WORK ORDER INFO++++++++++++++++++")
+        print(f"Current status:           {main_status[work_order['meta']['status']]}")
+        if counts['un_processing'] > 0:
+            print(f"Unfinished processing:    {counts['un_processing']}")
+        if counts['un_insert'] > 0:
+            print(f"Unfinished inserts:       {counts['un_insert']}")
         print(f"Data retrieval:           {work_order['meta']['fetch']}")
-        print(f"Processing Type:          {work_order['meta']['type']}")
+        print(f"Processing type:          {work_order['meta']['type']}")
         if 'processing' in work_order['meta']:
             print(f"Multiprocessing, threads: {work_order['meta']['processing']}")
         print(f"Insert method:            {work_order['meta']['method']}")
+        if counts['files'] > 0:
+            print(f"Downloaded files:         {counts['files']}")
+        if counts['rdf_files'] > 0:
+            print(f"Processed files:          {counts['rdf_files']}")
+        if extremes['min_all'] is not None and extremes['max_all'] is not None:
+            delta = extremes['max_all'] - extremes['min_all']
+            print(f"Total execution time:     {delta}")
+            print(f"From:                     {extremes['min_all']}")
+            print(f"To:                       {extremes['max_all']}")
+        if extremes['min_solr'] is not None and extremes['max_solr'] is not None:
+            delta = extremes['max_solr'] - extremes['min_solr']
+            print(f"Download time:            {delta}")
+            print(f"From:                     {extremes['min_solr']}")
+            print(f"To:                       {extremes['max_solr']}")
+
+        if extremes['min_processing'] is not None and extremes['max_processing'] is not None:
+            delta = extremes['max_processing'] - extremes['min_processing']
+            print(f"Processing time:          {delta}")
+            print(f"From:                     {extremes['min_processing']}")
+            print(f"To:                       {extremes['max_processing']}")
+        if extremes['min_insert'] is not None and extremes['max_insert'] is not None:
+            delta = extremes['max_insert'] - extremes['min_insert']
+            print(f"Inserting time:           {delta}")
+            print(f"From:                     {extremes['min_insert']}")
+            print(f"To:                       {extremes['max_insert']}")
+        print("++++++++++++++++++++END OF REPORT+++++++++++++++++++")
     except KeyError as key:
         print("####WORK ORDER LACKS KEYS, ERROR#####")
         print(f"Missing Key {key}")
@@ -548,6 +619,15 @@ def FetchWorkOrderSolr(work_order_file: str,
                        spcht_object=None,
                        save_folder="./",
                        **kwargs):
+    # ! some checks for the cli usage
+    if not os.path.exists(work_order_file):
+        print("Work order does not exists")
+        return False
+    if not isinstance(spcht_object, Spcht):
+        print("Provided Spcht Object is not a genuine Spcht Object")
+        return False
+    if not isinstance(total_rows, int) or not isinstance(chunk_size, int):
+        print("The *Number* of rows and chunk_size must be an integer number")
     n = math.floor(int(total_rows) / int(chunk_size)) + 1
     # Work Order things:
     work_order = load_from_json(work_order_file)
@@ -612,18 +692,21 @@ def FetchWorkOrderSolr(work_order_file: str,
                     break
             else:
                 logger.info(f"Error in chunk {i + 1} of {n}, no actual data was received, aborting process")
-                break
+                return False
         logger.info(f"Download finished, FullDownload successfull")
         UpdateWorkOrder(work_order_file, update=("meta", "full_download", True), insert=("meta", "solr_finish", datetime.now().isoformat()))
     except KeyboardInterrupt:
         print(f"Process was interrupted by user interaction")
         UpdateWorkOrder(work_order_file, insert=("meta", "completed_chunks", n))
         logger.info(f"Process was interrupted by user interaction")
+        return False
     except OSError as e:
         logger.info(f"Encountered OSError {e}")
-    finally:
-        print(f"Overall Executiontime was {delta_now(start_time, 3)} seconds")
-        logger.info(f"Overall Executiontime was {delta_now(start_time, 3)} seconds")
+        return False
+
+    print(f"Overall Solr fetch executiontime was {delta_now(start_time, 3)} seconds")
+    logger.info(f"Overall Executiontime was {delta_now(start_time, 3)} seconds")
+    return True
 
 
 def FullfillProcessingOrder(work_order_file: str, graph: str, spcht_object: Spcht, **kwargs):
@@ -656,16 +739,19 @@ def FullfillProcessingOrder(work_order_file: str, graph: str, spcht_object: Spch
         work_order0 = load_from_json(work_order_file)
         work_order = work_order0
         logger.info(f"Starting processing on files of work order '{os.path.basename(work_order_file)}', detected {len(work_order['file_list'])} Files")
+        print(f"Start of Spcht Processing - {os.getpid()}")
         _ = 0
         for key in work_order0['file_list']:
             _ += 1
             if work_order['file_list'][key]['status'] == 1:  # Status 0 - Downloaded, not processed
                 work_order = UpdateWorkOrder(work_order_file,
                                              update=('file_list', key, 'status', 2),
-                                             insert=('file_list', key, 'processing_date', datetime.now().isoformat()))
+                                             insert=('file_list', key, 'processing_start', datetime.now().isoformat()))
                 mapping_data = load_from_json(work_order['file_list'][key]['file'])
                 quadros = []
+                elements = 0
                 for entry in mapping_data:
+                    elements += 1
                     quader = spcht_object.processData(entry, graph)
                     quadros += quader
                 logger.info(f"Finished file {_} of {len(work_order['file_list'])}, {len(quadros)} triples")
@@ -675,9 +761,12 @@ def FullfillProcessingOrder(work_order_file: str, graph: str, spcht_object: Spch
                 work_order = UpdateWorkOrder(work_order_file,
                                              update=('file_list', key, 'status', 3),
                                              insert=[('file_list', key, 'rdf_file', rdf_dump),
-                                                     ('file_list', key, 'processing_done', datetime.now().isoformat())
+                                                     ('file_list', key, 'processing_finish', datetime.now().isoformat()),
+                                                     ('file_list', key, 'elements', elements),
+                                                     ('file_list', key, 'triples', len(quadros))
                                                      ])
         logger.info(f"Finished processing {len(work_order['file_list'])} files and creating turtle files")
+        print(f"End of Spcht Processing - {os.getpid()}")
         return True
     except KeyError as key:
         logger.error(f"The supplied work order doesnt appear to have the needed data, '{key}' was missing")

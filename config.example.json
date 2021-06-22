@@ -1,28 +1,17 @@
 {
-  "errors": {
-    "urls": "Die Sammlung der Serveradressen konnte nicht gefunden werden. Vorgang wird abgebrochen",
-    "settings": "Die sonstigen Einstellungen konnten nicht gefunden werden. Vorgang wird abgebrochen",
-    "nofile": "Die angegebene Datei konnte nicht gefunden werden",
-    "graph_parser": "Der Graph Parser konnte den Eingang nicht interpretieren",
-    "json_parser": "Beim Interpretieren des JSON Eingangs wurde ein Irrigularität entdeckt.",
-    "@context": "Mapping unvollständig, unauflösbare Kurzform gefunden {}",
-    "file": "Die Datei {} konnte nicht gefunden werden",
-    "spcht_map": "Das Mapping muss eindimensional sein.",
-    "spcht_ref": "Fehler beim Laden der referenzierten Mappings"
-  },
-  "para": {
-    "solr": "http://<fqdn>/solr/biblio/select",
-    "sparql": "http://<fqdn>/sparql-auth/",
-    "spcht": "default.spcht.json",
-    "sparql_user": "<user>",
-    "sparql_pw": "<password>",
+    "solr_url": "http://<fqdn>/solr/biblio/select",
+    "sparql_endpoint": "http://<fqdn>/sparql-auth/",
+    "spcht_descriptor": "default.spcht.json",
+    "user": "<user>",
+    "password": "<password>",
     "graph": "<URI>",
+    "named_graph": "<URI>",
     "query": "*:*",
-    "rows": 20,
-    "parts": 10000,
-    "time": 2880
-  },
-  "settings": {
-    "workers": 8
-  }
+    "query_rows": 5000,
+    "chunk_size": 1000,
+    "save_folder": "./",
+    "virt_folder": "/tmp/",
+    "isql_path": "/usr/local/bin/isql-v",
+    "isql_port": 1111,
+    "processes": 4
 }

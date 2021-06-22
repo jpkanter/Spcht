@@ -42,8 +42,11 @@ import local_tools
 from local_tools import super_simple_progress_bar, sleepy_bar, super_simple_progress_bar_clear, \
     load_remote_content, slice_header_json, sparqlQuery, block_sparkle_insert, solr_handle_return, delta_now, test_json, \
     delta_time_human, load_from_json
-from os import path
-from termcolor import colored
+try:
+    from termcolor import colored  # only needed for debug print
+except ModuleNotFoundError:
+    def colored(text, *args):
+        return text  # throws args away returns non colored text
 from SpchtDescriptorFormat import Spcht
 
 ERROR_TXT = {}
@@ -53,18 +56,6 @@ TESTFOLDER = "./testdata/"
 
 logging.basicConfig(filename='spcht_process.log', format='[%(asctime)s] %(levelname)s:%(message)s', level=logging.INFO)
 # logging.basicConfig(filename='spcht_process.log', format='[%(asctime)s] %(levelname)s:%(message)s', encoding='utf-8', level=logging.DEBUG)  # Python 3.9
-
-
-def send_error(message, error_name=None):
-    # custom error handling to use the texts provided by the settings
-    global ERROR_TXT
-    if error_name is None:
-        sys.stderr.write(ERROR_TXT.get(message, message))
-    else:
-        if Spcht.is_dictkey(ERROR_TXT, error_name):
-            sys.stderr.write(ERROR_TXT[error_name].format(message))
-        else:
-            sys.stderr.write(message)
 
 
 def load_config(file_path="config.json"):
@@ -117,7 +108,7 @@ def spcht_object_test():
         jsoned_list = []
         thesparqlset = []
         for entry in thetestset:
-            if Spcht.is_dictkey(PARA, 'isolate'):
+            if 'isolate' in PARA:
                 if PARA['isolate'] != entry.get('id'):
                     continue
             print(colored(debug_dict.get(entry.get('id')), "white", attrs=["bold"]))
@@ -436,7 +427,7 @@ if __name__ == "__main__":
             {
                 "type": int,
                 "help": "Number of parallel processes used, should be <= cpu_count",
-                "default": 4,
+                "default": 1,
             },
         "InsertISQLOrder":
             {
@@ -472,6 +463,11 @@ if __name__ == "__main__":
                 "help": "Special form of full process, fetches data with a filter, deletes old data and inserts new ones",
                 "action": "store_true",
             },
+        "environment":
+            {
+                "action": "store_true",
+                "help": "Prints all variables"
+            }
     }
 
     logging.debug("Start of script")
@@ -532,28 +528,88 @@ if __name__ == "__main__":
     if args.config:
         cfg_status = load_config(args.config)
 
-    boring_parameters = ["spcht", "log", "outfile", "solr", "sparql", "sparql_user", "sparql_pw", "graph", "part",
-                         "rows", "filter", "time", "isolate", "MarcTest", "MarcView", "TestMode", "logging"]
+    boring_parameters = ["work_order_file", "solr_url", "query", "chunk_size", "query_rows", "spcht_descriptor", "save_folder",
+                         "graph", "named_graph", "isql_path", "user", "password", "virt_folder"]
 
     for arg in vars(args):
         if arg in boring_parameters and getattr(args, arg) is not None:
-            if arg == "logging":
-                logging.getLogger().setLevel(getattr(args, arg))
-            else:
-                PARA[arg] = getattr(args, arg)
-    if Spcht.is_dictkey(PARA, 'log'):  # replacing part of the string with a datetime:
-        time_string = datetime.now().strftime('%Y%m%d-%H%M%S')
-        PARA['log'] = PARA['log'].replace("$time", time_string)
+            PARA[arg] = getattr(args, arg)
 
     if args.CreateOrder:
         par = args.CreateOrder
         order_name = local_tools.CreateWorkOrder(par[0], par[1], par[2], par[3])
         print(f"Created Order '{order_name}'")
 
+    # ! FETCH OPERATION
     if args.FetchSolrOrder:
         par = args.FetchSolrOrder
-        ara = Spcht(par[5])
-        local_tools.FetchWorkOrderSolr(par[0], par[1], par[2], int(par[3]), int(par[4]), ara, par[5])
+        ara = Spcht(par[5])  # ? Ara like the bird, not a misspelled para as one might assume
+        status = local_tools.FetchWorkOrderSolr(par[0], par[1], par[2], int(par[3]), int(par[4]), ara, par[5])
+        if not status:
+            print("Process failed, consult log file for further details")
+
+    if args.FetchSolrOrderPara:
+        expected = ("work_order_file", "solr_url", "query", "query_rows", "chunk_size", "spcht_descriptor", "save_folder")
+        for each in expected:
+            if not getattr(args, each):
+                print("FetchSolrOrderPara")
+                print("All parameters have to loaded either by config file or manually as parameter")
+                for avery in expected:
+                    print(f"\t{colored(avery, attrs=['bold'])} - {colored(arguments[avery]['help'], 'green')}")
+                exit(1)
+        big_ara = Spcht(PARA['spcht_descriptor'])
+        status = local_tools.FetchWorkOrderSolr(PARA['work_order_file'], PARA['solr_url'], PARA['query'], PARA['query_rows'], PARA['chunk_size'], big_ara, PARA['save_folder'])
+        if not status:
+            print("Process failed, consult log file for further details")
+
+    # ! PROCESSING OPERATION
+
+    if args.SpchtProcessing:
+        par = args.SpchtProcessing
+        heron = Spcht(par[2])
+        status = local_tools.FullfillProcessingOrder(par[0], par[1], heron)
+        if not status:
+            print("Something went wrong, check log file for details")
+
+    if args.SpchtProcessingPara:
+        expected = ("work_order_file", "spcht_descriptor", "graph")
+        for each in expected:
+            if not getattr(args, each):
+                print("SpchtProcessingPara")
+                print("All parameters have to loaded either by config file or manually as parameter")
+                for avery in expected:
+                    print(f"\t{colored(avery, attrs=['bold'])} - {colored(arguments[avery]['help'], 'green')}")
+                exit(1)
+        crow = Spcht(PARA['spcht_descriptor'])
+        status = local_tools.FullfillProcessingOrder(PARA['work_order_file'], PARA['graph'], crow)
+        if not status:
+            print("Something went wrong, check log file for details")
+
+    if args.SpchtProcessingMulti:
+        par = args.SpchtProcessingMulti
+        dove = Spcht(par[2])
+        if dove._DESCRI is None:
+            print("Spcht loading failed")
+            exit(1)
+        local_tools.ProcessOrderMultiCore(par[0], graph=par[1], spcht_object=dove, processes=int(par[3]))
+        # * multi does not give any process update, it just happens..or does not, it might print something to console
+
+    if args.SpchtProcessingMultiPara:
+        expected = ("work_order_file", "spcht_descriptor", "graph", "processes")
+        for each in expected:
+            if not getattr(args, each):
+                print("SpchtProcessingPara")
+                print("All parameters have to loaded either by config file or manually as parameter")
+                for avery in expected:
+                    print(f"\t{colored(avery, attrs=['bold'])} - {colored(arguments[avery]['help'], 'green')}")
+                exit(1)
+        eagle = Spcht(PARA['spcht_descriptor'])
+        local_tools.ProcessOrderMultiCore(PARA['work_order_file'], graph=PARA['graph'], spcht_object=eagle, processes=PARA['processes'])
+
+    if args.environment:
+        for keys in vars(args):
+            if getattr(args, keys):
+                print(f"{keys}\t{getattr(args, keys)}")
 
     if args.CheckWorkOrder:
         local_tools.CheckWorkOrder(args.CheckWorkOrder)
