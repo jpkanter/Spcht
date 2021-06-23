@@ -372,7 +372,7 @@ def UpdateNestedDictionaryKey(dictionary: dict, *args) -> None or any:
             if _ + 1 >= keys:
                 old_value = value[key]
                 value[key] = args[_]  # * immutable dictionary objects are passed by reference
-                # * therefore i change the original object here which is precisly what i want
+                # * therefore i change the original object here which is precisely what i want
                 break  # * one more round to come..which we dont want
             else:
                 value = value.get(key)
@@ -405,9 +405,23 @@ def AddNestedDictionaryKey(dictionary: dict, *args) -> bool:
         raise SpchtErrors.ParameterError(key)
 
 
+def CheckForParameters(expectations: tuple, **kwargs):
+    missing = []
+    for argument in expectations:
+        if argument not in kwargs:
+            missing.append(argument)
+    if len(missing) > 0:
+        return missing
+    return None
+    # ? a list with len > 0 is unfortunately truthy so that i have to violate proper protocol a bit here
+
+
 def CheckWorkOrder(work_order_file: str):
+    print(work_order_file)
     work_order = load_from_json(work_order_file)
-    main_status = ("Freshly created", "fetch started", "fetch completed", "processing started", "processing completed", "inserting started", "insert completed/finished", "fullfilled")
+    if work_order is None:
+        return False
+    main_status = ("Freshly created", "fetch started", "fetch completed", "processing started", "processing completed", "inbetween process", "inserting started", "insert completed/finished", "fullfilled")
     time_infos = ("processing", "insert")
     try:
         extremes = {"min_processing": None, "max_processing": None,
@@ -485,21 +499,50 @@ def CheckWorkOrder(work_order_file: str):
     except KeyError as key:
         print("####WORK ORDER LACKS KEYS, ERROR#####")
         print(f"Missing Key {key}")
+    return True
 
 
-def UseWorkOrder(filename, deep_check = False, **kwargs):
+def UseWorkOrder(filename, deep_check = False, repair_mode = False, **kwargs) -> list or int:
+    """
+
+    :param filename:
+    :type filename:
+    :param deep_check:
+    :type deep_check:
+    :param repair_mode:
+    :type repair_mode:
+    :param kwargs:
+    :type kwargs:
+    :return: missing parameters for that step or True
+    """
+    # ? from CheckWorkOrder
+    # ? ("Freshly created", "fetch started", "fetch completed", "processing started", "processing completed", "inserting started", "insert completed/finished", "fullfilled")
+    # ? Stati, first index is 0
     work_order = load_from_json(filename)
     if work_order is not None:
         try:
             if work_order['meta']['status'] == 0:  # freshly created
                 if work_order['meta']['fetch'] == "solr":
+                    # ! checks
+                    expected = ("work_order_file", "solr_url", "query", "query_rows", "chunk_size", "spcht_descriptor", "save_folder")
+                    missing = CheckForParameters(expected, **kwargs)
+                    if missing is not None:
+                        return missing
+                    # ! process
                     UpdateWorkOrder(filename, update=("meta", "status", 1))
                     FetchWorkOrderSolr(filename, **kwargs)
                     UpdateWorkOrder(filename, update=("meta", "status", 2))
+                    return 2
             if work_order['meta']['status'] == 1:  # processing started, not finished
-                pass
+                return 1
             if work_order['meta']['status'] == 2:  # fetching completed
                 if work_order['meta']['type'] == "insert":
+                    # ! checks
+                    expected = ("work_order_file", "spcht_descriptor", "graph")
+                    missing = CheckForParameters(expected, **kwargs)
+                    if missing is not None:
+                        return missing
+                    # ! process
                     logger.info(f"Sorted order '{os.path.basename(filename)}' as method 'insert'")
                     UpdateWorkOrder(filename, update=("meta", "status", 3))
                     if 'processes' in kwargs:
@@ -508,25 +551,46 @@ def UseWorkOrder(filename, deep_check = False, **kwargs):
                         FullfillProcessingOrder(filename, **kwargs)
                     UpdateWorkOrder(filename, update=("meta", "status", 4))
                     logger.info(f"Turtle Files created, commencing to next step")
+                    return 5
+                if work_order['meta']['type'] == "update":
+                    return 4  # inbetween processing
             if work_order['meta']['status'] == 3:  # processing started
-                pass
-            if work_order['meta']['status'] == 4:  # processing completed
+                return 3
+            if work_order['meta']['status'] == 4:  # processing done
+                return 4
+            if work_order['meta']['status'] == 5:  # inbetween processing done
                 if work_order['meta']['method'] == "isql":
+                    # ! checks
+                    expected = ("work_order_file", "named_graph", "isql_path", "user", "password", "virt_folder")
+                    missing = CheckForParameters(expected, **kwargs)
+                    if missing is not None:
+                        return missing
+                    # ! process
                     logger.info(f"Sorted order '{os.path.basename(filename)}' with method 'isql'")
-                    UpdateWorkOrder(filename, update=("meta", "status", 5))
+                    UpdateWorkOrder(filename, update=("meta", "status", 6))
                     FullfillISqlOrder(filename, **kwargs)
-                    UpdateWorkOrder(filename, update=("meta", "status", 6))
+                    UpdateWorkOrder(filename, update=("meta", "status", 7))
+                    return 6
                 elif work_order['meta']['method'] == "sparql":
+                    # ! checks
+                    expected = ("work_order_file", "named_graph", "sparql_endpoint", "user", "password")
+                    missing = CheckForParameters(expected, **kwargs)
+                    if missing is not None:
+                        return missing
+                    # ! process
                     logger.info(f"Sorted order '{os.path.basename(filename)}' with method 'sparql'")
-                    UpdateWorkOrder(filename, update=("meta", "status", 5))
-                    FullfillSparqlInsertOrder(filename, **kwargs)
                     UpdateWorkOrder(filename, update=("meta", "status", 6))
-            if work_order['meta']['status'] == 5:  # inserting started
-                pass
-            if work_order['meta']['status'] == 6:  # inserting completed
-                pass
-            if work_order['meta']['status'] == 7:  # fullfilled, nothing to do
-                pass
+                    FullfillSparqlInsertOrder(filename, **kwargs)
+                    UpdateWorkOrder(filename, update=("meta", "status", 7))
+                    return 7
+            if work_order['meta']['status'] == 6:  # inserting started
+                return 6
+            if work_order['meta']['status'] == 7:  # inserting completed
+                # * cleanup period
+                return 7
+            if work_order['meta']['status'] == 8:  # fullfilled, cleanup done
+                # * do nothing, order finished
+                return 8
 
         except KeyError as key:
             logger.error(f"The supplied json file doesnt appear to have the needed data, '{key}' was missing")
@@ -612,7 +676,7 @@ def CreateWorkOrder(order_name, fetch: str, typus: str, method: str, **kwargs):
 
 
 def FetchWorkOrderSolr(work_order_file: str,
-                       solr_addr: str,
+                       solr_url: str,
                        query="*",
                        total_rows=50000,
                        chunk_size=10000,
@@ -631,6 +695,11 @@ def FetchWorkOrderSolr(work_order_file: str,
     n = math.floor(int(total_rows) / int(chunk_size)) + 1
     # Work Order things:
     work_order = load_from_json(work_order_file)
+    # ! Check meta status informations
+    if work_order['meta']['status'] > 0:
+        logging.error("Status of work order file is not 0, file is beyond first step and cannot be processed by Solr order")
+        return False
+
     try:
         if work_order['meta']['fetch'] != "solr":
             logging.error("Provided work order does not use fetch method solr")
@@ -659,7 +728,7 @@ def FetchWorkOrderSolr(work_order_file: str,
     base_path = os.path.join(os.getcwd(), save_folder)
     start_time = time.time()
     logger.info(f"Starting solrdump-like process - Time Zero: {start_time}")
-    logger.info(f"Solr Source is {solr_addr}")
+    logger.info(f"Solr Source is {solr_url}")
     logger.info(f"Calculated {n} chunks of a total of {total_rows} entries with a chunk size of {chunk_size}")
     logger.info(f"Start Loading Remote chunks - {delta_now(start_time)}")
     UpdateWorkOrder(work_order_file, insert=("meta", "solr_start", datetime.now().isoformat()))
@@ -672,9 +741,9 @@ def FetchWorkOrderSolr(work_order_file: str,
             else:  # the rest in the last chunk
                 parameters['rows'] = int(int(total_rows) % int(chunk_size))
             if i == 0:  # only first run, no sense in clogging the log files with duplicated stuff
-                logger.info(f"\tUsing request URL: {solr_addr}/{parameters}")
+                logger.info(f"\tUsing request URL: {solr_url}/{parameters}")
             # ! call to solr for data
-            data = test_json(load_remote_content(solr_addr, parameters))
+            data = test_json(load_remote_content(solr_url, parameters))
             if data is not None:
                 file_path = f"{os.path.basename(work_order_file)}_{hash(start_time)}_{i}-{n}.json"
                 filename = os.path.join(base_path, file_path)
@@ -737,6 +806,13 @@ def FullfillProcessingOrder(work_order_file: str, graph: str, spcht_object: Spch
         # does not change the number of keys or the keys itself this should work well enough, although
         # i question my decision to actually use files of any kind as transaction log
         work_order0 = load_from_json(work_order_file)
+        # ! work file specific parameter check
+        if work_order0['meta']['status'] < 1:
+            logging.error("Given order file is below status 0, probably lacks data anyway, cannot proceed")
+            return False
+        if work_order0['meta']['status'] > 1:
+            logging.error("Given order file is above status 1, is already fully processed, cannot proceed")
+            return False
         work_order = work_order0
         logger.info(f"Starting processing on files of work order '{os.path.basename(work_order_file)}', detected {len(work_order['file_list'])} Files")
         print(f"Start of Spcht Processing - {os.getpid()}")
@@ -798,11 +874,17 @@ def FullfillISqlOrder(work_order_file: str,
     :param str named_graph: named graph the data is to be inserted into
     :param int isql_port: port of the virtuoso sql database, usually 1111
     :param str virt_folder: folder that virtuoso accepts as input for files, must have write
-    :return: nothing
-    :rtype: None
+    :return: True if everything went "great"
+    :rtype: Bool
     """
     try:
         work_order0 = load_from_json(work_order_file)
+        if work_order0['meta']['status'] < 4:
+            logging.error("Order hast a status below 4 and might be not fully procssed or fetch, aborting")
+            return False
+        if work_order0['meta']['status'] > 5:
+            logging.error("This work orders status indicates that its already done, aborting.")
+            return False
         work_order = work_order0
         for key in work_order0['file_list']:
             if work_order['file_list'][key]['status'] == 3:
@@ -823,10 +905,14 @@ def FullfillISqlOrder(work_order_file: str,
         logger.info(f"Successfully called {len(work_order['file_list'])} times the bulk loader")
     except KeyError as foreign_key:
         logger.error(f"Missing key in work order: '{foreign_key}'")
+        return False
     except PermissionError as folder:
         logger.error(f"Cannot access folder {folder} to copy turtle into.")
+        return False
     except FileNotFoundError as file:
         logger.error(f"Cannot find file {file}")
+        return False
+    return True
 
 
 def FullfillSparqlInsertOrder(work_order_file: str,
@@ -839,6 +925,12 @@ def FullfillSparqlInsertOrder(work_order_file: str,
     SPARQL_CHUNK = 50
     try:
         work_order0 = load_from_json(work_order_file)
+        if work_order0['meta']['status'] < 4:
+            logging.error("Order hast a status below 4 and might be not fully procssed or fetch, aborting")
+            return False
+        if work_order0['meta']['status'] > 5:
+            logging.error("This work orders status indicates that its already done, aborting.")
+            return False
         if work_order0['meta']['method'] != "sparql":
             raise SpchtErrors.WorkOrderError(f"Method in work order file is {work_order0['meta']['method']} but must be 'sparql' for this method")
         work_order = work_order0

@@ -49,9 +49,7 @@ except ModuleNotFoundError:
         return text  # throws args away returns non colored text
 from SpchtDescriptorFormat import Spcht
 
-ERROR_TXT = {}
 PARA = {}
-SETTINGS = {}
 TESTFOLDER = "./testdata/"
 
 logging.basicConfig(filename='spcht_process.log', format='[%(asctime)s] %(levelname)s:%(message)s', level=logging.INFO)
@@ -59,21 +57,23 @@ logging.basicConfig(filename='spcht_process.log', format='[%(asctime)s] %(leveln
 
 
 def load_config(file_path="config.json"):
+    global PARA
     """
     Simple config file loader, will raise exceptions if files arent around, will input parameters
     in global var PARA
     :param file_path str: file path to a flat json containing a dictionary with key-value relations
     :return: True if everything went well, will raise exception otherwise
     """
-    expected_settings = ["solr_addr", "query", "total_rows", "chunk_size", "spcht_path", "save_folder",
+    expected_settings = ("solr_url", "query", "total_rows", "chunk_size", "spcht_path", "save_folder",
                          "graph", "named_graph", "isql_path", "user", "password", "isql_port", "virt_folder",
-                         "processes"]
+                         "processes", "sparql_endpoint")
     config_dict = load_from_json(file_path)
     if not config_dict:
-        raise SpchtErrors.OperationalError("Cannot load config file")
+        return False
+        #raise SpchtErrors.OperationalError("Cannot load config file")
     for setting_name in config_dict:
-        if setting_name in expected_settings and expected_settings[setting_name] != "":
-            PARA[setting_name] = expected_settings[setting_name]
+        if setting_name in expected_settings and config_dict[setting_name] != "":
+            PARA[setting_name] = config_dict[setting_name]
     return True
 
 
@@ -433,7 +433,7 @@ if __name__ == "__main__":
             {
                 "type": str,
                 "help": "Inserts the given work order via the isql interface of virtuoso, copies files in a temporary folder where virtuoso has access, needs credentials",
-                "metavar": ("work_file", "isql_path", "user", "password", "named_graph", "virt_folder"),
+                "metavar": ("work_file", "named_graph", "isql_path", "user", "password", "virt_folder"),
                 "nargs": 6,
             },
         "InsertISQLOrderPara":
@@ -441,15 +441,55 @@ if __name__ == "__main__":
                 "action": "store_true",
                 "help": "Inserts the given order via the isql interace of virtuoso, copies files in a temporary folder, needs paramters: --isql_path, --user, --password, --named_graph, --virt_folder",
             },
-        "HandleWorkOrderPara":
+        "named_graph":
             {
-                "action": "store_true",
-                "help": "Takes any one work order and processes it to the next step, needs all parameters the corresponding steps need",
+                "type": str,
+                "help": "In a quadstore this is the graph the processed triples are saved upon, might be different from the triple subject"
+            },
+        "isql_path":
+            {
+                "type": str,
+                "help": "File path to the OpenLink Virtuoso isql executable, usually 'isql-v' or 'isql-v.exe",
+            },
+        "virt_folder":
+            {
+                "type": str,
+                "help": "When inserting data via iSQL the ingested files must lay in a directory whitelisted by Virtuoso, usually this is /tmp/ in Linux systems, but can be anywhere if configured so. Script must have write access there.",
+            },
+        "user":
+            {
+                "type": str,
+                "help": "Name of an authorized user for the desired operation",
+            },
+        "password":
+            {
+                "type": str,
+                "help": "Plaintext password for the defined --user, caution advised when saving cleartext passwords in config files or bash history"
+            },
+        "isql_port":
+            {
+                "type": int,
+                "help": "When using iSQL the corresponding database usually resides on port 1111, this parameter allows to adjust for changes in that regard",
+                "default": 1111,
+            },
+        "HandleWorkOrder":
+            {
+                "type": str,
+                "help": "Takes any one work order and processes it to the next step, needs all parameters the corresponding steps requires",
+                "metavar": ("work_order_file"),
+                "nargs": 1
+            },
+        "sparql_endpoint":
+            {
+                "type": str,
+                "help": "URL to a sparql endpoint of any one triplestore, usually ends with /sparql or /sparql-auth for authenticated user"
             },
         "CheckWorkOrder":
             {
                 "type": str,
-                "help": "Checks the status of any given work order and displays it in the console"
+                "help": "Checks the status of any given work order and displays it in the console",
+                "metavar": ("work_order_file"),
+                "nargs": 1
             },
         "config":
             {
@@ -524,15 +564,19 @@ if __name__ == "__main__":
                         help="Progressing mappings with the config specified ressources")
 
     args = parser.parse_args()
-    # +++ CONFIG FILE +++
+    # ! +++ CONFIG FILE +++
     if args.config:
         cfg_status = load_config(args.config)
+        if not cfg_status:
+            print("Loading of config file went wrong")
+        else:
+            print("Config file loaded")
 
-    boring_parameters = ["work_order_file", "solr_url", "query", "chunk_size", "query_rows", "spcht_descriptor", "save_folder",
-                         "graph", "named_graph", "isql_path", "user", "password", "virt_folder"]
+    simple_parameters = ["work_order_file", "solr_url", "query", "chunk_size", "query_rows", "spcht_descriptor", "save_folder",
+                         "graph", "named_graph", "isql_path", "user", "password", "virt_folder", "sparql_endpoint"]
 
     for arg in vars(args):
-        if arg in boring_parameters and getattr(args, arg) is not None:
+        if arg in simple_parameters and getattr(args, arg) is not None:
             PARA[arg] = getattr(args, arg)
 
     if args.CreateOrder:
@@ -552,7 +596,7 @@ if __name__ == "__main__":
         expected = ("work_order_file", "solr_url", "query", "query_rows", "chunk_size", "spcht_descriptor", "save_folder")
         for each in expected:
             if not getattr(args, each):
-                print("FetchSolrOrderPara")
+                print("FetchSolrOrderPara - simple solr dump procedure")
                 print("All parameters have to loaded either by config file or manually as parameter")
                 for avery in expected:
                     print(f"\t{colored(avery, attrs=['bold'])} - {colored(arguments[avery]['help'], 'green')}")
@@ -575,7 +619,7 @@ if __name__ == "__main__":
         expected = ("work_order_file", "spcht_descriptor", "graph")
         for each in expected:
             if not getattr(args, each):
-                print("SpchtProcessingPara")
+                print("SpchtProcessingPara - linear processed data")
                 print("All parameters have to loaded either by config file or manually as parameter")
                 for avery in expected:
                     print(f"\t{colored(avery, attrs=['bold'])} - {colored(arguments[avery]['help'], 'green')}")
@@ -598,7 +642,7 @@ if __name__ == "__main__":
         expected = ("work_order_file", "spcht_descriptor", "graph", "processes")
         for each in expected:
             if not getattr(args, each):
-                print("SpchtProcessingPara")
+                print("SpchtProcessingMultiPara - parallel processed data")
                 print("All parameters have to loaded either by config file or manually as parameter")
                 for avery in expected:
                     print(f"\t{colored(avery, attrs=['bold'])} - {colored(arguments[avery]['help'], 'green')}")
@@ -606,18 +650,64 @@ if __name__ == "__main__":
         eagle = Spcht(PARA['spcht_descriptor'])
         local_tools.ProcessOrderMultiCore(PARA['work_order_file'], graph=PARA['graph'], spcht_object=eagle, processes=PARA['processes'])
 
-    if args.environment:
-        for keys in vars(args):
-            if getattr(args, keys):
-                print(f"{keys}\t{getattr(args, keys)}")
+    # ! inserting operation
+
+    if args.InsertISQLOrder:
+        par = args.SpchtProcessingMulti
+        print("Starting ISql Order")
+        # ? as isql_port is defaulted this parameter can only be accessed by --isql_port and not in one line with the order
+        status = local_tools.FullfillISqlOrder(work_order_file=par[0],named_graph=par[1], isql_path=par[2],
+                                               user=par[3], password=par[4], virt_folder=par[5], isql_port=PARA['isql_port'])
+        if status:
+            print("ISQL Order finished, no errors returned")
+        else:
+            print("Something went wrong with the ISQL Order, check log files for details")
+
+    if args.InsertISQLOrderPara:
+        expected = ("work_order_file", "named_graph", "isql_path", "user", "password", "virt_folder")
+        for each in expected:
+            if not getattr(args, each):
+                print("InsertISQLOrderPara - inserting of data via iSQL")
+                print("All parameters have to loaded either by config file or manually as parameter")
+                for avery in expected:
+                    print(f"\t{colored(avery, attrs=['bold'])} - {colored(arguments[avery]['help'], 'green')}")
+                exit(1)
+        status = local_tools.FullfillISqlOrder(work_order_file=PARA['work_order_file'], named_graph=PARA['named_graph'],
+                                               isql_path=PARA['isql_patch'], user=PARA['user'],
+                                               password=PARA['password'], virt_folder=PARA['virt_folder'], isql_port=PARA['isql_port'])
+        if status:
+            print("ISQL Order finished, no errors returned")
+        else:
+            print("Something went wrong with the ISQL Order, check log files for details")
+
+    if args.HandleWorkOrder:
+        status = local_tools.UseWorkOrder(args.HandleWorkOrder[0], **PARA)
+        if isinstance(status, list):
+            print("Fulfillment of current Work order status needs further parameters:")
+            for avery in status:
+                print(f"\t{colored(avery, attrs=['bold'])} - {colored(arguments[avery]['help'], 'green')}")
+        elif isinstance(status, int):
+            print(f"Work order advanced one step, new step is now {status}")
+            local_tools.CheckWorkOrder(args.HandleWorkOrder[0])
+        else:
+            print(status)
+
+
+    # ? Utility Things
 
     if args.CheckWorkOrder:
-        local_tools.CheckWorkOrder(args.CheckWorkOrder)
+        status = local_tools.CheckWorkOrder(args.CheckWorkOrder[0])
+        if not status:
+            print("Given work order file path seems to be wrong")
 
-    if args.urls:
-        print("URL Entries from Config and Parameters")
-        for key in PARA:
-            print(f"\t{key}\t{PARA[key]}")
+    if args.environment:
+        print(colored("Available data through config and direct parameters", attrs=["bold"]))
+        for keys in PARA:
+            if keys == "password":
+                print(f"\t{keys:<12}\t{'*'*12}")
+            else:
+                print(f"\t{keys:<12}\t{PARA[keys]}")
+
     # ! UpdateProcess - in parts a copy of full process
     if args.UpdateData:
         if not Spcht.is_dictkey(PARA, 'solr', 'graph', 'spcht', 'sparql', 'sparql_user', 'sparql_pw', 'time'):
