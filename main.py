@@ -353,7 +353,7 @@ if __name__ == "__main__":
         "FetchSolrOrderPara":
             {
                 "action": "store_true",
-                "help": "Executes a solr fetch work order, needs parameters --work_order_file, --solr_url, --query, --query_rows, --chunk_size, --spcht_descriptor, --save_folder",
+                "help": "Executes a solr fetch work order, needs parameters --work_order_file, --solr_url, --query, --total_rows, --chunk_size, --spcht_descriptor, --save_folder",
             },
         "work_order_file":
             {
@@ -371,7 +371,7 @@ if __name__ == "__main__":
                 "help": "Query for solr ('*' fetches everything)",
                 "default": "*",
             },
-        "query_rows":
+        "total_rows":
             {
                 "type": int,
                 "help": "Number of rows that are fetched in total from an external datasource",
@@ -572,7 +572,7 @@ if __name__ == "__main__":
         else:
             print("Config file loaded")
 
-    simple_parameters = ["work_order_file", "solr_url", "query", "chunk_size", "query_rows", "spcht_descriptor", "save_folder",
+    simple_parameters = ["work_order_file", "solr_url", "query", "chunk_size", "total_rows", "spcht_descriptor", "save_folder",
                          "graph", "named_graph", "isql_path", "user", "password", "virt_folder", "sparql_endpoint"]
 
     for arg in vars(args):
@@ -593,7 +593,7 @@ if __name__ == "__main__":
             print("Process failed, consult log file for further details")
 
     if args.FetchSolrOrderPara:
-        expected = ("work_order_file", "solr_url", "query", "query_rows", "chunk_size", "spcht_descriptor", "save_folder")
+        expected = ("work_order_file", "solr_url", "query", "total_rows", "chunk_size", "spcht_descriptor", "save_folder")
         for each in expected:
             if not getattr(args, each):
                 print("FetchSolrOrderPara - simple solr dump procedure")
@@ -602,7 +602,7 @@ if __name__ == "__main__":
                     print(f"\t{colored(avery, attrs=['bold'])} - {colored(arguments[avery]['help'], 'green')}")
                 exit(1)
         big_ara = Spcht(PARA['spcht_descriptor'])
-        status = local_tools.FetchWorkOrderSolr(PARA['work_order_file'], PARA['solr_url'], PARA['query'], PARA['query_rows'], PARA['chunk_size'], big_ara, PARA['save_folder'])
+        status = local_tools.FetchWorkOrderSolr(PARA['work_order_file'], PARA['solr_url'], PARA['query'], PARA['total_rows'], PARA['chunk_size'], big_ara, PARA['save_folder'])
         if not status:
             print("Process failed, consult log file for further details")
 
@@ -611,7 +611,7 @@ if __name__ == "__main__":
     if args.SpchtProcessing:
         par = args.SpchtProcessing
         heron = Spcht(par[2])
-        status = local_tools.FullfillProcessingOrder(par[0], par[1], heron)
+        status = local_tools.FulfillProcessingOrder(par[0], par[1], heron)
         if not status:
             print("Something went wrong, check log file for details")
 
@@ -625,7 +625,7 @@ if __name__ == "__main__":
                     print(f"\t{colored(avery, attrs=['bold'])} - {colored(arguments[avery]['help'], 'green')}")
                 exit(1)
         crow = Spcht(PARA['spcht_descriptor'])
-        status = local_tools.FullfillProcessingOrder(PARA['work_order_file'], PARA['graph'], crow)
+        status = local_tools.FulfillProcessingOrder(PARA['work_order_file'], PARA['graph'], crow)
         if not status:
             print("Something went wrong, check log file for details")
 
@@ -656,8 +656,8 @@ if __name__ == "__main__":
         par = args.SpchtProcessingMulti
         print("Starting ISql Order")
         # ? as isql_port is defaulted this parameter can only be accessed by --isql_port and not in one line with the order
-        status = local_tools.FullfillISqlOrder(work_order_file=par[0],named_graph=par[1], isql_path=par[2],
-                                               user=par[3], password=par[4], virt_folder=par[5], isql_port=PARA['isql_port'])
+        status = local_tools.FulfillISqlOrder(work_order_file=par[0], named_graph=par[1], isql_path=par[2],
+                                              user=par[3], password=par[4], virt_folder=par[5], isql_port=PARA['isql_port'])
         if status:
             print("ISQL Order finished, no errors returned")
         else:
@@ -672,15 +672,18 @@ if __name__ == "__main__":
                 for avery in expected:
                     print(f"\t{colored(avery, attrs=['bold'])} - {colored(arguments[avery]['help'], 'green')}")
                 exit(1)
-        status = local_tools.FullfillISqlOrder(work_order_file=PARA['work_order_file'], named_graph=PARA['named_graph'],
-                                               isql_path=PARA['isql_patch'], user=PARA['user'],
-                                               password=PARA['password'], virt_folder=PARA['virt_folder'], isql_port=PARA['isql_port'])
+        status = local_tools.FulfillISqlOrder(work_order_file=PARA['work_order_file'], named_graph=PARA['named_graph'],
+                                              isql_path=PARA['isql_patch'], user=PARA['user'],
+                                              password=PARA['password'], virt_folder=PARA['virt_folder'], isql_port=PARA['isql_port'])
         if status:
             print("ISQL Order finished, no errors returned")
         else:
             print("Something went wrong with the ISQL Order, check log files for details")
 
     if args.HandleWorkOrder:
+        if 'spcht_descriptor' in PARA:
+            bussard = Spcht(PARA['spcht_descriptor'])
+            PARA['spcht_object'] = bussard
         status = local_tools.UseWorkOrder(args.HandleWorkOrder[0], **PARA)
         if isinstance(status, list):
             print("Fulfillment of current Work order status needs further parameters:")

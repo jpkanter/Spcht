@@ -69,3 +69,7 @@ class RequestError(ConnectionError):
     """
     pass
 
+
+class ParsingError(Exception):
+    def __repr__(self):
+        return "an Exception that occurs when trying to interpret or parse some kind of data"
