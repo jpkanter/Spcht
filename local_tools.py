@@ -633,7 +633,7 @@ def UseWorkOrder(work_order_file, deep_check = False, repair_mode = False, **kwa
                         UpdateWorkOrder(work_order_file, update=("meta", "status", 8))
                         return 8
                     else:
-                        msg = "Sparql based inder operation failed"
+                        msg = "Sparql based insert operation failed"
                         logging.error(msg)
                         print(f"{msg}{boiler_print}")
             if work_order['meta']['status'] == 6:  # inserting started
@@ -891,9 +891,13 @@ def FulfillProcessingOrder(work_order_file: str, graph: str, spcht_object: Spcht
                 quadros = []
                 elements = 0
                 for entry in mapping_data:
-                    elements += 1
-                    quader = spcht_object.processData(entry, graph)
-                    quadros += quader
+                    try:
+                        quader = spcht_object.processData(entry, graph)
+                        elements += 1
+                        quadros += quader
+                    except SpchtErrors.MandatoryError:
+                        logger.info(f"Mandatory field was not found in entry {elements} of file {work_order['file_list'][key]['file']}")
+
                 logger.info(f"Finished file {_} of {len(work_order['file_list'])}, {len(quadros)} triples")
                 rdf_dump = f"{work_order['file_list'][key]['file'][:-4]}_rdf.ttl"
                 with open(rdf_dump, "w") as rdf_file:
@@ -912,6 +916,7 @@ def FulfillProcessingOrder(work_order_file: str, graph: str, spcht_object: Spcht
         logger.error(f"The supplied work order doesnt appear to have the needed data, '{key}' was missing")
         return False
     except Exception as e:
+        print(e.with_traceback())
         logger.error(f"Unknown type of exception: '{e}'")
         return False
 
@@ -983,7 +988,6 @@ def FulfillISqlOrder(work_order_file: str,
 
 def IntermediateStepSparqlDelete(work_order_file: str, sparql_endpoint: str, user: str, password: str, named_graph: str, **kwargs):
     # f"WITH <named_graph> DELETE { <subject> ?p ?o } WHERE { <subject> ?p ?o }
-    chunk_size = 50
     try:
         work_order0 = load_from_json(work_order_file)
         if work_order0['meta']['status'] != 5:
@@ -1002,27 +1006,15 @@ def IntermediateStepSparqlDelete(work_order_file: str, sparql_endpoint: str, use
                 f_path = work_order['file_list'][key]['rdf_file']
                 that_graph = rdflib.Graph()
                 that_graph.parse(f_path, format="turtle")
-                _ = 0
-                the_one = 0
                 triples = ""
-                for evelyn in that_graph.subjects(): # * the every word plays continue
-                    triples += f"<{evelyn}> ?p{_} ?o{_}. "
-                    _ += 1
-                    if _ > chunk_size:
-                        query = f"WITH <{named_graph}> DELETE WHERE {{ {triples} }}"
-                        if the_one == 0:
-                            print(query)
-                            the_one = 1
-                        sparqlQuery(query,
-                                    sparql_endpoint,
-                                    auth=user,
-                                    pwd=password,
-                                    named_graph=named_graph
-                                    )
-                        _ = 0
-                        triples = ""
-                if _ > 0:
+                for evelyn in that_graph.subjects():  # the every word plays continue
+                    triples = f"<{evelyn}> ?p ?o. "
                     query = f"WITH <{named_graph}> DELETE WHERE {{ {triples} }}"
+                    # * this poses as a major bottleneck as the separate http requests take most of the time for this
+                    # * process, i looked into it and apparently there is no easy way to delete a lot of lines with
+                    # * sparql cause its technically a read-only language and this whole update/delete shebang seems
+                    # * to be an afterthought, you could chain where clauses but that apparent processing time for
+                    # * that scales with U^x which seems to be not very desirable
                     sparqlQuery(query,
                                 sparql_endpoint,
                                 auth=user,
@@ -1038,7 +1030,7 @@ def IntermediateStepSparqlDelete(work_order_file: str, sparql_endpoint: str, use
     except FileNotFoundError as file:
         logger.error(f"Cannot find file {file}")
         return False
-    except xml.parsers.expat.ExpatError as e:
+    except xml.parsers.expat.ExpatError as e:  # rdflib exception for .parse
         logger.error(f"Parsing of triple file failed: {e}")
         return False
     return True

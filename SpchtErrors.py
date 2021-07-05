@@ -73,3 +73,14 @@ class RequestError(ConnectionError):
 class ParsingError(Exception):
     def __repr__(self):
         return "an Exception that occurs when trying to interpret or parse some kind of data"
+
+
+class Unexpected(Exception):
+    def __repr__(self):
+        return "an exception that should have not been happened but was prepared in case seomthing weird happened"
+
+
+class MandatoryError(Exception):
+    def __repr__(self):
+        return "a field that was classified as mandatory was not present, therefore failing the entire chain"
+

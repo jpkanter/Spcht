@@ -29,6 +29,8 @@ from pathlib import Path
 import pymarc
 from pymarc.exceptions import RecordLengthInvalid, RecordLeaderInvalid, BaseAddressNotFound, BaseAddressInvalid, \
     RecordDirectoryInvalid, NoFieldsFound
+
+import SpchtErrors
 try:
     from termcolor import colored  # only needed for debug print
 except ModuleNotFoundError:
@@ -165,7 +167,7 @@ class Spcht:
             # there are two ways i could have done this, either this or having the checks split up in every case
             if facet is None:
                 if node['required'] == "mandatory":
-                    return False
+                    raise SpchtErrors.MandatoryError(f"Field {node['field']} is a mandatory field but not present")
                 else:
                     continue  # nothing happens
             else:
@@ -173,7 +175,7 @@ class Spcht:
                     if facet[1] is None:  # all those string checks
                         if node['required'] == "mandatory":
                             self.debug_print(colored(f"{node.get('name')} is an empty, mandatory string"), "red")
-                            return False
+                            raise SpchtErrors.MandatoryError(f"Field {node['field']} is a mandatory field but not present")
                         else:
                             continue  # we did everything but found nothing, this happens
                 elif isinstance(facet, list):
@@ -185,7 +187,8 @@ class Spcht:
                     if not at_least_something:
                         if node['required'] == "mandatory":
                             self.debug_print(colored(f"{node.get('name')} is an empty, mandatory list"), "red")
-                            return False  # there are checks before this, so this should, theoretically, not happen
+                            raise SpchtErrors.MandatoryError(f"Field {node['field']} is a mandatory field but not present")
+                            # there are checks before this, so this should, theoretically, not happen
                         else:
                             continue
                 else:  # whatever it is, its weird if this ever happens
@@ -193,7 +196,7 @@ class Spcht:
                         return False
                     else:
                         print(facet, colored("I cannot handle that for the moment", "magenta"), file=self.std_err)
-                        raise TypeError("Unexpected return from recursive processor, this shouldnt happen")
+                        raise SpchtErrors.Unexpected("Unexpected return from recursive processor, this shouldnt happen")
 
             # * data output - singular form
             if isinstance(facet, tuple):
@@ -210,12 +213,8 @@ class Spcht:
                         triple_list.append(((graph + ressource), each[0], each[1], node_status))
                     # here was a check for empty elements, but we already know that not all are empty
                     # this should NEVER return an empty list cause the mandatory check above checks for that
-        if len(triple_list) > 0:
-            return triple_list
-        else:
-            return True
+        return triple_list  # * can be empty []
     # TODO: Error logs for known error entries and total failures as statistic
-    # TODO: Grouping of graph descriptors in an @context
 
     def debug_print(self, *args, **kwargs):
         """
@@ -449,6 +448,8 @@ class Spcht:
         """
         # ! for future reference: "random {} {} {}".format(*list) will do almost what this does
         # ? and the next problem that has a solution somewhere but i couldn't find the words to find it
+        if not isinstance(the_string_list, list):
+            raise TypeError("list of strings must be an actual 'list'")
         positions = Spcht.match_positions(regex_pattern, zeichenkette)
         if len(the_string_list) > len(positions):  # more inserts than slots
             if strict:
@@ -1340,7 +1341,7 @@ class Spcht:
             return None
         value = Spcht.extract_dictmarc_value(raw_dict, sub_dict)
         if value is None or value is False:
-            return None  # TODO: do proper exceptions for this
+            raise TypeError("Value for insert fields cannot be None or boolean")
         # inserted MAIN values get the processing
 
         value = Spcht._node_preprocessing(value, sub_dict)

@@ -51,7 +51,7 @@ from SpchtDescriptorFormat import Spcht
 
 PARA = {}
 TESTFOLDER = "./testdata/"
-
+# DEBUG file + line = [%(module)s:%(lineno)d]
 logging.basicConfig(filename='spcht_process.log', format='[%(asctime)s] %(levelname)s:%(message)s', level=logging.INFO)
 # logging.basicConfig(filename='spcht_process.log', format='[%(asctime)s] %(levelname)s:%(message)s', encoding='utf-8', level=logging.DEBUG)  # Python 3.9
 
@@ -66,7 +66,7 @@ def load_config(file_path="config.json"):
     """
     expected_settings = ("solr_url", "query", "total_rows", "chunk_size", "spcht_path", "save_folder",
                          "graph", "named_graph", "isql_path", "user", "password", "isql_port", "virt_folder",
-                         "processes", "sparql_endpoint")
+                         "processes", "sparql_endpoint", "spcht_descriptor")
     config_dict = load_from_json(file_path)
     if not config_dict:
         return False
@@ -479,6 +479,13 @@ if __name__ == "__main__":
                 "metavar": ("work_order_file"),
                 "nargs": 1
             },
+        "FullOrder":
+            {
+                "type": str,
+                "help": "Creates a new order with assigned methods, immediatly starts with --Parameters (or --config) to fullfill the created order",
+                "metavar": ("work_order_name", "fetch", "type", "method"),
+                "nargs": 4
+            },
         "sparql_endpoint":
             {
                 "type": str,
@@ -574,10 +581,14 @@ if __name__ == "__main__":
 
     simple_parameters = ["work_order_file", "solr_url", "query", "chunk_size", "total_rows", "spcht_descriptor", "save_folder",
                          "graph", "named_graph", "isql_path", "user", "password", "virt_folder", "sparql_endpoint"]
+    default_parameters = ["chunk_size", "total_rows", "isql_port"] # ? default would overwrite config settings
 
     for arg in vars(args):
         if arg in simple_parameters and getattr(args, arg) is not None:
-            PARA[arg] = getattr(args, arg)
+            if arg in default_parameters and getattr(args, arg) == arguments[arg]['default']:
+                pass # i was simply to lazy to write the "not" variant of this
+            else:
+                PARA[arg] = getattr(args, arg)
 
     if args.CreateOrder:
         par = args.CreateOrder
@@ -595,7 +606,7 @@ if __name__ == "__main__":
     if args.FetchSolrOrderPara:
         expected = ("work_order_file", "solr_url", "query", "total_rows", "chunk_size", "spcht_descriptor", "save_folder")
         for each in expected:
-            if not getattr(args, each):
+            if each not in PARA:
                 print("FetchSolrOrderPara - simple solr dump procedure")
                 print("All parameters have to loaded either by config file or manually as parameter")
                 for avery in expected:
@@ -618,7 +629,7 @@ if __name__ == "__main__":
     if args.SpchtProcessingPara:
         expected = ("work_order_file", "spcht_descriptor", "graph")
         for each in expected:
-            if not getattr(args, each):
+            if each not in PARA:
                 print("SpchtProcessingPara - linear processed data")
                 print("All parameters have to loaded either by config file or manually as parameter")
                 for avery in expected:
@@ -641,7 +652,7 @@ if __name__ == "__main__":
     if args.SpchtProcessingMultiPara:
         expected = ("work_order_file", "spcht_descriptor", "graph", "processes")
         for each in expected:
-            if not getattr(args, each):
+            if each not in PARA:
                 print("SpchtProcessingMultiPara - parallel processed data")
                 print("All parameters have to loaded either by config file or manually as parameter")
                 for avery in expected:
@@ -666,7 +677,7 @@ if __name__ == "__main__":
     if args.InsertISQLOrderPara:
         expected = ("work_order_file", "named_graph", "isql_path", "user", "password", "virt_folder")
         for each in expected:
-            if not getattr(args, each):
+            if each not in PARA:
                 print("InsertISQLOrderPara - inserting of data via iSQL")
                 print("All parameters have to loaded either by config file or manually as parameter")
                 for avery in expected:
@@ -679,6 +690,8 @@ if __name__ == "__main__":
             print("ISQL Order finished, no errors returned")
         else:
             print("Something went wrong with the ISQL Order, check log files for details")
+
+    # ! automatic work order processing
 
     if args.HandleWorkOrder:
         if 'spcht_descriptor' in PARA:
@@ -694,6 +707,82 @@ if __name__ == "__main__":
             local_tools.CheckWorkOrder(args.HandleWorkOrder[0])
         else:
             print(status)
+
+    if args.FullOrder:
+        # ? notice for needed parameters before creating work order
+        dynamic_requirements = []
+        par = args.FullOrder
+        if par[1].lower() == "solr":
+            dynamic_requirements.append("solr_url")
+            dynamic_requirements.append("chunk_size")
+            dynamic_requirements.append("query")
+            dynamic_requirements.append("total_rows")
+        else:
+            print(par)
+            print(colored("Only fetch method 'solr' is allowed", "red"))
+            exit(1)
+        # * Processing Type
+        if par[2].lower() == "insert" or par[2].lower() == "update":
+            dynamic_requirements.append("spcht_descriptor")
+            dynamic_requirements.append("graph")
+        else:
+            print(colored("Only processing types 'update' and 'insert' are allowed"))
+        if par[2].lower() == "update":
+            dynamic_requirements.append("sparql_endpoint")
+            dynamic_requirements.append("user")
+            dynamic_requirements.append("password")
+            dynamic_requirements.append("named_graph")
+        # * Insert Method
+        if par[3].lower() == 'sparql':
+            dynamic_requirements.append("sparql_endpoint")
+            dynamic_requirements.append("user")
+            dynamic_requirements.append("password")
+            dynamic_requirements.append("named_graph")
+        elif par[3].lower() == 'isql':
+            dynamic_requirements.append("isql_path")
+            dynamic_requirements.append("user")
+            dynamic_requirements.append("password")
+            dynamic_requirements.append("named_graph")
+            dynamic_requirements.append("virt_folder")
+        else:
+            print(colored("Only insert methods 'sparql' and 'isql' are allowed"))
+        # * delete duplicates
+        dynamic_requirements = list(set(dynamic_requirements))
+        for each in dynamic_requirements:
+            if each not in PARA:
+                print("FullOrder - full process from start to finish")
+                print("Based on the described work order properties the following parameters are needed")
+                print("All parameters have to loaded either by config file or manually as --parameter")
+                print(f"Parameter {each} was missing")
+                print(colored(PARA, "yellow"))
+                print(colored(dynamic_requirements, "blue"))
+                for avery in dynamic_requirements:
+                    print(f"\t{colored(avery, attrs=['bold'])} - {colored(arguments[avery]['help'], 'green')}")
+                exit(1)
+
+        if 'spcht_descriptor' in PARA:
+            seagull = Spcht(PARA['spcht_descriptor'])
+            if seagull._DESCRI is None:
+                print("Spcht loading failed")
+                exit(1)
+            PARA['spcht_object'] = seagull
+        try:
+            work_order = local_tools.CreateWorkOrder(par[0], par[1], par[2], par[3])
+            print("Starting new FullOrder, this might take a long while, see log and worker file for progress")
+            print(f"Work order file: '{work_order}'")
+            for i in range(0, 6):
+                res = local_tools.UseWorkOrder(work_order, **PARA)
+                if not isinstance(res, int):
+                    print(colored("This should not have been happened, inform creator of this tool", "red"))
+                    print("Fulfillment of current Work order status needs further parameters:")
+                    for avery in res:
+                        print(f"\t{colored(avery, attrs=['bold'])} - {colored(arguments[avery]['help'], 'green')}")
+                    break
+                if res == 8:
+                    print("Operation finished successfully")
+                    exit(0)
+        except KeyboardInterrupt:
+            print("Aborted, FILL TEXT HERE ALAN")
 
 
     # ? Utility Things
