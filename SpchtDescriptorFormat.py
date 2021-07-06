@@ -1122,7 +1122,7 @@ class Spcht:
         :rtype: list or None
         """
         # if there is a match-filter, this filters out the entry or all entries not matching
-        if not f'{key_prefix}match' in sub_dict :
+        if f'{key_prefix}match' not in sub_dict :
             return value  # the nothing happens clause
         if isinstance(value, str):
             finding = re.search(sub_dict[f'{key_prefix}match'], str(value))
@@ -1343,10 +1343,20 @@ class Spcht:
         if value is None or value is False:
             raise TypeError("Value for insert fields cannot be None or boolean")
         # inserted MAIN values get the processing
-
         value = Spcht._node_preprocessing(value, sub_dict)
+        if value is None:
+            return None  # if for example the value does not match the match filter
         value = self._node_postprocessing(value, sub_dict)
-        inserters.append(Spcht.list_wrapper(value))
+        if isinstance(value, list):
+            list_of_values = []
+            for every in value:
+                if every is not None:
+                    list_of_values.append(every)
+            if len(list_of_values) <= 0:
+                return None
+            inserters.append(list_of_values)
+        else:
+            inserters.append(Spcht.list_wrapper(value))
 
         if 'insert_add_fields' in sub_dict:
             for each in sub_dict['insert_add_fields']:
@@ -1357,6 +1367,8 @@ class Spcht:
                 else:
                     inserters.append([""])
         # all_variants iterates through the separate lists and creates a new list or rather matrix with all possible combinations
+        # desired format [ ["first", "position", "values"], ["second", "position", "values"]]
+        # should lead "xx{}xx{}xx" to "xxfirstxxsecondxx", "xxfirstxxpositionxx", "xxfirstxxvaluesxx" and so on
         all_texts = Spcht.all_variants(inserters)
         self.debug_print(colored(f"Inserts {len(all_texts)}", "grey"), end=" ")
         all_lines = []
