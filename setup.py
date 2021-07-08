@@ -33,7 +33,7 @@ with open("README.md", "r") as readme:
         version="0.6",
         description="Utility package that provides the spcht library and a cli tool to convert flat data to linked data",
         author="JP Kanter",
-        author_mail="kanter@ub.uni-leipzig.de",
+        author_email="kanter@ub.uni-leipzig.de",
         long_description=long_desc,
         long_description_content_type="text/markdown",
         url="https://github.com/jpkanter/solr2triplestore-tool",

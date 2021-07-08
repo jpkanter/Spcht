@@ -508,7 +508,7 @@ class Spcht:
             field, subfield = Spcht.slice_marc_shorthand(sub_dict[dict_field])
             if field is None:
                 return None  # ! Exit 0 - No Match, exact reasons unknown
-            if not field in raw_dict:
+            if field not in raw_dict:
                 return None  # ! Exit 1 - Field not present
             value = None
             if isinstance(raw_dict[field], list):
@@ -525,7 +525,7 @@ class Spcht:
                 if value is None:
                     return None  # ! Exit 2 - Field around but not subfield
 
-                if isinstance(value ,list):
+                if isinstance(value, list):
                     return value  # * Value Return
                 else:
                     return [value]
@@ -889,7 +889,7 @@ class Spcht:
         self.descriptor_file = filename
         return True
 
-    def _load_ref_node(self, node_dict, base_path) -> dict:
+    def _load_ref_node(self, node_dict: dict, base_path: str) -> dict:
         """
 
         :param dict node_dict:
@@ -1800,14 +1800,14 @@ class Spcht:
                 if not Spcht.is_dictkey(SPCHT_BOOL_OPS, node['if_condition']):
                     print(error_desc['if_allowed_expressions'].format(*SPCHT_BOOL_OPS.keys()), file=out)
                     return False
-            if not 'if_field' in node:
+            if 'if_field' not in node:
                 print(error_desc['if_need_field'], file=out)
                 return False
             else:
                 if not isinstance(node['if_field'], str):
                     print(error_desc['must_str'].format('if_field'), file=out)
                     return False
-            if not 'if_value' in node and node['if_condition'] != "exi":  # exi doesnt need a value
+            if 'if_value' not in node and node['if_condition'] != "exi":  # exi doesnt need a value
                 print(error_desc['if_need_value'], file=out)
                 return False
             if 'if_value' in node:

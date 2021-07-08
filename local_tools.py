@@ -21,6 +21,7 @@
 #
 # @license GPL-3.0-only <https://www.gnu.org/licenses/gpl-3.0.en.html>
 import copy
+import errno
 import math
 import multiprocessing
 import os
@@ -326,7 +327,7 @@ def UpdateWorkOrder(file_path: str, **kwargs: tuple or list) -> dict:
     * overwritting file_paths for the original json or turtle
 
     :param str file_path: file path to a valid work-order.json
-    :param tuple or list kwargs: 'insert' and/or 'update' as tuple, last value is the value for the nested dictionary keys when using update, when using insert n-1 key is the new key and n key the value
+    :param tuple or list kwargs: 'insert' and/or 'update' and/or 'delete' as tuple, last value is the value for the nested dictionary keys when using update, when using insert n-1 key is the new key and n key the value
     :return dict: returns a work order dictionary
     """
     # ! i actively decided against writing a file class for work order
@@ -353,6 +354,11 @@ def UpdateWorkOrder(file_path: str, **kwargs: tuple or list) -> dict:
                 overwritten = AddNestedDictionaryKey(work_order, *insert)
                 if overwritten is True:
                     raise SpchtErrors.WorkOrderInconsitencyError("Cannot overwrite any one file path")
+        if "delete" in kwargs:
+            if isinstance(kwargs['delete'], tuple):
+                kwargs['delete'] = [kwargs['delete']]
+            for deletion in kwargs['delete']:
+                DeleteNestedDictionaryKey(work_order, *deletion)
         with open(file_path, "w") as work_order_file:
             json.dump(work_order, work_order_file, indent=4)
         return work_order
@@ -395,12 +401,32 @@ def AddNestedDictionaryKey(dictionary: dict, *args) -> bool:
                 if value[key].get(args[_]) is not None:
                     overwritten = True
                 value[key][args[_]] = args[_+1]
-                break;
+                break
             else:
                 value = value.get(key)
                 if value is None:
                     raise SpchtErrors.ParameterError(key)
         return overwritten
+    except KeyError as key:
+        raise SpchtErrors.ParameterError(key)
+
+
+def DeleteNestedDictionaryKey(dictionary: dict, *args) -> bool:
+    try:
+        keys = len(args)
+        _ = 0
+        value = dictionary
+        for key in args:
+            _ += 1
+            if _ >= keys:
+                if value.pop(key, None) is not None:  # pop returns the popped value which should be truthy
+                    return True
+                else:
+                    return False
+            else:
+                value = value.get(key)
+                if value is None:
+                    raise SpchtErrors.ParameterError(key)
     except KeyError as key:
         raise SpchtErrors.ParameterError(key)
 
@@ -430,7 +456,7 @@ def CheckWorkOrder(work_order_file: str):
                    "intermediate process finished",  # * 6
                    "inserting started",  # *  7
                    "insert completed/finished",  # * 8
-                   "fullfilled") # * 9
+                   "fullfilled")  # * 9
     time_infos = ("processing", "insert")
     try:
         extremes = {"min_processing": None, "max_processing": None,
@@ -636,14 +662,17 @@ def UseWorkOrder(work_order_file, deep_check = False, repair_mode = False, **kwa
                         msg = "Sparql based insert operation failed"
                         logging.error(msg)
                         print(f"{msg}{boiler_print}")
-            if work_order['meta']['status'] == 6:  # inserting started
-                return 6
-            if work_order['meta']['status'] == 7:  # inserting completed
-                # * cleanup period
+            if work_order['meta']['status'] == 7:  # inserting started
                 return 7
-            if work_order['meta']['status'] == 8:  # fulfilled, cleanup done
+            if work_order['meta']['status'] == 8:  # inserting completed
+                if CleanUpWorkOrder(work_order_file):
+                    UpdateWorkOrder(work_order_file, update=("meta", "status", 9))
+                    return 9
+                else:
+                    return 8  # ! this is not all that helpful, like you "cast" this on status 8 and get back status 8, wow
+            if work_order['meta']['status'] == 9:  # fulfilled, cleanup done
                 # * do nothing, order finished
-                return 8
+                return 9
 
         except KeyError as key:
             logger.error(f"The supplied json file doesnt appear to have the needed data, '{key}' was missing")
@@ -736,6 +765,7 @@ def FetchWorkOrderSolr(work_order_file: str,
                        chunk_size=10000,
                        spcht_object=None,
                        save_folder="./",
+                       force = False,
                        **kwargs):
     # ! some checks for the cli usage
     if not os.path.exists(work_order_file):
@@ -751,7 +781,7 @@ def FetchWorkOrderSolr(work_order_file: str,
     # Work Order things:
     work_order = load_from_json(work_order_file)
     # ! Check meta status informations
-    if work_order['meta']['status'] > 1:
+    if work_order['meta']['status'] > 1 and not force:
         logging.error("Status of work order file is not 1, file is beyond first step and cannot be processed by Solr order")
         return False
 
@@ -832,15 +862,20 @@ def FetchWorkOrderSolr(work_order_file: str,
         logger.info(f"Process was interrupted by user interaction")
         return False
     except OSError as e:
-        logger.info(f"Encountered OSError {e}")
-        return False
+        if e.errno == errno.ENOSPC: # ! i am quite sure that i could not even write log files in this case
+            logging.critical("Device Disc reached its limits")
+            print("Disc space full", filename=sys.stderr)
+            exit(9)
+        else:
+            logger.info(f"Encountered OSError {e.errno}")
+            return False
 
     print(f"Overall Solr fetch executiontime was {delta_now(start_time, 3)} seconds")
     logger.info(f"Overall Executiontime was {delta_now(start_time, 3)} seconds")
     return True
 
 
-def FulfillProcessingOrder(work_order_file: str, graph: str, spcht_object: Spcht, **kwargs):
+def FulfillProcessingOrder(work_order_file: str, graph: str, spcht_object: Spcht, force = False, **kwargs):
     """
     Processes all raw data files specified in the work order file list
     :param str work_order_file: filename of a work order file
@@ -871,10 +906,10 @@ def FulfillProcessingOrder(work_order_file: str, graph: str, spcht_object: Spcht
         # i question my decision to actually use files of any kind as transaction log
         work_order0 = load_from_json(work_order_file)
         # ! work file specific parameter check
-        if work_order0['meta']['status'] < 1:
+        if work_order0['meta']['status'] < 1 and not force:
             logging.error("Given order file is below status 0, probably lacks data anyway, cannot proceed")
             return False
-        if work_order0['meta']['status'] > 3:
+        if work_order0['meta']['status'] > 3 and not force:
             logging.error("Given order file is above status 3, is already fully processed, cannot proceed")
             return False
         work_order = work_order0
@@ -928,6 +963,7 @@ def FulfillISqlOrder(work_order_file: str,
                      named_graph: str,
                      isql_port=1111,
                      virt_folder="/tmp/",
+                     force = False,
                      **kwargs):  # ! random kwarg is so i can enter more stuff than necessary that can be ignored
     """
     This utilizes the virtuoso bulk loader enginer to insert the previously processed data into the
@@ -950,10 +986,10 @@ def FulfillISqlOrder(work_order_file: str,
     """
     try:
         work_order0 = load_from_json(work_order_file)
-        if work_order0['meta']['status'] < 4:
+        if work_order0['meta']['status'] < 4 and not force:
             logging.error("Order hast a status below 4 and might be not fully procssed or fetch, aborting")
             return False
-        if work_order0['meta']['status'] > 8:
+        if work_order0['meta']['status'] > 8 and not force:
             logging.error("This work orders status indicates that its already done, aborting.")
             return False
         work_order = work_order0
@@ -986,11 +1022,11 @@ def FulfillISqlOrder(work_order_file: str,
     return True
 
 
-def IntermediateStepSparqlDelete(work_order_file: str, sparql_endpoint: str, user: str, password: str, named_graph: str, **kwargs):
+def IntermediateStepSparqlDelete(work_order_file: str, sparql_endpoint: str, user: str, password: str, named_graph: str, force = False, **kwargs):
     # f"WITH <named_graph> DELETE { <subject> ?p ?o } WHERE { <subject> ?p ?o }
     try:
         work_order0 = load_from_json(work_order_file)
-        if work_order0['meta']['status'] != 5:
+        if work_order0['meta']['status'] != 5 and not force:
             logging.error("Order has to be on status 5 when using IntermediateStepSparqlDelete")
             return False
         if work_order0['meta']['type'] != "update":
@@ -1041,15 +1077,16 @@ def FulfillSparqlInsertOrder(work_order_file: str,
                              user: str,
                              password: str,
                              named_graph: str,
+                             force = False,
                              **kwargs):
     # WITH GRAPH_IRI INSERT { bla } WHERE {};
     SPARQL_CHUNK = 50
     try:
         work_order0 = load_from_json(work_order_file)
-        if work_order0['meta']['status'] < 4:
+        if work_order0['meta']['status'] < 4 and not force:
             logging.error("Order hast a status below 4 and might be not fully procssed or fetch, aborting")
             return False
-        if work_order0['meta']['status'] > 8:
+        if work_order0['meta']['status'] > 8 and not force:
             logging.error("This work orders status indicates that its already done, aborting.")
             return False
         if work_order0['meta']['method'] != "sparql":
@@ -1102,3 +1139,63 @@ def FulfillSparqlInsertOrder(work_order_file: str,
     except xml.parsers.expat.ExpatError as e:
         logger.error(f"Parsing of triple file failed: {e}")
         return False
+
+
+def CleanUpWorkOrder(work_order_filename: str, force = False):
+    """
+    Removes all files referenced in the work order file from the filesystem if the processing state
+    necessary is reached
+    :param str work_order_filename:
+    :return: True if everything went smoothly
+    :raises: Exceptions...TODO
+    """
+    known_files = ('file', 'rdf_file')
+    try:
+        work_order_0 = load_from_json(work_order_filename)
+        # ? Work Order Status 8 - Inserting done, this achieves Step 9 "Clean up done"
+        if work_order_0['meta']['status'] < 7 and not force:
+            logging.error("Status of order indicates fulfillment, aborting.")
+            return False
+        if work_order_0['meta']['status'] > 8 and not force:
+            logging.error("Status of order indicates fulfillment, aborting.")
+            return False
+        work_order = work_order_0
+        _ = 0
+        for key in work_order_0['file_list']:
+            # * for each entry in the part list
+            if work_order_0['file_list'][key]['status'] == 8:
+                wo_update = []  # i could just call update work order twice
+                for fileattr in known_files:
+                    # * slightly complicated method to allow for more files (for whatever reason)
+                    one_file = work_order_0['file_list'][key].get(fileattr)
+
+                    if one_file:
+                        try:
+                            os.remove(one_file)
+                            wo_update.append(('file_list', key, fileattr))
+                        except OSError as e:
+                            if e.errno == errno.ENOENT:
+                                logging.info(
+                                    f"Removing of '{fileattr}' failed cause the referenced file '{one_file}' ALREADY GONE")
+                            elif e.errno == errno.EPERM or e.errno == errno.EACCES:
+                                logging.info(
+                                    f"Removing of '{fileattr}' failed cause ACCESS to the referenced file '{one_file}' is not possible")
+                            elif e.errno == errno.EISDIR:
+                                logging.info(
+                                    f"Removing of '{fileattr}' failed cause the referenced file '{one_file}' is a DIRECTORY")
+                            else:
+                                logging.error(f"Generic, unexpected error while deleting '{fileattr}', filename '{one_file}'")
+                if len(wo_update) > 0:
+                    work_order = UpdateWorkOrder(work_order_filename, delete=wo_update, update=('file_list', key, 'status', 9))
+                else:
+                    logging.error(f"On Cleaup of {work_order_filename}:{key} nothing could be deleted, status remained on 8")
+                # funny, in the end i do nothing with the work order cause the action was to handle the work order, not
+                # doing things. Twisted sense of humour
+        return True
+        # ? it might be an idea to actually update the meta data status as well but i did in all the other functions so
+        # ? that that value is explicitly handled by another function
+
+    except KeyError as key:
+        print(f"Key Missing {key}")
+        return False
+

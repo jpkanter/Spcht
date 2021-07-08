@@ -760,17 +760,19 @@ if __name__ == "__main__":
                     print(f"\t{colored(avery, attrs=['bold'])} - {colored(arguments[avery]['help'], 'green')}")
                 exit(1)
 
-        if 'spcht_descriptor' in PARA:
-            seagull = Spcht(PARA['spcht_descriptor'])
-            if seagull._DESCRI is None:
-                print("Spcht loading failed")
-                exit(1)
+        seagull = Spcht(PARA['spcht_descriptor'])
+        if seagull._DESCRI is None:
+            print("Spcht loading failed")
+            exit(1)
             PARA['spcht_object'] = seagull
         try:
+            old_res = 0
             work_order = local_tools.CreateWorkOrder(par[0], par[1], par[2], par[3])
             print("Starting new FullOrder, this might take a long while, see log and worker file for progress")
             print(f"Work order file: '{work_order}'")
             for i in range(0, 6):
+                if i > 0:
+                    old_res = res
                 res = local_tools.UseWorkOrder(work_order, **PARA)
                 if not isinstance(res, int):
                     print(colored("This should not have been happened, inform creator of this tool", "red"))
@@ -778,7 +780,7 @@ if __name__ == "__main__":
                     for avery in res:
                         print(f"\t{colored(avery, attrs=['bold'])} - {colored(arguments[avery]['help'], 'green')}")
                     break
-                if res == 8:
+                if res == 9 or old_res == res:
                     print("Operation finished successfully")
                     exit(0)
         except KeyboardInterrupt:
