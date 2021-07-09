@@ -4,20 +4,20 @@
 # Copyright 2021 by Leipzig University Library, http://ub.uni-leipzig.de
 #                   JP Kanter, <kanter@ub.uni-leipzig.de>
 #
-# This file is part of some open source application.
+# This file is part of the Solr2Triplestore Tool.
 #
-# Some open source application is free software: you can redistribute
+# This program is free software: you can redistribute
 # it and/or modify it under the terms of the GNU General Public
 # License as published by the Free Software Foundation, either
 # version 3 of the License, or (at your option) any later version.
 #
-# Some open source application is distributed in the hope that it will
+# This program is distributed in the hope that it will
 # be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
 # of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with Foobar.  If not, see <http://www.gnu.org/licenses/>.
+# along with Solr2Triplestore Tool.  If not, see <http://www.gnu.org/licenses/>.
 #
 # @license GPL-3.0-only <https://www.gnu.org/licenses/gpl-3.0.en.html>
 
@@ -581,7 +581,7 @@ if __name__ == "__main__":
 
     simple_parameters = ["work_order_file", "solr_url", "query", "chunk_size", "total_rows", "spcht_descriptor", "save_folder",
                          "graph", "named_graph", "isql_path", "user", "password", "virt_folder", "sparql_endpoint"]
-    default_parameters = ["chunk_size", "total_rows", "isql_port"] # ? default would overwrite config settings
+    default_parameters = ["chunk_size", "total_rows", "isql_port", "save_folder"]  # ? default would overwrite config file settings
 
     for arg in vars(args):
         if arg in simple_parameters and getattr(args, arg) is not None:
@@ -782,6 +782,7 @@ if __name__ == "__main__":
                     break
                 if res == 9 or old_res == res:
                     print("Operation finished successfully")
+                    local_tools.CheckWorkOrder(work_order)
                     exit(0)
         except KeyboardInterrupt:
             print("Aborted, FILL TEXT HERE ALAN")
