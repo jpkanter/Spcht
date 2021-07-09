@@ -66,7 +66,7 @@ def load_config(file_path="config.json"):
     """
     expected_settings = ("solr_url", "query", "total_rows", "chunk_size", "spcht_path", "save_folder",
                          "graph", "named_graph", "isql_path", "user", "password", "isql_port", "virt_folder",
-                         "processes", "sparql_endpoint", "spcht_descriptor")
+                         "processes", "sparql_endpoint", "spcht_descriptor", "max_age")
     config_dict = load_from_json(file_path)
     if not config_dict:
         return False
@@ -383,6 +383,11 @@ if __name__ == "__main__":
                 "help": "Size of a single chunk, determines the number of queries",
                 "default": 5000,
             },
+        "max_age":
+            {
+                "type": int,
+                "help": "Maximum age of a given entry in the source database, used for update operations as filter",
+            },
         "spcht_descriptor":
             {
                 "type": str,
@@ -514,6 +519,17 @@ if __name__ == "__main__":
             {
                 "action": "store_true",
                 "help": "Prints all variables"
+            },
+        "force":
+            {
+                "action": "store_true",
+                "help": "Ignores security checks in work order execution like only proceeding when the right meta status is present"
+            },
+        "CleanUp":
+            {
+                "type": str,
+                "help": "Deletes all temporary files of a given work order.",
+                "metavar": ("work_order_file")
             }
     }
 
@@ -580,7 +596,7 @@ if __name__ == "__main__":
             print("Config file loaded")
 
     simple_parameters = ["work_order_file", "solr_url", "query", "chunk_size", "total_rows", "spcht_descriptor", "save_folder",
-                         "graph", "named_graph", "isql_path", "user", "password", "virt_folder", "sparql_endpoint"]
+                         "graph", "named_graph", "isql_path", "user", "password", "virt_folder", "sparql_endpoint", "force"]
     default_parameters = ["chunk_size", "total_rows", "isql_port", "save_folder"]  # ? default would overwrite config file settings
 
     for arg in vars(args):
@@ -725,6 +741,8 @@ if __name__ == "__main__":
         if par[2].lower() == "insert" or par[2].lower() == "update":
             dynamic_requirements.append("spcht_descriptor")
             dynamic_requirements.append("graph")
+            if par[2].lower() == "update":
+                dynamic_requirements.append("max_age")
         else:
             print(colored("Only processing types 'update' and 'insert' are allowed"))
         if par[2].lower() == "update":
@@ -774,12 +792,16 @@ if __name__ == "__main__":
                 if i > 0:
                     old_res = res
                 res = local_tools.UseWorkOrder(work_order, **PARA)
-                if not isinstance(res, int):
+                if isinstance(res, list):  # means a list was returned that specifies needed parameters
                     print(colored("This should not have been happened, inform creator of this tool", "red"))
+                    # this should not have had happen cause we already checked for all parameters
                     print("Fulfillment of current Work order status needs further parameters:")
                     for avery in res:
                         print(f"\t{colored(avery, attrs=['bold'])} - {colored(arguments[avery]['help'], 'green')}")
                     break
+                elif not isinstance(res, list) and not isinstance(res, int):
+                    print("Process encountered a critical, unexpected situation, aborting", file=sys.stderr)
+                    exit(0)
                 if res == 9 or old_res == res:
                     print("Operation finished successfully")
                     local_tools.CheckWorkOrder(work_order)
@@ -802,6 +824,12 @@ if __name__ == "__main__":
                 print(f"\t{keys:<12}\t{'*'*12}")
             else:
                 print(f"\t{keys:<12}\t{PARA[keys]}")
+
+    if args.CleanUp:
+        if local_tools.CleanUpWorkOrder(args.CleanUp, **PARA):
+            print("Clean up sequence finished successfully")
+        else:
+            print("Clean up sequence encountered an error and might be not fully finished")
 
     # ! UpdateProcess - in parts a copy of full process
     if args.UpdateData:

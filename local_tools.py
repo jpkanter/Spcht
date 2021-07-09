@@ -134,7 +134,7 @@ def sparqlQuery(sparql_query, base_url, get_format="application/json", **kwargs)
         "fname": ""
     }
     if "named_graph" in kwargs:
-        params['default-graph'] = kwargs['named_graph']
+        params['default-graph-uri'] = kwargs['named_graph']
     try:
         if kwargs.get("auth", False) and kwargs.get("pwd", False):
             # response = requests.get(base_url, auth=HTTPDigestAuth(kwargs.get("auth"), kwargs.get("pwd")), params=params)
@@ -368,6 +368,13 @@ def UpdateWorkOrder(file_path: str, **kwargs: tuple or list) -> dict:
 
 
 def UpdateNestedDictionaryKey(dictionary: dict, *args) -> None or any:
+    """
+    Changes the content of a dictionary key in any depth that is specified, if the 'path' does not exist
+    nothing will happen. The last argument will be the new value.
+    :param dict dictionary:
+    :param str args:
+    :return: Boolean operator wether this was succesfull
+    """
     old_value = None
     try:
         keys = len(args)
@@ -390,6 +397,13 @@ def UpdateNestedDictionaryKey(dictionary: dict, *args) -> None or any:
 
 
 def AddNestedDictionaryKey(dictionary: dict, *args) -> bool:
+    """
+    Adds an arbitary key with the value of the last argument to a dictionary, will not create the pathway to that
+    parameter, if the previos keys do not exist nothing will happen
+    :param dict dictionary:
+    :param str args:
+    :return: Boolean operator wether this was succesfull
+    """
     overwritten = False
     try:
         keys = len(args)
@@ -412,6 +426,12 @@ def AddNestedDictionaryKey(dictionary: dict, *args) -> bool:
 
 
 def DeleteNestedDictionaryKey(dictionary: dict, *args) -> bool:
+    """
+    deletes the specified key in the directory that might be in any depth, does nothing if the key does not exist
+    :param dict dictionary:
+    :param str args:
+    :return: Boolean operator wether this was succesfull
+    """
     try:
         keys = len(args)
         _ = 0
@@ -443,11 +463,17 @@ def CheckForParameters(expectations: tuple, **kwargs):
 
 
 def CheckWorkOrder(work_order_file: str):
+    """
+    Crawls all available data in a work order files and writes a summary to stdout, also creates some statistic
+    about how long things needed to process and what the current status of the file is.
+    :param str work_order_file: file path to a work order file
+    :return: Nothing, only displays to console
+    """
     print(work_order_file)
     work_order = load_from_json(work_order_file)
     if work_order is None:
         return False
-    main_status = ("Freshly created", # * 0
+    main_status = ("Freshly created",  # * 0
                    "fetch started",  # *  1
                    "fetch completed",  # * 2
                    "processing started",  # *  3
@@ -457,19 +483,21 @@ def CheckWorkOrder(work_order_file: str):
                    "inserting started",  # *  7
                    "insert completed/finished",  # * 8
                    "fullfilled")  # * 9
-    time_infos = ("processing", "insert")
+    time_infos = ("processing", "insert", "deletion")
     try:
         extremes = {"min_processing": None, "max_processing": None,
                     "min_insert": None, "max_insert": None,
                     "min_all": None, "max_all": None,
-                    "min_solr": None, "max_solr": None}
+                    "min_solr": None, "max_solr": None,
+                    "min_deletion": None, "max_deletion": None}
         if 'solr_start' in work_order['meta']:
             extremes['min_all'] = datetime.fromisoformat(work_order['meta']['solr_start'])
             extremes['min_solr'] = datetime.fromisoformat(work_order['meta']['solr_start'])
         if 'solr_stop' in work_order['meta']:
             extremes['max_all'] = datetime.fromisoformat(work_order['meta']['solr_finish'])
             extremes['max_solr'] = datetime.fromisoformat(work_order['meta']['solr_finish'])
-        counts = { 'rdf_files': 0, 'files': 0, 'un_processing': 0, 'un_insert': 0}
+        counts = {'rdf_files': 0, 'files': 0, 'un_processing': 0, 'un_insert': 0}  # occasions of something
+        counters = {"elements": 0, "triples": 0}  # adding counts of individual fields
         for key in work_order['file_list']:
             # ? why, yes 'for key, item in dict.items()' is a thing
             for method in time_infos:
@@ -485,6 +513,10 @@ def CheckWorkOrder(work_order_file: str):
                         extremes[f'max_{method}'] = temp
                     if extremes[f'max_all'] is None or extremes['max_all'] < temp:
                         extremes[f'max_all'] = temp
+            for property in counters.keys():
+                if property in work_order['file_list'][key]:
+                    if isinstance(work_order['file_list'][key][property], int):
+                        counters[property]+= work_order['file_list'][key][property]
             if 'rdf_file' in work_order['file_list'][key]:
                 counts['rdf_files'] += 1
             if 'file' in work_order['file_list'][key]:
@@ -501,9 +533,15 @@ def CheckWorkOrder(work_order_file: str):
         if counts['un_insert'] > 0:
             print(f"Unfinished inserts:       {counts['un_insert']}")
         print(f"Data retrieval:           {work_order['meta']['fetch']}")
+        if work_order['meta'].get("chunk_size") and work_order['meta'].get("total_rows"):
+            print(f"DL Parameters:            {work_order['meta']['total_rows']} @ {work_order['meta']['chunk_size']} chunks")
         print(f"Processing type:          {work_order['meta']['type']}")
         if 'processing' in work_order['meta']:
             print(f"Multiprocessing, threads: {work_order['meta']['processing']}")
+        if counters['elements'] > 0:
+            print(f"Processed elements:       {counters['elements']}")
+        if counters['triples'] > 0:
+            print(f"Resulting triples:        {counters['triples']}")
         print(f"Insert method:            {work_order['meta']['method']}")
         if counts['files'] > 0:
             print(f"Downloaded files:         {counts['files']}")
@@ -519,7 +557,11 @@ def CheckWorkOrder(work_order_file: str):
             print(f"Download time:            {delta}")
             print(f"From:                     {extremes['min_solr']}")
             print(f"To:                       {extremes['max_solr']}")
-
+        if extremes['min_deletion'] is not None and extremes['max_deletion'] is not None:
+            delta = extremes['max_deletion'] - extremes['min_deletion']
+            print(f"Deletion time:            {delta}")
+            print(f"From:                     {extremes['min_deletion']}")
+            print(f"To:                       {extremes['max_deletion']}")
         if extremes['min_processing'] is not None and extremes['max_processing'] is not None:
             delta = extremes['max_processing'] - extremes['min_processing']
             print(f"Processing time:          {delta}")
@@ -570,13 +612,9 @@ def UseWorkOrder(work_order_file, deep_check = False, repair_mode = False, **kwa
                             "work_order_file", "solr_url", "query", "total_rows", "chunk_size", "spcht_descriptor",
                             "save_folder")
                     missing = CheckForParameters(expected, **kwargs)
-                    if missing is not None:
+                    if missing:
                         return missing
                     # ! process
-                    if 'max_age' in kwargs:  # this means you could technically run a normal insert with max_age
-                        past_time = datetime.now() - timedelta(minutes=kwargs['max_age'])
-                        searchtime = "last_indexed:[" + past_time.strftime("%Y-%m-%dT%H:%M:%SZ") + " TO *]"
-                        kwargs['query'] = f"{kwargs['query']} {searchtime}"
                     UpdateWorkOrder(work_order_file, update=("meta", "status", 1))
                     if FetchWorkOrderSolr(**kwargs):
                         UpdateWorkOrder(work_order_file, update=("meta", "status", 2))
@@ -592,7 +630,7 @@ def UseWorkOrder(work_order_file, deep_check = False, repair_mode = False, **kwa
                 # ! checks
                 expected = ("work_order_file", "spcht_descriptor", "graph")
                 missing = CheckForParameters(expected, **kwargs)
-                if missing is not None:
+                if missing:
                     return missing
                 # ! process
                 logger.info(f"Sorted order '{os.path.basename(work_order_file)}' as method 'insert'")
@@ -610,23 +648,44 @@ def UseWorkOrder(work_order_file, deep_check = False, repair_mode = False, **kwa
             if work_order['meta']['status'] == 4:  # processing done
                 if work_order['meta']['type'] == "insert":
                     UpdateWorkOrder(work_order_file, update=("meta", "status", 6))
-                    return UseWorkOrder(**kwargs) # jumps to the next step, a bit dirty this solution
+                    return UseWorkOrder(**kwargs)  # jumps to the next step, a bit dirty this solution
                 if work_order['meta']['type'] == "update":
-                    # i could emulate sparql calls via isql...
-                    # ! checks
-                    expected = ("work_order_file", "named_graph", "sparql_endpoint", "user", "password")
-                    missing = CheckForParameters(expected, **kwargs)
-                    if missing is not None:
-                        return missing
-                    logger.info(f"Scanned order '{os.path.basename(work_order_file)}' as type 'update', deletion process..")
-                    UpdateWorkOrder(work_order_file, update=("meta", "status", 5))
-                    if IntermediateStepSparqlDelete(**kwargs):
-                        UpdateWorkOrder(work_order_file, update=("meta", "status", 6))
-                        return 6
+                    # ? isql emulates sparql queries in the interface
+                    if work_order['meta']['method'] == "sparql":
+                        # ! checks
+                        expected = ("work_order_file", "named_graph", "sparql_endpoint", "user", "password")
+                        missing = CheckForParameters(expected, **kwargs)
+                        if missing:
+                            return missing
+                        logger.info(f"Scanned order '{os.path.basename(work_order_file)}' as type 'update', deletion process..")
+                        UpdateWorkOrder(work_order_file, update=("meta", "status", 5))
+                        # ! process
+                        if IntermediateStepSparqlDelete(**kwargs):
+                            UpdateWorkOrder(work_order_file, update=("meta", "status", 6))
+                            return 6
+                        else:
+                            msg = "Intermediate deletion step failed"
+                            logging.error(msg)
+                            print(f"{msg}{boiler_print}")
+                    elif work_order['meta']['method'] == "isql":
+                        # ! checks
+                        expected = ("work_order_file", "named_graph", "isql_path", "user", "password")
+                        missing = CheckForParameters(expected, **kwargs)
+                        if missing:
+                            return missing
+                        logger.info(
+                            f"Scanned order '{os.path.basename(work_order_file)}' as type 'update', deletion process..")
+                        UpdateWorkOrder(work_order_file, update=("meta", "status", 5))
+                        # ! process
+                        if IntermediateStepISQLDelete(**kwargs):
+                            UpdateWorkOrder(work_order_file, update=("meta", "status", 6))
+                            return 6
+                        else:
+                            msg = "Intermediate deletion step failed"
+                            logging.error(msg)
+                            print(f"{msg}{boiler_print}")
                     else:
-                        msg = "Intermediate deletion step failed"
-                        logging.error(msg)
-                        print(f"{msg}{boiler_print}")
+                        logger.error(f"Unknown method '{work_order['meta']['method']}' in work order file {work_order_file}")
             if work_order['meta']['status'] == 5:  # intermediate processing started
                 return 5
             if work_order['meta']['status'] == 6:  # intermediate processing done
@@ -634,7 +693,7 @@ def UseWorkOrder(work_order_file, deep_check = False, repair_mode = False, **kwa
                     # ! checks
                     expected = ("work_order_file", "named_graph", "isql_path", "user", "password", "virt_folder")
                     missing = CheckForParameters(expected, **kwargs)
-                    if missing is not None:
+                    if missing:
                         return missing
                     # ! process
                     logger.info(f"Sorted order '{os.path.basename(work_order_file)}' with method 'isql'")
@@ -650,7 +709,7 @@ def UseWorkOrder(work_order_file, deep_check = False, repair_mode = False, **kwa
                     # ! checks
                     expected = ("work_order_file", "named_graph", "sparql_endpoint", "user", "password")
                     missing = CheckForParameters(expected, **kwargs)
-                    if missing is not None:
+                    if missing:
                         return missing
                     # ! process
                     logger.info(f"Sorted order '{os.path.basename(work_order_file)}' with method 'sparql'")
@@ -665,7 +724,7 @@ def UseWorkOrder(work_order_file, deep_check = False, repair_mode = False, **kwa
             if work_order['meta']['status'] == 7:  # inserting started
                 return 7
             if work_order['meta']['status'] == 8:  # inserting completed
-                if CleanUpWorkOrder(work_order_file):
+                if CleanUpWorkOrder(work_order_file, **kwargs):
                     UpdateWorkOrder(work_order_file, update=("meta", "status", 9))
                     return 9
                 else:
@@ -678,7 +737,14 @@ def UseWorkOrder(work_order_file, deep_check = False, repair_mode = False, **kwa
             logger.error(f"The supplied json file doesnt appear to have the needed data, '{key}' was missing")
 
 
-def ProcessOrderMultiCore(work_order_file, **kwargs):
+def ProcessOrderMultiCore(work_order_file: str, **kwargs):
+    """
+    Spawns multiple instances of FulfillProcessingOrder to utilize multiple cores when processing data
+    :param str work_order_file:
+    :type work_order_file:
+    :param kwargs:
+    :rtype: returns nothing ever
+    """
     if 'processes' not in kwargs:
         raise SpchtErrors.WorkOrderInconsitencyError("Cannot call multi core process without defined 'processes' parameter")
     if not isinstance(kwargs['processes'], int):
@@ -760,13 +826,27 @@ def CreateWorkOrder(order_name, fetch: str, typus: str, method: str, **kwargs):
 
 def FetchWorkOrderSolr(work_order_file: str,
                        solr_url: str,
-                       query="*",
+                       query="*:*",
                        total_rows=50000,
                        chunk_size=10000,
                        spcht_object=None,
                        save_folder="./",
                        force = False,
                        **kwargs):
+    """
+
+    :param str work_order_file: filename of a work order file
+    :param str solr_url: url to an apache solr endpoint, for example: http://<fqdn>/solr/biblio/select
+    :param str query: query for the solr '*:*' fetches everything
+    :param int total_rows: total amount of featcheable rows, if rows > available rows it will gracefully exit after expending the database
+    :param int chunk_size: size per chunk and file in entries
+    :param Spcht spcht_object: ready loaded Spcht object, optional, used to limit amount of fetched data
+    :param str save_folder: folder where temporary files are saved
+    :param bool force: if true, will ignore security checks like order status
+    :param kwargs:
+    :return: True if everything went well, False if something happened
+    :rtype: bool
+    """
     # ! some checks for the cli usage
     if not os.path.exists(work_order_file):
         print("Work order does not exists")
@@ -810,10 +890,18 @@ def FetchWorkOrderSolr(work_order_file: str,
         parameters['fl'] = parameters['fl'][:-1]
         logger.info(f"Using filtered field list: {parameters['fl']}")
 
+    if 'max_age' in kwargs:  # this means you could technically run a normal insert with max_age
+        past_time = datetime.now() - timedelta(minutes=kwargs['max_age'])
+        logging.info(
+            f"maximum age parameter detected in solr fetch, limiting age of entries to everything younger than {past_time.strftime('%Y-%m-%dT%H:%M:%SZ')}")
+        searchtime = "last_indexed:[" + past_time.strftime("%Y-%m-%dT%H:%M:%SZ") + " TO *]"
+        parameters['q'] = f"{parameters['q']} {searchtime}"
+
     base_path = os.path.join(os.getcwd(), save_folder)
     start_time = time.time()
     logger.info(f"Starting solrdump-like process - Time Zero: {start_time}")
     logger.info(f"Solr Source is {solr_url}")
+    #logger.info(f"Solr query is {parameters['q']}")
     logger.info(f"Calculated {n} chunks of a total of {total_rows} entries with a chunk size of {chunk_size}")
     logger.info(f"Start Loading Remote chunks - {delta_now(start_time)}")
     UpdateWorkOrder(work_order_file, insert=("meta", "solr_start", datetime.now().isoformat()))
@@ -1022,7 +1110,19 @@ def FulfillISqlOrder(work_order_file: str,
     return True
 
 
-def IntermediateStepSparqlDelete(work_order_file: str, sparql_endpoint: str, user: str, password: str, named_graph: str, force = False, **kwargs):
+def IntermediateStepSparqlDelete(work_order_file: str, sparql_endpoint: str, user: str, password: str, named_graph: str, force=False, **kwargs):
+    """
+    Deletes all data that has the same subject as any data found in the processed turtle files, uses the sparql interfaced directly
+    :param str work_order_file: file path to a work order file
+    :param str sparql_endpoint: endpoint for an authenticated sparql interface, the one of virtuoso is /sparql-auth
+    :param str user: user for the sparql interface
+    :param str password: plain text password for the sparql interface, deleting things is an elevated process
+    :param str named_graph: fourth part of the triple where the data resides and will be removed
+    :param bool force: if true, will ignore security checks like status
+    :param kwargs: additional parameters that all will be ignored but allow the function of the work order principle
+    :return: True if everything went well and False if something happened
+    :rtype: bool
+    """
     # f"WITH <named_graph> DELETE { <subject> ?p ?o } WHERE { <subject> ?p ?o }
     try:
         work_order0 = load_from_json(work_order_file)
@@ -1036,6 +1136,8 @@ def IntermediateStepSparqlDelete(work_order_file: str, sparql_endpoint: str, use
         work_order = work_order0
         for key in work_order0['file_list']:
             if work_order['file_list'][key]['status'] == 4:
+                logging.info(
+                    f"Deleting old entries that match new entries of {work_order['file_list'][key]['rdf_file']}")
                 work_order = UpdateWorkOrder(work_order_file,
                                              update=('file_list', key, 'status', 5),
                                              insert=('file_list', key, 'deletion_start', datetime.now().isoformat()))
@@ -1045,7 +1147,7 @@ def IntermediateStepSparqlDelete(work_order_file: str, sparql_endpoint: str, use
                 triples = ""
                 for evelyn in that_graph.subjects():  # the every word plays continue
                     triples = f"<{evelyn}> ?p ?o. "
-                    query = f"WITH <{named_graph}> DELETE WHERE {{ {triples} }}"
+                    query = f"WITH <{named_graph}> DELETE {{ {triples} }} WHERE {{ {triples} }}"
                     # * this poses as a major bottleneck as the separate http requests take most of the time for this
                     # * process, i looked into it and apparently there is no easy way to delete a lot of lines with
                     # * sparql cause its technically a read-only language and this whole update/delete shebang seems
@@ -1066,8 +1168,55 @@ def IntermediateStepSparqlDelete(work_order_file: str, sparql_endpoint: str, use
     except FileNotFoundError as file:
         logger.error(f"Cannot find file {file}")
         return False
-    except xml.parsers.expat.ExpatError as e:  # rdflib exception for .parse
-        logger.error(f"Parsing of triple file failed: {e}")
+    return True
+
+
+def IntermediateStepISQLDelete(work_order_file: str, isql_path: str, user: str, password: str, named_graph: str, isql_port=1111, force=False, **kwargs):
+    """
+    Deletes all data that has the same subject as any data found in the processed turtle files. Actually uses sparql
+    to fulfill its function but uses those via the isql interface of virtuoso, needs appropriate rights.
+    :param str work_order_file: file path to a work order file
+    :param str isql_path: path to the isql interface of virtuoso
+    :param str user: user for the isql interface
+    :param str password: plain text password for the isql interface, deleting things is an elevated process
+    :param str named_graph: fourth part of the triple where the data resides and will be removed
+    :param int isql_port: port on which the database server for the isql
+    :param bool force: if true, will ignore security checks like status
+    :param kwargs: additional parameters that all will be ignored but allow the function of the work order principle
+    :return: True if everything went well and False if something happened
+    :rtype: bool
+    """
+    try:
+        work_order0 = load_from_json(work_order_file)
+        if work_order0['meta']['status'] != 5 and not force:
+            logging.error("Order has to be on status 5 when using IntermediateStepSparqlDelete")
+            return False
+        if work_order0['meta']['type'] != "update":
+            logging.error(f"Insert type must be 'update' for IntermediateStepSparqlDelete, but is '{work_order0['meta']['type']}'")
+            return False
+        work_order = work_order0
+        for key in work_order0['file_list']:
+            if work_order['file_list'][key]['status'] == 4:
+                logging.info(f"Deleting old entries that match new entries of {work_order['file_list'][key]['rdf_file']}")
+                work_order = UpdateWorkOrder(work_order_file,
+                                             update=('file_list', key, 'status', 5),
+                                             insert=('file_list', key, 'deletion_start', datetime.now().isoformat()))
+                f_path = work_order['file_list'][key]['rdf_file']
+                that_graph = rdflib.Graph()
+                that_graph.parse(f_path, format="turtle")
+                for evelyn in that_graph.subjects():  # the every word plays continue
+                    triples = f"<{evelyn}> ?p ?o. "
+                    query = f"WITH <{named_graph}> DELETE WHERE {{ {triples} }}"
+                    # ? when using this you can actually delete without specifying after the DELETE clause, weird
+                    subprocess.call([isql_path, str(isql_port), user, password, "VERBOSE=OFF", f"EXEC=sparql {query};"])
+                work_order = UpdateWorkOrder(work_order_file, update=('file_list', key, 'status', 6),
+                                             insert=('file_list', key, 'deletion_finish', datetime.now().isoformat()))
+    # ? boilerplate code from sparql insert
+    except KeyError as foreign_key:
+        logger.error(f"Missing key in work order: '{foreign_key}'")
+        return False
+    except FileNotFoundError as file:
+        logger.error(f"Cannot find file {file}")
         return False
     return True
 
@@ -1079,6 +1228,19 @@ def FulfillSparqlInsertOrder(work_order_file: str,
                              named_graph: str,
                              force = False,
                              **kwargs):
+    """
+    Inserts read data from the processed turtle files in the triplestore, this should work regardless of what kind of
+    triplestore you are utilising.
+    :param str work_order_file: file path to a work order file
+    :param str sparql_endpoint: endpoint for an authenticated sparql interface, the one of virtuoso is /sparql-auth
+    :param str user: user for the sparql interface
+    :param str password: plain text password for the sparql interface, inserting things is an elevated process
+    :param str named_graph: fourth part of the triple where the data resides and will be removed
+    :param bool force: if true, will ignore security checks like status
+    :param kwargs: arbitary, additional parameters that all will be ignored
+    :return: True if everything went well and False if something happened
+    :rtype: bool
+    """
     # WITH GRAPH_IRI INSERT { bla } WHERE {};
     SPARQL_CHUNK = 50
     try:
@@ -1130,6 +1292,7 @@ def FulfillSparqlInsertOrder(work_order_file: str,
                                 named_graph=named_graph
                                 )
                 work_order = UpdateWorkOrder(work_order_file, update=('file_list', key, 'status', 8), insert=('file_list', key, 'insert_finish', datetime.now().isoformat()))
+        return True
     except KeyError as foreign_key:
         logger.error(f"Missing key in work order: '{foreign_key}'")
         return False
@@ -1141,15 +1304,16 @@ def FulfillSparqlInsertOrder(work_order_file: str,
         return False
 
 
-def CleanUpWorkOrder(work_order_filename: str, force = False):
+def CleanUpWorkOrder(work_order_filename: str, force = False, **kwargs):
     """
     Removes all files referenced in the work order file from the filesystem if the processing state
     necessary is reached
     :param str work_order_filename:
-    :return: True if everything went smoothly
-    :raises: Exceptions...TODO
+    :return: True if everything went smoothly, False if not.
     """
     known_files = ('file', 'rdf_file')
+    if force:
+        logging.info("Force mode detected, will delete everything regardless of status")
     try:
         work_order_0 = load_from_json(work_order_filename)
         # ? Work Order Status 8 - Inserting done, this achieves Step 9 "Clean up done"
@@ -1163,7 +1327,7 @@ def CleanUpWorkOrder(work_order_filename: str, force = False):
         _ = 0
         for key in work_order_0['file_list']:
             # * for each entry in the part list
-            if work_order_0['file_list'][key]['status'] == 8:
+            if work_order_0['file_list'][key]['status'] == 8 or force:
                 wo_update = []  # i could just call update work order twice
                 for fileattr in known_files:
                     # * slightly complicated method to allow for more files (for whatever reason)

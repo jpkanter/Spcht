@@ -13,5 +13,6 @@
     "virt_folder": "/tmp/",
     "isql_path": "/usr/local/bin/isql-v",
     "isql_port": 1111,
-    "processes": 4
+    "processes": 4,
+    "max_age": 5600
 }
