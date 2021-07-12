@@ -483,20 +483,23 @@ def CheckWorkOrder(work_order_file: str):
                    "inserting started",  # *  7
                    "insert completed/finished",  # * 8
                    "fullfilled")  # * 9
-    time_infos = ("processing", "insert", "deletion")
+    time_infos = ("processing", "insert", "deletion", "solr")
     try:
         extremes = {"min_processing": None, "max_processing": None,
                     "min_insert": None, "max_insert": None,
                     "min_all": None, "max_all": None,
                     "min_solr": None, "max_solr": None,
                     "min_deletion": None, "max_deletion": None}
+        linear_delta = timedelta(seconds=0)  # the linear time needed to execute everything, due parallel processing this can be longer than the actual time that was needed
         if 'solr_start' in work_order['meta']:
             extremes['min_all'] = datetime.fromisoformat(work_order['meta']['solr_start'])
             extremes['min_solr'] = datetime.fromisoformat(work_order['meta']['solr_start'])
         if 'solr_stop' in work_order['meta']:
             extremes['max_all'] = datetime.fromisoformat(work_order['meta']['solr_finish'])
             extremes['max_solr'] = datetime.fromisoformat(work_order['meta']['solr_finish'])
-        counts = {'rdf_files': 0, 'files': 0, 'un_processing': 0, 'un_insert': 0}  # occasions of something
+        if 'solr_start' in work_order['meta'] and 'solr_stop' in work_order['meta']:
+            linear_delta+= extremes['max_solr'] - extremes['min_solr']
+        counts = {'rdf_files': 0, 'files': 0, 'un_processing': 0, 'un_insert': 0, 'un_intermediate': 0}  # occasions of something
         counters = {"elements": 0, "triples": 0}  # adding counts of individual fields
         for key in work_order['file_list']:
             # ? why, yes 'for key, item in dict.items()' is a thing
@@ -513,6 +516,8 @@ def CheckWorkOrder(work_order_file: str):
                         extremes[f'max_{method}'] = temp
                     if extremes[f'max_all'] is None or extremes['max_all'] < temp:
                         extremes[f'max_all'] = temp
+                if f'{method}_start' in work_order['file_list'][key] and f'{method}_finish' in work_order['file_list'][key]:
+                    linear_delta += extremes[f'max_{method}'] - extremes[f'min_{method}']
             for property in counters.keys():
                 if property in work_order['file_list'][key]:
                     if isinstance(work_order['file_list'][key][property], int):
@@ -521,17 +526,20 @@ def CheckWorkOrder(work_order_file: str):
                 counts['rdf_files'] += 1
             if 'file' in work_order['file_list'][key]:
                 counts['files'] += 1
-            if work_order['file_list'][key]['status'] == 2:
+            if work_order['file_list'][key]['status'] == 3:
                 counts['un_processing'] += 1
-            if work_order['file_list'][key]['status'] == 4:
+            if work_order['file_list'][key]['status'] == 5:
+                counts['un_intermediate'] += 1
+            if work_order['file_list'][key]['status'] == 7:
                 counts['un_insert'] += 1
-
         print("+++++++++++++++++++WORK ORDER INFO++++++++++++++++++")
         print(f"Current status:           {main_status[work_order['meta']['status']]}")
         if counts['un_processing'] > 0:
             print(f"Unfinished processing:    {counts['un_processing']}")
         if counts['un_insert'] > 0:
             print(f"Unfinished inserts:       {counts['un_insert']}")
+        if counts['un_intermediate'] > 0:
+            print(f"Unfinished intermediate:  {counts['un_insert']}")
         print(f"Data retrieval:           {work_order['meta']['fetch']}")
         if work_order['meta'].get("chunk_size") and work_order['meta'].get("total_rows"):
             print(f"DL Parameters:            {work_order['meta']['total_rows']} @ {work_order['meta']['chunk_size']} chunks")
@@ -549,7 +557,17 @@ def CheckWorkOrder(work_order_file: str):
             print(f"Processed files:          {counts['rdf_files']}")
         if extremes['min_all'] is not None and extremes['max_all'] is not None:
             delta = extremes['max_all'] - extremes['min_all']
+            delta2 = None
+            for averice in time_infos:
+                if extremes[f'min_{averice}'] is not None and extremes[f'max_{averice}'] is not None:
+                    if delta2 is None:
+                        delta2 = extremes[f'max_{averice}']-extremes[f'min_{averice}']
+                    else:   # ? this insulates against some weird edge case i dont even know, why i am doing this?
+                        delta2+= extremes[f'max_{averice}']-extremes[f'min_{averice}']
             print(f"Total execution time:     {delta}")
+            if delta2:
+                print(f"Relative execution time:  {delta2}")
+            print(f"Linear execution time:    {linear_delta}")
             print(f"From:                     {extremes['min_all']}")
             print(f"To:                       {extremes['max_all']}")
         if extremes['min_solr'] is not None and extremes['max_solr'] is not None:
