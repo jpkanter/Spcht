@@ -318,7 +318,7 @@ def load_from_json(file_path):
         return None
 
 
-def UpdateWorkOrder(file_path: str, **kwargs: tuple or list) -> dict:
+def UpdateWorkOrder(file_path: str, force=False, **kwargs: tuple or list) -> dict:
     """
     Updates a work order file and does some sanity checks around the whole thing, sanity checks
     involve:
@@ -327,6 +327,7 @@ def UpdateWorkOrder(file_path: str, **kwargs: tuple or list) -> dict:
     * overwritting file_paths for the original json or turtle
 
     :param str file_path: file path to a valid work-order.json
+    :param bool force: ignores checks like a new status being lower than the old one
     :param tuple or list kwargs: 'insert' and/or 'update' and/or 'delete' as tuple, last value is the value for the nested dictionary keys when using update, when using insert n-1 key is the new key and n key the value
     :return dict: returns a work order dictionary
     """
@@ -342,7 +343,8 @@ def UpdateWorkOrder(file_path: str, **kwargs: tuple or list) -> dict:
                 old_value = UpdateNestedDictionaryKey(work_order, *update)
                 if old_value is None:
                     raise SpchtErrors.ParameterError("Couldnt update key")
-                if update[len(update)-2] == "status":
+                # * sanity check
+                if update[len(update)-2] == "status" and not force:
                     if old_value > update[len(update)-1]:
                         raise SpchtErrors.WorkOrderInconsitencyError("New status higher than old one")
         if "insert" in kwargs:
@@ -352,7 +354,8 @@ def UpdateWorkOrder(file_path: str, **kwargs: tuple or list) -> dict:
                 if len(insert) < 3:
                     raise SpchtErrors.ParameterError("Not enough parameters")
                 overwritten = AddNestedDictionaryKey(work_order, *insert)
-                if overwritten is True:
+                # * sanity check
+                if overwritten and not force:
                     raise SpchtErrors.WorkOrderInconsitencyError("Cannot overwrite any one file path")
         if "delete" in kwargs:
             if isinstance(kwargs['delete'], tuple):
@@ -483,6 +486,7 @@ def CheckWorkOrder(work_order_file: str):
                    "inserting started",  # *  7
                    "insert completed/finished",  # * 8
                    "fullfilled")  # * 9
+    # ? surely this could have been a dictionary but it isn't
     time_infos = ("processing", "insert", "deletion", "solr")
     try:
         extremes = {"min_processing": None, "max_processing": None,
@@ -643,6 +647,7 @@ def UseWorkOrder(work_order_file, deep_check = False, repair_mode = False, **kwa
                         print(f"{msg}{boiler_print}")
                         return False
             if work_order['meta']['status'] == 1:  # fetching started
+                # fetch process is not recoverable, need to reset to zero state and start anew
                 return 1
             if work_order['meta']['status'] == 2:  # fetching completed
                 # ! checks
@@ -1322,14 +1327,15 @@ def FulfillSparqlInsertOrder(work_order_file: str,
         return False
 
 
-def CleanUpWorkOrder(work_order_filename: str, force = False, **kwargs):
+def CleanUpWorkOrder(work_order_filename: str, force=False, files=('file', 'rdf_file'), **kwargs):
     """
     Removes all files referenced in the work order file from the filesystem if the processing state
     necessary is reached
-    :param str work_order_filename:
+    :param str work_order_filename: file path to a work order file
+    :param bool force: If set to true disregards meta status checks and deletes everything it touches
+    :param files: dictionary keys in the 'file_list' part that get deleted
     :return: True if everything went smoothly, False if not.
     """
-    known_files = ('file', 'rdf_file')
     if force:
         logging.info("Force mode detected, will delete everything regardless of status")
     try:
@@ -1347,7 +1353,7 @@ def CleanUpWorkOrder(work_order_filename: str, force = False, **kwargs):
             # * for each entry in the part list
             if work_order_0['file_list'][key]['status'] == 8 or force:
                 wo_update = []  # i could just call update work order twice
-                for fileattr in known_files:
+                for fileattr in files:
                     # * slightly complicated method to allow for more files (for whatever reason)
                     one_file = work_order_0['file_list'][key].get(fileattr)
 
@@ -1378,6 +1384,74 @@ def CleanUpWorkOrder(work_order_filename: str, force = False, **kwargs):
         # ? that that value is explicitly handled by another function
 
     except KeyError as key:
-        print(f"Key Missing {key}")
+        print(f"Key missing {key}")
         return False
 
+
+def HardResetWorkOrder(work_order_file: str, **kwargs):
+    """
+    Resets the work order to the last stable status according to the meta>status position, deletes files and entries
+    relative to that. Like deleting processed files and the timings of that processing
+    :param str work_order_file: file path to a work order file
+    :param kwargs:
+    :return: True if everything was successful
+    :rtype: bool
+    """
+    work_order = load_from_json(work_order_file)
+    try:
+        status = work_order['meta']['status'] # prevents me from writing this a thousand time over..and its cleaner
+        if status == 1:  # downloads are basically unrecoverable cause we dont know how much is missing
+            CleanUpWorkOrder(work_order_file, force=True, files=('rdf_file', 'file'))
+            UpdateWorkOrder(work_order_file,
+                            update=[('file_list', {}), ('meta', 'status', 0)],
+                            delete=[('meta', 'solr_start'), ('meta', 'solr_finish'), ('meta', 'full_download'), ('meta', 'spcht_user')],
+                            force=True)  # sets to empty list
+            # what i dont like is that i have like X+1 file operations but in the grand scheme of things it probably
+            # doesnt matter. There is some thinking of just doing all this in an sqlite database
+            return True
+        if status == 3:  # processing started
+            CleanUpWorkOrder(work_order_file, force=True, files=('rdf_file'))
+            UpdateWorkOrder(work_order_file, update=('meta', 'status', 2))
+            fields = ('processing_start', 'processing_finish', 'elements', 'triples')
+        elif status == 5:  # post-processing started
+            UpdateWorkOrder(work_order_file, update=('meta', 'status', 4))
+            fields = ('deletion_start', 'deletion_finish')
+        elif status == 7:  # inserting started
+            UpdateWorkOrder(work_order_file, update=('meta', 'status', 6))
+            fields = ('insert_start', 'insert_finish')
+        else:
+            print("No resetable status, this defaults to a success")
+            return True
+
+        # * generic field purge
+        if status == 3 or status == 5 or status == 7:
+            work_order0 = load_from_json(work_order_file)  # reload after deleting things
+            work_order = work_order0.copy()
+            for each in work_order['file_list']:
+                for that_field in fields:
+                    work_order0['field_list'][each].pop(that_field, None)
+            with open(work_order_file, "w") as open_file:
+                json.dump(work_order, open_file, indent=4)
+        return True
+    except KeyError as key:
+        print(f"Key missing {key}")
+        return False
+    except OSError:
+        print(f"Generic OSError while reseting work order file")
+        return False
+
+
+def PurgeWorkOrder(work_order_file: str, **kwargs):
+    """
+    Simply resets an existing work order to status 0 by rewriting it
+    :param str work_order_file: file path to a work order file
+    :type kwargs:
+    :return: True if file writing succeeded
+    :rtype: Bool
+    """
+    old_work_order = load_from_json(work_order_file)
+    try:
+        meta = old_work_order['meta']
+        return CreateWorkOrder(work_order_file, meta['fetch'], meta['type'], meta['method'])
+    except KeyError as key:
+        print(f"Key missing {key}")

@@ -45,7 +45,7 @@ from local_tools import super_simple_progress_bar, sleepy_bar, super_simple_prog
 try:
     from termcolor import colored  # only needed for debug print
 except ModuleNotFoundError:
-    def colored(text, *args):
+    def colored(text, *args, **kwargs):
         return text  # throws args away returns non colored text
 from SpchtDescriptorFormat import Spcht
 
