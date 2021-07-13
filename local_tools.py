@@ -48,6 +48,17 @@ logger = logging.getLogger(__name__)
 
 # describes structure of the json response from solr Version 7.3.1 holding the ubl data
 
+WORK_ORDER_STATUS = ("Freshly created",  # * 0
+                   "fetch started",  # *  1
+                   "fetch completed",  # * 2
+                   "processing started",  # *  3
+                   "processing completed",  # *  4
+                   "intermediate process started",  # * 5
+                   "intermediate process finished",  # * 6
+                   "inserting started",  # *  7
+                   "insert completed/finished",  # * 8
+                   "fullfilled")  # * 9
+
 
 def slice_header_json(data):
     STRUCTURE = {
@@ -353,15 +364,18 @@ def UpdateWorkOrder(file_path: str, force=False, **kwargs: tuple or list) -> dic
                     if old_value > update[len(update)-1]:
                         raise SpchtErrors.WorkOrderInconsitencyError("New status higher than old one")
         if "insert" in kwargs:
+            protected_entries = ("file", "rdf_file")
             if isinstance(kwargs['insert'], tuple):
                 kwargs['insert'] = [kwargs['insert']]
             for insert in kwargs['insert']:
                 if len(insert) < 3:
                     raise SpchtErrors.ParameterError("Not enough parameters")
                 overwritten = AddNestedDictionaryKey(work_order, *insert)
-                # * sanity check
-                if overwritten and not force:
+                # * sanity check for certain fields
+                field_type = insert[len(insert)-1]
+                if overwritten and field_type in protected_entries and not force:
                     raise SpchtErrors.WorkOrderInconsitencyError("Cannot overwrite any one file path")
+                    # ? file entries are linked to somewhere, we dont want to overwrite those
         if "delete" in kwargs:
             if isinstance(kwargs['delete'], tuple):
                 kwargs['delete'] = [kwargs['delete']]
@@ -477,20 +491,12 @@ def CheckWorkOrder(work_order_file: str):
     :param str work_order_file: file path to a work order file
     :return: Nothing, only displays to console
     """
+    global WORK_ORDER_STATUS
     print(work_order_file)
     work_order = load_from_json(work_order_file)
     if work_order is None:
         return False
-    main_status = ("Freshly created",  # * 0
-                   "fetch started",  # *  1
-                   "fetch completed",  # * 2
-                   "processing started",  # *  3
-                   "processing completed",  # *  4
-                   "intermediate process started",  # * 5
-                   "intermediate process finished",  # * 6
-                   "inserting started",  # *  7
-                   "insert completed/finished",  # * 8
-                   "fullfilled")  # * 9
+
     # ? surely this could have been a dictionary but it isn't
     time_infos = ("processing", "insert", "deletion", "solr")
     try:
@@ -542,7 +548,7 @@ def CheckWorkOrder(work_order_file: str):
             if work_order['file_list'][key]['status'] == 7:
                 counts['un_insert'] += 1
         print("+++++++++++++++++++WORK ORDER INFO++++++++++++++++++")
-        print(f"Current status:           {main_status[work_order['meta']['status']]}")
+        print(f"Current status:           {WORK_ORDER_STATUS[work_order['meta']['status']]}")
         if counts['un_processing'] > 0:
             print(f"Unfinished processing:    {counts['un_processing']}")
         if counts['un_insert'] > 0:
@@ -655,7 +661,12 @@ def UseWorkOrder(work_order_file, deep_check = False, repair_mode = False, **kwa
                         print(f"{msg}{boiler_print}")
                         return 1
             if work_order['meta']['status'] == 3:  # processing started
-                SoftResetWorkOrder(work_order_file)
+                print(f"Pickuping the order in an 'inbetween' status - {WORK_ORDER_STATUS[status]}")
+                if not SoftResetWorkOrder(work_order_file):
+                    msg = f"Reseting work order to state {WORK_ORDER_STATUS[work_order['meta']['status']]-1} failed"
+                    print(msg)
+                    logger.error(f"UserWorkOrder > {msg}")
+                    return 3
             if work_order['meta']['status'] == 2 or work_order['meta']['status'] == 3:  # fetching completed
                 # ! checks
                 expected = ("work_order_file", "spcht_descriptor", "graph")
@@ -674,7 +685,12 @@ def UseWorkOrder(work_order_file, deep_check = False, repair_mode = False, **kwa
                 logger.info(f"Turtle Files created, commencing to next step")
                 return 4
             if work_order['meta']['status'] == 5:  # intermediate processing started
-                SoftResetWorkOrder(work_order_file)
+                print(f"Pickuping the order in an 'inbetween' status - {WORK_ORDER_STATUS[work_order['meta']['status']]}")
+                if not SoftResetWorkOrder(work_order_file):
+                    msg = f"Reseting work order to state {WORK_ORDER_STATUS[work_order['meta']['status']] - 1} failed"
+                    print(msg)
+                    logger.error(f"UserWorkOrder > {msg}")
+                    return 3
             if work_order['meta']['status'] == 4 or work_order['meta']['status'] == 5:  # processing done
                 if work_order['meta']['type'] == "insert":
                     UpdateWorkOrder(work_order_file, update=("meta", "status", 6))
@@ -719,7 +735,12 @@ def UseWorkOrder(work_order_file, deep_check = False, repair_mode = False, **kwa
                     else:
                         logger.error(f"Unknown method '{work_order['meta']['method']}' in work order file {work_order_file}")
             if work_order['meta']['status'] == 7:  # inserting started
-                SoftResetWorkOrder(work_order_file)
+                print(f"Pickuping the order in an 'inbetween' status - {WORK_ORDER_STATUS[work_order['meta']['status']]}")
+                if not SoftResetWorkOrder(work_order_file):
+                    msg = f"Reseting work order to state {WORK_ORDER_STATUS[work_order['meta']['status']] - 1} failed"
+                    print(msg)
+                    logger.error(f"UserWorkOrder > {msg}")
+                    return 3
             if work_order['meta']['status'] == 6 or work_order['meta']['status'] == 7:  # intermediate processing done
                 if work_order['meta']['method'] == "isql":
                     # ! checks
@@ -1507,6 +1528,8 @@ def HardResetWorkOrder(work_order_file: str, **kwargs):
             fnc = "HardResetWorkOrder"
             print(msg)
             logging.error(f"{fnc} > {msg}")
+        else:
+            print(f"Generic TypeError: {e}")
         return False
     except OSError:
         print(f"Generic OSError while reseting work order file")
@@ -1566,7 +1589,7 @@ def SoftResetWorkOrder(work_order_file: str, **kwargs):
         else:
             logger.info("Cannot soft reset anything.")
             return True
-        UpdateWorkOrder(work_order_file, update=list_of_updates, delete=list_of_deletes)
+        UpdateWorkOrder(work_order_file, update=list_of_updates, delete=list_of_deletes, force=True)
 
         return True
 
@@ -1576,8 +1599,11 @@ def SoftResetWorkOrder(work_order_file: str, **kwargs):
             fnc = "SoftResetWorkOrder"
             print(msg)
             logging.error(f"{fnc} > {msg}")
+        else:
+            print(f"Generic TypeError: {e}")
         return False
-    return False
+    except Exception as e:
+        print(e)
 
 
 def PurgeWorkOrder(work_order_file: str, **kwargs):

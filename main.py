@@ -249,6 +249,35 @@ if __name__ == "__main__":
         else:
             print(status)
 
+    if args.ContinueOrder:
+        print("Continuing of an interrupted/paused order")
+        try:
+            for i in range(0, 6):
+                res = local_tools.UseWorkOrder(args.ContinueOrder, **PARA)
+                old_res = -1
+                if isinstance(res, int):
+                    if i > 0:
+                        old_res = res
+                    if res == 9:
+                        print("Operation finished successfully")
+                        local_tools.CheckWorkOrder(args.ContinueOrder)
+                        exit(0)
+                    if old_res == res:
+                        print("Operation seems to be stuck on the same status, something is broken. Advising investigation")
+                        local_tools.CheckWorkOrder(args.ContinueOrder)
+                        exit(2)
+                    print(local_tools.WORK_ORDER_STATUS[res])
+                elif isinstance(res, list):
+                    print("Fulfillment of current Work order status needs further parameters:")
+                    for avery in res:
+                        print(f"\t{colored(avery, attrs=['bold'])} - {colored(arguments[avery]['help'], 'green')}")
+                    break
+                else:
+                    print("Some really weird things happened, procedure reported an unexpeted status", file=sys.stderr)
+        except KeyboardInterrupt:
+            print("Process was aborted by user, use --ContinueOrder WORK_ORDER_NAME to continue")
+            exit(0)
+
     if args.FullOrder:
         # ? notice for needed parameters before creating work order
         dynamic_requirements = []
@@ -327,12 +356,17 @@ if __name__ == "__main__":
                 elif not isinstance(res, list) and not isinstance(res, int):
                     print("Process encountered a critical, unexpected situation, aborting", file=sys.stderr)
                     exit(0)
-                if res == 9 or old_res == res:
+                if res == 9:
                     print("Operation finished successfully")
-                    local_tools.CheckWorkOrder(work_order)
+                    local_tools.CheckWorkOrder(args.ContinueOrder)
                     exit(0)
+                if old_res == res:
+                    print("Operation seems to be stuck on the same status, something is broken. Advising investigation")
+                    local_tools.CheckWorkOrder(args.ContinueOrder)
+                    exit(2)
         except KeyboardInterrupt:
-            print("Aborted, FILL TEXT HERE ALAN")
+            print("Process was aborted by user, use --ContinueOrder WORK_ORDER_NAME to continue")
+            exit(0)
 
     # ? Utility Things
 

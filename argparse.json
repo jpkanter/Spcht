@@ -242,5 +242,11 @@
                 "help": "Tries to load and validate the specified Spcht JSON File",
                 "type": "str",
                 "metavar": ["SPCHT FILE"]
+            },
+        "ContinueOrder":
+            {
+                "help":  "Continues a previously paused or interrupted work order, needs parameters",
+                "type": "str",
+                "metavar": ["WORK ORDER FILE"]
             }
     }

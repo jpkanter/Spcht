@@ -29,46 +29,34 @@ jumpled mess of standard exceptions and my own that i later created
 """
 
 
-class WorkOrderInconsitencyError(TypeError):
-    """
-    Work order makes no sense in a logical sense
-    """
-    pass
+class WorkOrderInconsitencyError(Exception):
+    def __repr__(self):
+        return "A change is inconsistent with the logic of a work order, like updating a status to a lower level than the previos one"
 
 
-class WorkOrderError(TypeError):
-    """
-    Generic error with the given work order
-    """
-    pass
+class WorkOrderError(Exception):
+    def __repr__(self):
+        return "Generic error with the given work order"
 
 
-class WorkOrderTypeError(TypeError):
-    """
-    For incorrect file types in work order parameters
-    """
-    pass
+class WorkOrderTypeError(Exception):
+    def __repr__(self):
+        return "For incorrect file types in work order parameters"
 
 
-class ParameterError(KeyError):
-    """
-    The given parameter lead to an outcome that did not work
-    """
-    pass
+class ParameterError(Exception):
+    def __repr__(self):
+        return "The given parameter lead to an outcome that did not work"
 
 
-class OperationalError(TypeError):
-    """
-    Something that stops the overall operation from proceeding
-    """
-    pass
+class OperationalError(Exception):
+    def __repr__(self):
+        return "Something that stops the overall operation from proceeding"
 
 
 class RequestError(ConnectionError):
-    """
-    For requests that might fail for this or that reason within the bellows of the script
-    """
-    pass
+    def __repr__(self):
+        return "For requests that might fail for this or that reason within the bellows of the script"
 
 
 class ParsingError(Exception):
