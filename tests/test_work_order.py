@@ -24,6 +24,7 @@
 import json
 import os
 
+import WorkOrder
 import local_tools
 
 
@@ -42,6 +43,6 @@ except OSError as osi:
 
 with open("temp_throwaway.json", "w") as temp_file:
     json.dump(ORDERS['status0'], temp_file)
-local_tools.CheckWorkOrder("temp_throwaway.json")
+WorkOrder.CheckWorkOrder("temp_throwaway.json")
 os.remove("temp_throwaway.json")
 

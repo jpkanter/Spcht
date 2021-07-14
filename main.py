@@ -25,23 +25,14 @@
 
 # "global" variables for some things
 import argparse
-import copy
-import errno
 import json
-import math
 import sys
-import time
 import logging
-import os
-from datetime import datetime, timedelta
 
-from dateutil.relativedelta import relativedelta
-
-import SpchtErrors
+import WorkOrder
 import local_tools
-from local_tools import super_simple_progress_bar, sleepy_bar, super_simple_progress_bar_clear, \
-    load_remote_content, slice_header_json, sparqlQuery, block_sparkle_insert, solr_handle_return, delta_now, test_json, \
-    delta_time_human, load_from_json
+from local_tools import load_from_json
+
 try:
     from termcolor import colored  # only needed for debug print
 except ModuleNotFoundError:
@@ -127,20 +118,20 @@ if __name__ == "__main__":
     for arg in vars(args):
         if arg in simple_parameters and getattr(args, arg) is not None:
             if arg in default_parameters and getattr(args, arg) == arguments[arg]['default']:
-                pass # i was simply to lazy to write the "not" variant of this
+                pass  # i was simply to lazy to write the "not" variant of this
             else:
                 PARA[arg] = getattr(args, arg)
 
     if args.CreateOrder:
         par = args.CreateOrder
-        order_name = local_tools.CreateWorkOrder(par[0], par[1], par[2], par[3])
+        order_name = WorkOrder.CreateWorkOrder(par[0], par[1], par[2], par[3])
         print(f"Created Order '{order_name}'")
 
     # ! FETCH OPERATION
     if args.FetchSolrOrder:
         par = args.FetchSolrOrder
         ara = Spcht(par[5])  # ? Ara like the bird, not a misspelled para as one might assume
-        status = local_tools.FetchWorkOrderSolr(par[0], par[1], par[2], int(par[3]), int(par[4]), ara, par[5])
+        status = WorkOrder.FetchWorkOrderSolr(par[0], par[1], par[2], int(par[3]), int(par[4]), ara, par[5])
         if not status:
             print("Process failed, consult log file for further details")
 
@@ -154,7 +145,7 @@ if __name__ == "__main__":
                     print(f"\t{colored(avery, attrs=['bold'])} - {colored(arguments[avery]['help'], 'green')}")
                 exit(1)
         big_ara = Spcht(PARA['spcht_descriptor'])
-        status = local_tools.FetchWorkOrderSolr(PARA['work_order_file'], PARA['solr_url'], PARA['query'], PARA['total_rows'], PARA['chunk_size'], big_ara, PARA['save_folder'])
+        status = WorkOrder.FetchWorkOrderSolr(PARA['work_order_file'], PARA['solr_url'], PARA['query'], PARA['total_rows'], PARA['chunk_size'], big_ara, PARA['save_folder'])
         if not status:
             print("Process failed, consult log file for further details")
 
@@ -163,7 +154,7 @@ if __name__ == "__main__":
     if args.SpchtProcessing:
         par = args.SpchtProcessing
         heron = Spcht(par[2])
-        status = local_tools.FulfillProcessingOrder(par[0], par[1], heron)
+        status = WorkOrder.FulfillProcessingOrder(par[0], par[1], heron)
         if not status:
             print("Something went wrong, check log file for details")
 
@@ -177,7 +168,7 @@ if __name__ == "__main__":
                     print(f"\t{colored(avery, attrs=['bold'])} - {colored(arguments[avery]['help'], 'green')}")
                 exit(1)
         crow = Spcht(PARA['spcht_descriptor'])
-        status = local_tools.FulfillProcessingOrder(PARA['work_order_file'], PARA['graph'], crow)
+        status = WorkOrder.FulfillProcessingOrder(PARA['work_order_file'], PARA['graph'], crow)
         if not status:
             print("Something went wrong, check log file for details")
 
@@ -187,7 +178,7 @@ if __name__ == "__main__":
         if dove._DESCRI is None:
             print("Spcht loading failed")
             exit(1)
-        local_tools.ProcessOrderMultiCore(par[0], graph=par[1], spcht_object=dove, processes=int(par[3]))
+        WorkOrder.ProcessOrderMultiCore(par[0], graph=par[1], spcht_object=dove, processes=int(par[3]))
         # * multi does not give any process update, it just happens..or does not, it might print something to console
 
     if args.SpchtProcessingMultiPara:
@@ -200,7 +191,7 @@ if __name__ == "__main__":
                     print(f"\t{colored(avery, attrs=['bold'])} - {colored(arguments[avery]['help'], 'green')}")
                 exit(1)
         eagle = Spcht(PARA['spcht_descriptor'])
-        local_tools.ProcessOrderMultiCore(PARA['work_order_file'], graph=PARA['graph'], spcht_object=eagle, processes=PARA['processes'])
+        WorkOrder.ProcessOrderMultiCore(PARA['work_order_file'], graph=PARA['graph'], spcht_object=eagle, processes=PARA['processes'])
 
     # ! inserting operation
 
@@ -208,8 +199,8 @@ if __name__ == "__main__":
         par = args.SpchtProcessingMulti
         print("Starting ISql Order")
         # ? as isql_port is defaulted this parameter can only be accessed by --isql_port and not in one line with the order
-        status = local_tools.FulfillISqlOrder(work_order_file=par[0], named_graph=par[1], isql_path=par[2],
-                                              user=par[3], password=par[4], virt_folder=par[5], isql_port=PARA['isql_port'])
+        status = WorkOrder.FulfillISqlOrder(work_order_file=par[0], named_graph=par[1], isql_path=par[2],
+                                            user=par[3], password=par[4], virt_folder=par[5], isql_port=PARA['isql_port'])
         if status:
             print("ISQL Order finished, no errors returned")
         else:
@@ -224,9 +215,9 @@ if __name__ == "__main__":
                 for avery in expected:
                     print(f"\t{colored(avery, attrs=['bold'])} - {colored(arguments[avery]['help'], 'green')}")
                 exit(1)
-        status = local_tools.FulfillISqlOrder(work_order_file=PARA['work_order_file'], named_graph=PARA['named_graph'],
-                                              isql_path=PARA['isql_patch'], user=PARA['user'],
-                                              password=PARA['password'], virt_folder=PARA['virt_folder'], isql_port=PARA['isql_port'])
+        status = WorkOrder.FulfillISqlOrder(work_order_file=PARA['work_order_file'], named_graph=PARA['named_graph'],
+                                            isql_path=PARA['isql_patch'], user=PARA['user'],
+                                            password=PARA['password'], virt_folder=PARA['virt_folder'], isql_port=PARA['isql_port'])
         if status:
             print("ISQL Order finished, no errors returned")
         else:
@@ -238,14 +229,14 @@ if __name__ == "__main__":
         if 'spcht_descriptor' in PARA:
             bussard = Spcht(PARA['spcht_descriptor'])
             PARA['spcht_object'] = bussard
-        status = local_tools.UseWorkOrder(args.HandleWorkOrder[0], **PARA)
+        status = WorkOrder.UseWorkOrder(args.HandleWorkOrder[0], **PARA)
         if isinstance(status, list):
             print("Fulfillment of current Work order status needs further parameters:")
             for avery in status:
                 print(f"\t{colored(avery, attrs=['bold'])} - {colored(arguments[avery]['help'], 'green')}")
         elif isinstance(status, int):
             print(f"Work order advanced one step, new step is now {status}")
-            local_tools.CheckWorkOrder(args.HandleWorkOrder[0])
+            WorkOrder.CheckWorkOrder(args.HandleWorkOrder[0])
         else:
             print(status)
 
@@ -253,18 +244,18 @@ if __name__ == "__main__":
         print("Continuing of an interrupted/paused order")
         try:
             for i in range(0, 6):
-                res = local_tools.UseWorkOrder(args.ContinueOrder, **PARA)
+                res = WorkOrder.UseWorkOrder(args.ContinueOrder, **PARA)
                 old_res = -1
                 if isinstance(res, int):
                     if i > 0:
                         old_res = res
                     if res == 9:
                         print("Operation finished successfully")
-                        local_tools.CheckWorkOrder(args.ContinueOrder)
+                        WorkOrder.CheckWorkOrder(args.ContinueOrder)
                         exit(0)
                     if old_res == res:
                         print("Operation seems to be stuck on the same status, something is broken. Advising investigation")
-                        local_tools.CheckWorkOrder(args.ContinueOrder)
+                        WorkOrder.CheckWorkOrder(args.ContinueOrder)
                         exit(2)
                     print(local_tools.WORK_ORDER_STATUS[res])
                 elif isinstance(res, list):
@@ -339,13 +330,13 @@ if __name__ == "__main__":
             PARA['spcht_object'] = seagull
         try:
             old_res = 0
-            work_order = local_tools.CreateWorkOrder(par[0], par[1], par[2], par[3])
+            work_order = WorkOrder.CreateWorkOrder(par[0], par[1], par[2], par[3])
             print("Starting new FullOrder, this might take a long while, see log and worker file for progress")
             print(f"Work order file: '{work_order}'")
             for i in range(0, 6):
                 if i > 0:
                     old_res = res
-                res = local_tools.UseWorkOrder(work_order, **PARA)
+                res = WorkOrder.UseWorkOrder(work_order, **PARA)
                 if isinstance(res, list):  # means a list was returned that specifies needed parameters
                     print(colored("This should not have been happened, inform creator of this tool", "red"))
                     # this should not have had happen cause we already checked for all parameters
@@ -358,11 +349,11 @@ if __name__ == "__main__":
                     exit(0)
                 if res == 9:
                     print("Operation finished successfully")
-                    local_tools.CheckWorkOrder(args.ContinueOrder)
+                    WorkOrder.CheckWorkOrder(args.ContinueOrder)
                     exit(0)
                 if old_res == res:
                     print("Operation seems to be stuck on the same status, something is broken. Advising investigation")
-                    local_tools.CheckWorkOrder(args.ContinueOrder)
+                    WorkOrder.CheckWorkOrder(args.ContinueOrder)
                     exit(2)
         except KeyboardInterrupt:
             print("Process was aborted by user, use --ContinueOrder WORK_ORDER_NAME to continue")
@@ -371,12 +362,12 @@ if __name__ == "__main__":
     # ? Utility Things
 
     if args.CheckWorkOrder:
-        status = local_tools.CheckWorkOrder(args.CheckWorkOrder[0])
+        status = WorkOrder.CheckWorkOrder(args.CheckWorkOrder[0])
         if not status:
             print("Given work order file path seems to be wrong")
 
     if args.CleanUp:
-        if local_tools.CleanUpWorkOrder(args.CleanUp, **PARA):
+        if WorkOrder.CleanUpWorkOrder(args.CleanUp, **PARA):
             print("Clean up sequence finished successfully")
         else:
             print("Clean up sequence encountered an error and might be not fully finished")
