@@ -199,8 +199,8 @@ if __name__ == "__main__":
         par = args.SpchtProcessingMulti
         print("Starting ISql Order")
         # ? as isql_port is defaulted this parameter can only be accessed by --isql_port and not in one line with the order
-        status = WorkOrder.FulfillISqlOrder(work_order_file=par[0], named_graph=par[1], isql_path=par[2],
-                                            user=par[3], password=par[4], virt_folder=par[5], isql_port=PARA['isql_port'])
+        status = WorkOrder.FulfillISqlInsertOrder(work_order_file=par[0], named_graph=par[1], isql_path=par[2],
+                                                  user=par[3], password=par[4], virt_folder=par[5], isql_port=PARA['isql_port'])
         if status:
             print("ISQL Order finished, no errors returned")
         else:
@@ -215,9 +215,9 @@ if __name__ == "__main__":
                 for avery in expected:
                     print(f"\t{colored(avery, attrs=['bold'])} - {colored(arguments[avery]['help'], 'green')}")
                 exit(1)
-        status = WorkOrder.FulfillISqlOrder(work_order_file=PARA['work_order_file'], named_graph=PARA['named_graph'],
-                                            isql_path=PARA['isql_patch'], user=PARA['user'],
-                                            password=PARA['password'], virt_folder=PARA['virt_folder'], isql_port=PARA['isql_port'])
+        status = WorkOrder.FulfillISqlInsertOrder(work_order_file=PARA['work_order_file'], named_graph=PARA['named_graph'],
+                                                  isql_path=PARA['isql_patch'], user=PARA['user'],
+                                                  password=PARA['password'], virt_folder=PARA['virt_folder'], isql_port=PARA['isql_port'])
         if status:
             print("ISQL Order finished, no errors returned")
         else:
@@ -240,22 +240,22 @@ if __name__ == "__main__":
         else:
             print(status)
 
-    if args.ContinueOrder:
+    if args.ContinueWorkOrder:
         print("Continuing of an interrupted/paused order")
         try:
             for i in range(0, 6):
-                res = WorkOrder.UseWorkOrder(args.ContinueOrder, **PARA)
+                res = WorkOrder.UseWorkOrder(args.ContinueWorkOrder, **PARA)
                 old_res = -1
                 if isinstance(res, int):
                     if i > 0:
                         old_res = res
                     if res == 9:
                         print("Operation finished successfully")
-                        WorkOrder.CheckWorkOrder(args.ContinueOrder)
+                        WorkOrder.CheckWorkOrder(args.ContinueWorkOrder)
                         exit(0)
                     if old_res == res:
                         print("Operation seems to be stuck on the same status, something is broken. Advising investigation")
-                        WorkOrder.CheckWorkOrder(args.ContinueOrder)
+                        WorkOrder.CheckWorkOrder(args.ContinueWorkOrder)
                         exit(2)
                     print(local_tools.WORK_ORDER_STATUS[res])
                 elif isinstance(res, list):
@@ -266,7 +266,7 @@ if __name__ == "__main__":
                 else:
                     print("Some really weird things happened, procedure reported an unexpeted status", file=sys.stderr)
         except KeyboardInterrupt:
-            print("Process was aborted by user, use --ContinueOrder WORK_ORDER_NAME to continue")
+            print("Process was aborted by user, use --ContinueWorkOrder WORK_ORDER_NAME to continue")
             exit(0)
 
     if args.FullOrder:
@@ -349,14 +349,15 @@ if __name__ == "__main__":
                     exit(0)
                 if res == 9:
                     print("Operation finished successfully")
-                    WorkOrder.CheckWorkOrder(args.ContinueOrder)
+                    WorkOrder.CheckWorkOrder(args.ContinueWorkOrder)
                     exit(0)
                 if old_res == res:
                     print("Operation seems to be stuck on the same status, something is broken. Advising investigation")
-                    WorkOrder.CheckWorkOrder(args.ContinueOrder)
+                    WorkOrder.CheckWorkOrder(work_order)
                     exit(2)
+                print(local_tools.WORK_ORDER_STATUS[res])
         except KeyboardInterrupt:
-            print("Process was aborted by user, use --ContinueOrder WORK_ORDER_NAME to continue")
+            print("Process was aborted by user, use --ContinueWorkOrder WORK_ORDER_NAME to continue")
             exit(0)
 
     # ? Utility Things

@@ -243,7 +243,7 @@
                 "type": "str",
                 "metavar": ["SPCHT FILE"]
             },
-        "ContinueOrder":
+        "ContinueWorkOrder":
             {
                 "help":  "Continues a previously paused or interrupted work order, needs parameters",
                 "type": "str",

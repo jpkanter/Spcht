@@ -122,7 +122,7 @@ def block_sparkle_insert(graph, insert_list):
     return sparkle
 
 
-def sparqlQuery(sparql_query, base_url, get_format="application/json", **kwargs):
+def sparqlQuery(sparql_query, base_url, get_format="application/json", **kwargs) -> tuple:
     # sends a query to the sparql endpoint of a virtuoso and (per default) retrieves a json and returns the data
     params = {
         "default-graph": "",
@@ -143,19 +143,19 @@ def sparqlQuery(sparql_query, base_url, get_format="application/json", **kwargs)
         else:
             response = requests.get(base_url, params=params)
     except requests.exceptions.ConnectionError:
-        sys.stderr.write("Connection to Sparql-Server failed\n\r")
-        return False
+        logger.error("Connection to Sparql-Server failed")
+        return False, False
 
     try:
         if response is not None:
             if get_format == "application/json":
-                return json.loads(response.text)
+                return True, json.loads(response.text)
             else:
-                return response.text
+                return True, response.text
         else:
-            return False
+            return False, False
     except json.decoder.JSONDecodeError:
-        return response.text
+        return True, response.text
 
 
 def cprint_type(object, show_type=False):
