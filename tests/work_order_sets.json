@@ -1,0 +1,55 @@
+{
+  "status0":{
+    "meta": {
+        "status": 0,
+        "fetch": "solr",
+        "type": "insert",
+        "method": "sparql"
+      },
+      "file_list": {}
+  },
+  "status1": {
+    "meta": {
+        "status": 1,
+        "fetch": "solr",
+        "type": "insert",
+        "method": "sparql",
+        "max_chunks": 7,
+        "chunk_size": 7500,
+        "total_rows": 50000,
+        "spcht_user": true,
+        "solr_start": "2021-06-22T11:27:48.727639"
+    },
+      "file_list": {
+          "0": {
+              "file": "a-file_path_that_really_does_not_matter.json",
+              "status": 2
+          }
+      }
+  },
+  "status2": {
+    "meta": {
+        "status": 2,
+        "fetch": "solr",
+        "type": "insert",
+        "method": "sparql",
+        "max_chunks": 7,
+        "chunk_size": 7500,
+        "total_rows": 50000,
+        "spcht_user": true,
+        "full_download": true,
+        "solr_start": "2021-06-22T11:27:48.727639",
+        "solr_finish": "2021-06-22T11:28:33.197898"
+    },
+      "file_list": {
+          "0": {
+              "file": "a-file_path_that_really_does_not_matter.json",
+              "status": 2
+          },
+          "1": {
+              "file": "a-file_path_that_really_does_not_matter.json",
+              "status": 2
+          }
+      }
+  }
+}

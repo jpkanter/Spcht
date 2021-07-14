@@ -5,7 +5,7 @@
      #  probably to be realized in spcht_node_mapping()
     [x] $inherit parameter actually inherting the value in $default
     [x] json error insights on load of file
-    [ ] possible performance bottlenecks
+    [x] possible performance bottlenecks
     [x] Filter Value for x
     [x] Remove Parts of the value string
     [x] Remove duplicated information # should not really matter but still
@@ -13,7 +13,7 @@
     [x] Check Regex Entries for faults
     [x] MARC Filter/Conditions for fields/indicators
     [x] proper marc mv field import
-    [ ] record_type as indicator for content of type marc21
+    [x] record_type as indicator for content of type marc21
     [x] Append/Prepend working for Marc fields
     [x] DICT multi replacement / Insert
     [ ] Escape pre and append texts
