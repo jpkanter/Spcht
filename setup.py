@@ -40,7 +40,7 @@ with open("README.md", "r") as readme:
         license="",
         python_requires=">=3.6",
         zip_safe=False,
-        py_modules=['local_tools', 'main', 'SpchtDescriptorFormat', 'SpchtErrors', 'WorkOrder'],
+        py_modules=['local_tools', 'main', 'SpchtDescriptorFormat', 'SpchtErrors', 'WorkOrder', 'SpchtUtility'],
         data_files=[('config', ['default.spcht.json', 'config.example.json', "argparse.json"]),
                     ('maps', ['translation_maps/documents.json', 'translation_maps/languages.json', 'translation_maps/role_graphs.json', 'translation_maps/roles.json'])],
         classifiers=[

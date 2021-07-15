@@ -162,7 +162,7 @@ class TestFunc(unittest.TestCase):
     def test_match_positions2(self):
         regex = r"\[\]"
         stringchain = "bla {} fasel {}"
-        expected = None
+        expected = []
         self.assertEqual(expected, match_positions(regex, stringchain))
 
     def test_fill_var1(self):

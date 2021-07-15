@@ -26,7 +26,12 @@ import re
 import pymarc
 from pymarc.exceptions import RecordLengthInvalid, RecordLeaderInvalid, BaseAddressNotFound, BaseAddressInvalid, \
     RecordDirectoryInvalid, NoFieldsFound
-import SpchtDescriptorFormat
+# ? if i import this i get circular imports and i really dont want that so got a bit of boilerplate here in the sincere
+# ? hope that the amount of boolean operators never changes
+# from SpchtDescriptorFormat import SPCHT_BOOL_OPS
+SPCHT_BOOL_OPS = {"equal":"==", "eq":"==","greater":">","gr":">","lesser":"<","ls":"<",
+                    "greater_equal":">=","gq":">=", "lesser_equal":"<=","lq":"<=",
+                  "unequal":"!=","uq":"!=","=":"==","==":"==","<":"<",">":">","<=":"<=",">=":">=","!=":"!=","exi":"exi"}
 
 import logging
 logger = logging.getLogger(__name__)
@@ -140,23 +145,21 @@ def match_positions(regex_pattern, zeichenkette: str) -> list or None:
     :param str regex_pattern: the regex pattern that matches
     :param str zeichenkette: the string you want to match against
     :return: either a list of tuples or None if no match was found, tuples are start and end of the position
-    :rtype: list or None
+    :rtype: list
     """
     # ? this is one of these things where there is surely a solution already but i couldn't find it in 5 minutes
     pattern = re.compile(regex_pattern)
     poslist = []
     for hit in pattern.finditer(zeichenkette):
         poslist.append((hit.start(), hit.end()))
-    if len(poslist) <= 0:
-        return None  # a tiny bit of inconsistency cause it works nicer this way with subsequent functions
-    else:
-        return poslist
+    return poslist  # empty list is falsy so its good?
 
-def insert_list_into_str(the_string_list: list, zeichenkette: str, regex_pattern=r'\{\}', pattern_len=2, strict=True):
+
+def insert_list_into_str(the_string_list: list, string_to_insert: str, regex_pattern=r'\{\}', pattern_len=2, strict=True):
     """
     Inserts a list of list of strings into another string that contains placeholder of the specified kind in regex_pattern
     :param list the_string_list: a list containing another list of strings, one element for each position
-    :param str zeichenkette: the string you want to match against
+    :param str string_to_insert: the string you want to match against
     :param str regex_pattern: the regex pattern searching for the replacement
     :param int pattern_len: the lenght of the matching placeholder pattern, i am open for less clunky input on this
     :param bool strict: if true empty strings will mean nothing gets returned, if false empty strings will replace
@@ -167,7 +170,7 @@ def insert_list_into_str(the_string_list: list, zeichenkette: str, regex_pattern
     # ? and the next problem that has a solution somewhere but i couldn't find the words to find it
     if not isinstance(the_string_list, list):
         raise TypeError("list of strings must be an actual 'list'")
-    positions = match_positions(regex_pattern, zeichenkette)
+    positions = match_positions(regex_pattern, string_to_insert)
     if len(the_string_list) > len(positions):  # more inserts than slots
         if strict:
             return None
@@ -186,12 +189,12 @@ def insert_list_into_str(the_string_list: list, zeichenkette: str, regex_pattern
         start, end = next(slots_iter)
         start += str_len_correction
         end += str_len_correction  # * i am almost sure this can be solved more elegantly
-        if len(zeichenkette) > end:
-            zeichenkette = zeichenkette[0:start] + each + zeichenkette[end:len(zeichenkette)]
+        if len(string_to_insert) > end:
+            string_to_insert = string_to_insert[0:start] + each + string_to_insert[end:len(string_to_insert)]
         else:
-            zeichenkette = zeichenkette[0:start] + each
+            string_to_insert = string_to_insert[0:start] + each
         str_len_correction += len(each)-pattern_len
-    return zeichenkette
+    return string_to_insert
 
 
 def extract_dictmarc_value(raw_dict: dict, sub_dict: dict, dict_field="field") -> list or None:
@@ -825,8 +828,8 @@ def check_format_node(node, error_desc, out, base_path, is_root=False):
             print(error_desc['must_str'].format('if_condition'), file=out)
             return False
         else:
-            if not is_dictkey(SpchtDescriptorFormat.SPCHT_BOOL_OPS, node['if_condition']):
-                print(error_desc['if_allowed_expressions'].format(*SpchtDescriptorFormat.SPCHT_BOOL_OPS.keys()), file=out)
+            if not is_dictkey(SPCHT_BOOL_OPS, node['if_condition']):
+                print(error_desc['if_allowed_expressions'].format(*SPCHT_BOOL_OPS.keys()), file=out)
                 return False
         if 'if_field' not in node:
             print(error_desc['if_need_field'], file=out)
