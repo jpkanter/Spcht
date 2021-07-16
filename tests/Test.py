@@ -27,7 +27,7 @@ if __name__ == "__main__":
     localTestData = "./thetestset.json"  # only true for MY Pc, testdata folder is not in git
     print("Testing starts")
     my_little_feather = Spcht("./featuretest.spcht.json")
-    if not my_little_feather.descri_status():
+    if my_little_feather:
         print("Couldnt Load Spcht file")
         exit(1)
 

@@ -175,7 +175,7 @@ if __name__ == "__main__":
     if args.SpchtProcessingMulti:
         par = args.SpchtProcessingMulti
         dove = Spcht(par[2])
-        if dove._DESCRI is None:
+        if dove:
             print("Spcht loading failed")
             exit(1)
         WorkOrder.ProcessOrderMultiCore(par[0], graph=par[1], spcht_object=dove, processes=int(par[3]))
@@ -324,7 +324,7 @@ if __name__ == "__main__":
                 exit(1)
 
         seagull = Spcht(PARA['spcht_descriptor'])
-        if seagull._DESCRI is None:
+        if seagull:
             print("Spcht loading failed")
             exit(1)
             PARA['spcht_object'] = seagull

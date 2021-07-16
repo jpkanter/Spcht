@@ -41,10 +41,6 @@ except ModuleNotFoundError:
 import logging
 logger = logging.getLogger(__name__)
 
-SPCHT_BOOL_OPS = {"equal":"==", "eq":"==","greater":">","gr":">","lesser":"<","ls":"<",
-                    "greater_equal":">=","gq":">=", "lesser_equal":"<=","lq":"<=",
-                  "unequal":"!=","uq":"!=","=":"==","==":"==","<":"<",">":">","<=":"<=",">=":">=","!=":"!=","exi":"exi"}
-
 
 class Spcht:
     def __init__(self, filename=None, check_format=False, debug=False):
@@ -55,7 +51,7 @@ class Spcht:
         self.std_err = sys.stderr
         self.debug_out = sys.stdout
         self._debug = debug
-        self._default_fields = ['fullrecord']
+        self.default_fields = ['fullrecord']
         self.descriptor_file = None
         if filename is not None:
             if not self.load_descriptor_file(filename):
@@ -78,6 +74,12 @@ class Spcht:
         else:
             return "SPCHT{_empty_}"
 
+    def __bool__(self):
+        if self._DESCRI is not None:
+            return True
+        else:
+            return False
+
     def __iter__(self):
         return SpchtIterator(self)
 
@@ -99,28 +101,27 @@ class Spcht:
         # ! there might be a use case to have a different mapping file for every single call instead of a global one
 
         # most elemental check
-        if self._DESCRI is None:
+        if not self:
             return False
         # Preparation of Data to make it more handy in the further processing
         marc21_record = None  # setting a default here
-        if marc21_source == "dict":
+        if marc21_source.lower() == "dict":
             try:
                 marc21_record = SpchtUtility.marc2list(raw_dict.get(marc21))
             except AttributeError as e:
-                if e == "'str' object has no attribute 'get":
-                    raise AttributeError(f"str has no get {raw_dict}")
-                else:
-                    raise AttributeError(e)  # pay it forward
+                self.debug_print("AttributeError:", colored(e, "red"))
+                logger.error(f"Marc21 could not be loaded due an AttributeError: {e}")
+                marc21_record = None
             except ValueError as e:  # something is up
                 self.debug_print("ValueException:", colored(e, "red"))
                 marc21_record = None
             except TypeError as e:
                 self.debug_print(f"TypeException: (in {raw_dict.get('kxp_id_str', '')}", colored(e, "red"))
                 marc21_record = None
-        elif marc21_source == "none":
+        elif marc21_source.lower() == "none":
             pass  # this is more a nod to anyone reading this than actually doing anything
         else:
-            raise NameError("The choosen Source option doesnt exists")  # TODO alternative marc source options
+            raise SpchtErrors.UndefinedError("The choosen Source option doesnt exists")
             # ? what if there are just no marc data and we know that in advance?
         # generate core graph, i presume we already checked the spcht for being correct
         # ? instead of making one hard coded go i could insert a special round of the general loop right?
@@ -128,7 +129,6 @@ class Spcht:
             "name": "$Identifier$",  # this does nothing functional but gives the debug text a non-empty string
             "source": self._DESCRI['id_source'],
             "graph": "none",  # recursion node presumes a graph but we dont have that for the root, this is a dummy
-            # i want to throw this exceptions, but the format is checked anyway right?!
             "field": self._DESCRI['id_field'],
             "subfield": self._DESCRI.get('id_subfield', None),
             # i am aware that .get returns none anyway, this is about you
@@ -244,7 +244,7 @@ class Spcht:
             :return: True if everything was successful
             :rtype: bool
         """
-        if self._DESCRI is None:
+        if not self:
             return False
         try:
             with open(filename, "w") as outfile:
@@ -275,18 +275,6 @@ class Spcht:
             return False
         except Exception as e:
             print("Unexpected Exception:", e.args, file=self.std_err)
-            return False
-
-    def descri_status(self):
-        """
-            Return the status of the loaded descriptor format
-
-            :return: True if a working descriptor was load else false
-            :rtype: bool
-        """
-        if self._DESCRI is not None:
-            return True
-        else:
             return False
 
     def getSaveAs(self, key=None):
@@ -854,8 +842,8 @@ class Spcht:
         # dictionaries give their keys when iterating over them, it would probably be more clear to do *dict.keys() but
         # that has the same result as just doing *obj --- this doesnt matter anymore cause i was wrong in the thing
         # that triggered this text, but the change to is_dictkey is made and this information is still useful
-        if sub_dict['if_condition'] in SPCHT_BOOL_OPS:
-            sub_dict['if_condition'] = SPCHT_BOOL_OPS[sub_dict['if_condition']]
+        if sub_dict['if_condition'] in SpchtUtility.SPCHT_BOOL_OPS:
+            sub_dict['if_condition'] = SpchtUtility.SPCHT_BOOL_OPS[sub_dict['if_condition']]
         else:
             return False  # if your comparator is false nothing can be true
 
@@ -961,12 +949,12 @@ class Spcht:
             :return: a list of strings
             :rtype: list
         """
-        if self._DESCRI is None:  # requires initiated SPCHT Load
+        if not self:  # requires initiated SPCHT Load
             self.debug_print("list_of_dict_fields requires loaded SPCHT")
-            return None
+            return []
 
         the_list = []
-        the_list += self._default_fields
+        the_list.extend(self.default_fields)
         if self._DESCRI['id_source'] == "dict":
             the_list.append(self._DESCRI['id_field'])
         temp_list = SpchtUtility.get_node_fields_recursion(self._DESCRI['id_fallback'])
@@ -978,22 +966,36 @@ class Spcht:
                 the_list += temp_list
         return sorted(set(the_list))
 
-    def set_default_fields(self, list_of_strings):
+    @property
+    def default_fields(self):
         """
-        Sets the fields that are always included by get_node_fields, useful if your marc containing field isnt
-        otherwise included in the dictionary
+                The fields that are always included by get_node_fields. Per default this is just the explicit modelling of
+                the authors usecase, the field 'fullrecord' which contains the marc21 fields. As it doesnt appear normally
+                in any spcht descriptor
+        """
+        return self._default_fields
+
+    @default_fields.setter
+    def default_fields(self, list_of_strings: list):
+        """
+        The fields that are always included by get_node_fields. Per default this is just the explicit modelling of
+        the authors usecase, the field 'fullrecord' which contains the marc21 fields. As it doesnt appear in the normal
+        spcht descriptor
 
         :para list_of_strings list: a list of strings that replaces the previous list
         :return: Returns nothing but raises a TypeException is something is off
         :rtype None:
-        """
+       """
+        # ? i first tried to implement an extend list class that only accepts strs as append/extend parameter cause
+        # ? you can still append, extend and so on with default_fields and this protects only against a pure set-this-to-x
+        # ? but i decided that its just not worth it
         if not isinstance(list_of_strings, list):
-            raise TypeError("given parameter is not a list")
+            raise TypeError("Given parameter is not a list")
         for each in list_of_strings:
             if not isinstance(each, str):
-                raise TypeError("an element in the list is not a string")
-        # i might as well throw a TypeException shouldn't i?
+                raise TypeError("An element in the list is not a string")
         self._default_fields = list_of_strings
+
 
     def get_node_graphs(self):
         """
@@ -1004,9 +1006,9 @@ class Spcht:
             :return: a list of string
             :rtype: list
         """
-        if self._DESCRI is None:  # requires initiated SPCHT Load
+        if not self:  # requires initiated SPCHT Load
             self.debug_print("list_of_dict_fields requires loaded SPCHT")
-            return None
+            return []
         the_other_list = []
         for node in self._DESCRI['nodes']:
             temp_list = SpchtUtility.get_node_graphs_recursion(node)
@@ -1029,4 +1031,3 @@ class SpchtIterator:
             self._index += 1
             return result
         raise StopIteration
-
