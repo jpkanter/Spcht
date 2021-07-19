@@ -43,13 +43,14 @@ logger = logging.getLogger(__name__)
 
 
 class Spcht:
-    def __init__(self, filename=None, check_format=False, debug=False):
+    def __init__(self, filename=None, check_format=False, debug=False, log_debug=False):
         self._DESCRI = None  # the finally loaded descriptor file with all references solved
         self._SAVEAS = {}
         # * i do all this to make it more customizable, maybe it will never be needed, but i like having options
         self.std_out = sys.stdout
         self.std_err = sys.stderr
         self.debug_out = sys.stdout
+        self._log_debug = log_debug  # if true also write debug texts in log, will lead to SPAM big time
         self._debug = debug
         self.default_fields = ['fullrecord']
         self.descriptor_file = None
@@ -148,6 +149,7 @@ class Spcht:
 
         triple_list = []
         for node in self._DESCRI['nodes']:
+            # ! MAIN CALL TO PROCESS DATA
             facet = self._recursion_node(node, raw_dict, marc21_record)
             # ! Data Output Modelling Try 2
             if node.get('type', "literal") == "triple":
@@ -158,9 +160,8 @@ class Spcht:
             # there are two ways i could have done this, either this or having the checks split up in every case
             if facet is None:
                 if node['required'] == "mandatory":
+                    logger.info(f"NodeName '{node.get('name', '?')}' required field {node['field']} but its not present")
                     raise SpchtErrors.MandatoryError(f"Field {node['field']} is a mandatory field but not present")
-                else:
-                    continue  # nothing happens
             else:
                 if isinstance(facet, tuple):
                     if facet[1] is None:  # all those string checks
@@ -216,23 +217,21 @@ class Spcht:
         """
         # i wonder if it would have been easier to just set the out put for
         # normal prints to None and be done with it. Is this better or worse? Probably no sense questioning this
-        if self._debug is True:
+        if self.debug is True:
             if 'file' in kwargs:
                 del kwargs['file']  # while handing through all the kwargs we have to make one exception, this seems to work
             print(*args, file=self.debug_out, **kwargs)
-
-    def debugmode(self, status):
-        """
-            Tooles the debug mode for the instance of SPCHT
-
-            :param bool status: Debugmode is activated if true
-            :return: nothing
-        """
-        # a setter, i really dont like those
-        if not isinstance(status, bool) or status is False:
-            self._debug = False
-        else:
-            self._debug = True
+        if self.log_debug:
+            long_string = ""
+            sep = " "
+            if 'sep' in kwargs:
+                sep = kwargs['sep']
+            for each in args:
+                if not long_string:
+                    long_string = each
+                else:
+                    long_string += sep + each
+            logger.debug(long_string)
 
     def export_full_descriptor(self, filename, indent=3):
         """
@@ -453,7 +452,7 @@ class Spcht:
             02.02.2021"""
             if 'graph_field' in sub_dict:  # original boilerplate from dict
                 graph_value = self._graph_map(marc21_dict, sub_dict)
-                if graph_value is not None:  # ? why i am even checking for that? Fallbacks, that's why, if this fails we end on the bottom of this function
+                if graph_value:  # ? why i am even checking for that? Fallbacks, that's why, if this fails we end on the bottom of this function
                     self.debug_print(colored("✓ graph_field", "green"))
                     return graph_value
                 self.debug_print(colored(f"✗ graph mapping could not be fullfilled", "magenta"), end=" > ")
@@ -486,7 +485,7 @@ class Spcht:
             if "graph_field" in sub_dict:
                 # ? i really hope this works like intended, if there is graph_field, do nothing of the normal matching
                 graph_value = self._graph_map(raw_dict, sub_dict)
-                if graph_value is not None:  # ? why i am even checking for that? Fallbacks, that's why
+                if graph_value:  # ? why i am even checking for that? Fallbacks, that's why
                     self.debug_print(colored("✓ graph_field", "green"))
                     return graph_value
             # normal field matching
@@ -576,24 +575,22 @@ class Spcht:
         """
         # if there is a match-filter, this filters out the entry or all entries not matching
         if f'{key_prefix}match' not in sub_dict:
-            return value  # the nothing happens clause
+            return [value]  # the nothing happens clause
         if isinstance(value, str):
             finding = re.search(sub_dict[f'{key_prefix}match'], str(value))
             if finding is not None:
                 return [finding.string]
             else:
-                return None
+                return []
         elif isinstance(value, list):
             list_of_returns = []
             for item in value:
                 finding = re.search(sub_dict[f'{key_prefix}match'], str(item))
                 if finding is not None:
                     list_of_returns.append(finding.string)
-            if len(list_of_returns) <= 0:
-                return None
-            else:
-                return list_of_returns
+            return list_of_returns
         else:  # fallback if its anything else i dont intended to handle with this
+            logger.error(f"SPCHT.node_preprocessing - unable to handle data type {type(value)}")
             raise TypeError(f"SPCHT.node_preprocessing - Found a {type(value)}")
             # return value
 
@@ -706,11 +703,6 @@ class Spcht:
         # originally i had this as part of the node_recursion function, but i encountered the problem
         # where i had to perform a lot of checks till i can actually do anything which in the structure i had
         # would have resulted in a very nested if chain, as a separate function i can do this more neatly and readable
-        if extract_dictmarc_value(raw_dict, sub_dict, 'field') is None or \
-                extract_dictmarc_value(raw_dict, sub_dict, 'graph_field') is None:
-            # this is a bit awkward, dict doesnt check for existence, marc does, neither do for graph_field, hmm
-            self.debug_print(colored(f"✗ no field or graph_field not present", "magenta"), end=" > ")
-            return None
         field = extract_dictmarc_value(raw_dict, sub_dict, "field")  # this is just here cause i was tired of typing the full thing every time
         graph_field = extract_dictmarc_value(raw_dict, sub_dict, "graph_field")
         # i am not entirely sure that those conjoined tests are all that useful at this place
@@ -722,54 +714,47 @@ class Spcht:
             return None
         if isinstance(field, list) and not isinstance(graph_field, list):
             self.debug_print(colored("GraphMap: list and non-list", "red"), end=" ")
+            logger.warning(f"_graph_map reports list and non-list, it should not be possible that there is a non-list.")
             return None
         if isinstance(field, str) and not isinstance(graph_field, str):
             self.debug_print(colored("GraphMap: str and non-str", "red"), end=" ")
+            logger.warning("f_graph_map reports an instance of str for 'field', that should not be possible")
             return None
         if not isinstance(field, str) and not isinstance(field, list):
             self.debug_print(colored("GraphMap: not-str, non-list", "red"), end=" ")
+            logger.warning(f"_graph_map reports another instance of str for 'field', that should not be possible")
             return None
-        if isinstance(field, list) and len(field) != len(graph_field):
+        if len(field) != len(graph_field):
             self.debug_print(colored("GraphMap: len difference", "red"), end=" ")
+            logger.debug(f"_graph map found different lengths for field and graphfield ({len(field)} vs. {len(graph_field)})")
             return None
         # if type(raw_dict[sub_dict['field']]) != type(raw_dict[sub_dict['graph_field']]): # technically possible
 
-        if isinstance(field, str):  # simple variant, a singular string
-            temp_value = raw_dict[sub_dict['field']]  # the raw value
-            temp_value = Spcht._node_preprocessing(temp_value, sub_dict)  # filters out entries
-            if temp_value is not None and len(temp_value) > 0:
+        result_list = []
+        for i in range(0, len(field)):  # iterating through the list every time is tedious
+            if not isinstance(field[i], str) or not isinstance(graph_field[i], str):
+                logger.debug(f"_graph_map has in field '{sub_dict['field']}' a non-instance of str either in '{field[i]}' or '{graph_field[i]}'")
+                continue  # we cannot work of non strings, although, what about numbers?
+            temp_value = Spcht._node_preprocessing(field[i], sub_dict)  # filters out entries
+            if temp_value:
                 temp_value = self._node_mapping(temp_value, sub_dict.get('mapping'), sub_dict.get('mapping_settings'))
-                graph = self._node_mapping(graph_field, sub_dict.get("graph_map"), {"$default": sub_dict['graph']})
-                return graph, self._node_postprocessing(temp_value, sub_dict)
+                # ? when testing all the functions i got very confused at this part. What this does: it basically
+                # ? allows us to use graph_map in conjunction with mapping, i dont know if there is any use ever, but
+                # ? its possible. For reasons unknown to me i wrote this so the value that is mapped to the resulting
+                # ? graph by the mapping function instead of just plain taking the actual value, i think that is cause
+                # ? copied that part from the normal processing to get the pre/postprocessor working. One way or
+                # ? another, since this uses .get it wont fail even if there is no mapping specified but it will work
+                # ? if its the case. The clunky definition in the graph setter below this is the actual default
+                # ? definition, so the default graph is always the graph field if not set to something different.
+                # ? the field is mandatory for all nodes anyway so it should be pretty save
+                graph = self._node_mapping(graph_field[i], sub_dict.get("graph_map"), {"$default": sub_dict['graph']})
+                # danger here, if the graph_map is none, it will return graph_field instead of default, hrrr
+                if sub_dict.get("graph_map") is None:
+                    graph = sub_dict['graph']
+                result_list.append((graph, self._node_postprocessing(temp_value, sub_dict)))  # a tuple
             else:
-                return None
-        if isinstance(field, list):  # more complex, two lists that are connected to each other
-            result_list = []
-            for i in range(0, len(field)):
-                if not isinstance(field[i], str) or not isinstance(graph_field[i], str):
-                    continue  # we cannot work of non strings, although, what about numbers?
-                temp_value = Spcht._node_preprocessing(field[i], sub_dict)  # filters out entries
-                if temp_value is not None and len(temp_value) > 0:
-                    temp_value = self._node_mapping(temp_value, sub_dict.get('mapping'), sub_dict.get('mapping_settings'))
-                    # ? when testing all the functions i got very confused at this part. What this does: it basically
-                    # ? allows us to use graph_map in conjunction with mapping, i dont know if there is any use ever, but
-                    # ? its possible. For reasons unknown to me i wrote this so the value that is mapped to the resulting
-                    # ? graph by the mapping function instead of just plain taking the actual value, i think that is cause
-                    # ? copied that part from the normal processing to get the pre/postprocessor working. One way or
-                    # ? another, since this uses .get it wont fail even if there is no mapping specified but it will work
-                    # ? if its the case. The clunky definition in the graph setter below this is the actual default
-                    # ? definition, so the default graph is always the graph field if not set to something different.
-                    # ? the field is mandatory for all nodes anyway so it should be pretty save
-                    graph = self._node_mapping(graph_field[i], sub_dict.get("graph_map"), {"$default": sub_dict['graph']})
-                    # danger here, if the graph_map is none, it will return graph_field instead of default, hrrr
-                    if sub_dict.get("graph_map") is None:
-                        graph = sub_dict['graph']
-                    result_list.append((graph, self._node_postprocessing(temp_value, sub_dict)))  # a tuple
-                else:
-                    continue
-            if len(result_list) > 0:
-                return result_list
-        return None
+                continue
+        return result_list  # ? can be empty, [] therefore falsey (but not none so the process itself was successful
 
     def _inserter_string(self, raw_dict: dict, sub_dict: dict):
         """
@@ -996,6 +981,35 @@ class Spcht:
                 raise TypeError("An element in the list is not a string")
         self._default_fields = list_of_strings
 
+    @property
+    def debug(self):
+        """
+        'debug' is a switch that activates deep (and possibly colored) information about the mapping while doing so, it
+        also makes some prints a bit more verbose and shows file paths while loading
+        """
+        return self._debug
+
+    @debug.setter
+    def debug(self, mode):
+        if mode:
+            self._debug = True
+        else:
+            self._debug = False
+
+    @property
+    def log_debug(self):
+        """
+        if log_debug is true everything that debug writes will also land in the log files, as i used debug print a
+        lot to write continuous lines that concat but log writes a new line every call this will be extra spammy
+        """
+        return self._log_debug
+
+    @log_debug.setter
+    def log_debug(self, mode):
+        if mode:
+            self._log_debug = True
+        else:
+            self._log_debug = False
 
     def get_node_graphs(self):
         """

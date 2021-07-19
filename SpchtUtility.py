@@ -75,13 +75,13 @@ def list_has_elements(iterable):
     return False
 
 
-def list_wrapper(some_element):
+def list_wrapper(some_element: any) -> list:
     """
     I had the use case that i needed always a list of elements on a type i dont really care about as even when
     its just a list of one element.
     :param some_element: any object that will be wrapped in a list
     :type some_element: any
-    :return: Will return the element wrapped in the list unless its already a list, its its something weird it gets wrapped in a list of one
+    :return: Will return the element wrapped in the list unless its already a list, if its something weird it gets wrapped in a list of one
     :rtype: list
     """
     if isinstance(some_element, list):
@@ -210,7 +210,7 @@ def extract_dictmarc_value(raw_dict: dict, sub_dict: dict, dict_field="field") -
     :param dict raw_dict: either the solr dictionary or the tranformed marc21_dict
     :param dict sub_dict: a spcht node describing the data source
     :param str dict_field: name of the field in sub_dict, usually this is just 'field'
-    :return: Either the value extracted or None if no value could be found
+    :return: A list of values or a simply None
     :rtype: list or None
     """
     # 02.01.21 - Previously this also returned false, this behaviour was inconsistent
@@ -223,7 +223,7 @@ def extract_dictmarc_value(raw_dict: dict, sub_dict: dict, dict_field="field") -
             value = []
             for each in raw_dict[sub_dict[dict_field]]:
                 value.append(each)
-        return value
+        return list_wrapper(value)
     elif sub_dict['source'] == "marc":
         field, subfield = slice_marc_shorthand(sub_dict[dict_field])
         if field is None:
@@ -244,12 +244,7 @@ def extract_dictmarc_value(raw_dict: dict, sub_dict: dict, dict_field="field") -
                     pass  # ? for now we are just ignoring that iteration
             if value is None:
                 return None  # ! Exit 2 - Field around but not subfield
-
-            if isinstance(value, list):
-                return value  # * Value Return
-            else:
-                return [value]
-
+            return list_wrapper(value)
         else:
             if subfield in raw_dict[field]:
                 if isinstance(raw_dict[field][subfield], list):
@@ -258,12 +253,9 @@ def extract_dictmarc_value(raw_dict: dict, sub_dict: dict, dict_field="field") -
                     if value is None:  # i honestly cannot think why this should every happen, probably a faulty preprocessor
                         return None  # ! Exit 2 - Field around but not subfield
 
-                    if isinstance(value, list):
-                        return value  # * Value Return
-                    else:
-                        return [value]
+                    return list_wrapper(value)
                 else:
-                    return [raw_dict[field][subfield]]  # * Value Return  # a singular value
+                    return list_wrapper(raw_dict[field][subfield])  # * Value Return  # a singular value
             else:
                 return None  # ! Exit 2 - Field around but not subfield
 
