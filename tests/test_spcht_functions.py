@@ -1,14 +1,40 @@
 #!/usr/bin/env python
+# coding: utf-8
+
+# Copyright 2021 by Leipzig University Library, http://ub.uni-leipzig.de
+#                   JP Kanter, <kanter@ub.uni-leipzig.de>
+#
+# This file is part of the Solr2Triplestore Tool.
+#
+# This program is free software: you can redistribute
+# it and/or modify it under the terms of the GNU General Public
+# License as published by the Free Software Foundation, either
+# version 3 of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will
+# be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
+# of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Solr2Triplestore Tool.  If not, see <http://www.gnu.org/licenses/>.
+#
+# @license GPL-3.0-only <https://www.gnu.org/licenses/gpl-3.0.en.html>
+
 """
 Tests the functionality of the spcht library
 """
-import json, copy
+import copy
+import inspect
+import json
+import os
+import sys
+import logging
 
-import os, sys, inspect
-currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
-parentdir = os.path.dirname(currentdir)
-sys.path.insert(0, parentdir)
 from SpchtDescriptorFormat import Spcht
+import SpchtUtility
+
+logging.basicConfig(filename='debug.log', format='[%(asctime)s] %(levelname)s:%(message)s', level=logging.DEBUG)
 
 
 def gather_stats(existing_stats, variable_value) -> dict:
@@ -24,10 +50,10 @@ def gather_stats(existing_stats, variable_value) -> dict:
 
 
 if __name__ == "__main__":
-    localTestData = "./thetestset.json"  # only true for MY Pc, testdata folder is not in git
+    localTestData = "thetestset.json"
     print("Testing starts")
-    my_little_feather = Spcht("./featuretest.spcht.json")
-    if my_little_feather:
+    my_little_feather = Spcht("featuretest.spcht.json")
+    if not my_little_feather:
         print("Couldnt Load Spcht file")
         exit(1)
 
@@ -36,24 +62,24 @@ if __name__ == "__main__":
 
     stat = {"list": 0, "none": 0, "string": 0, "other": 0}
     for entry in testdata:
-        m21_record = Spcht.marc2list(entry.get('fullrecord'))
+        m21_record = SpchtUtility.marc2list(entry.get('fullrecord'))
 
         # this basically does the same as .processData but a bit slimmed down
         for node in my_little_feather._DESCRI['nodes']:
             if node['source'] == "marc":
-                value = Spcht.extract_dictmarc_value(m21_record, node)
+                value = SpchtUtility.extract_dictmarc_value(m21_record, node)
                 stat = gather_stats(stat, value)
             if node['source'] == "dict":
-                value = Spcht.extract_dictmarc_value(entry, node)
+                value = SpchtUtility.extract_dictmarc_value(entry, node)
                 stat = gather_stats(stat, value)
-            if Spcht.is_dictkey(node, 'fallback'):
+            if 'fallback' in node:
                 # i am interested in uniformity of my results, i only test for one level of callback
                 tempNode = copy.deepcopy(node['fallback'])
                 if tempNode['source'] == "marc":
-                    value = Spcht.extract_dictmarc_value(m21_record, node)
+                    value = SpchtUtility.extract_dictmarc_value(m21_record, node)
                     stat = gather_stats(stat, value)
                 if tempNode['source'] == "dict":
-                    value = Spcht.extract_dictmarc_value(entry, node)
+                    value = SpchtUtility.extract_dictmarc_value(entry, node)
                     stat = gather_stats(stat, value)
 
     print(f"Result of Extract Test: {stat['list']} Lists, {stat['none']} Nones, {stat['string']} Strings, {stat['other']} Others")
@@ -68,9 +94,8 @@ if __name__ == "__main__":
                  }
     for entry in testdata:
         testVar = my_little_feather._inserter_string(entry, testNode)
-        print(type(testVar), len(testVar))
-
-
+        if testVar:
+            print(type(testVar), len(testVar))
 
     stat['processing'] = 0
     for entry in testdata:

@@ -150,7 +150,10 @@ class Spcht:
         triple_list = []
         for node in self._DESCRI['nodes']:
             # ! MAIN CALL TO PROCESS DATA
-            facet = self._recursion_node(node, raw_dict, marc21_record)
+            try:
+                facet = self._recursion_node(node, raw_dict, marc21_record)
+            except TypeError:
+                facet = None
             # ! Data Output Modelling Try 2
             if node.get('type', "literal") == "triple":
                 node_status = 1
@@ -443,18 +446,20 @@ class Spcht:
                 self.debug_print(colored(f"✗ field found but subfield not present in marc21 dict", "magenta"), end=" > ")
                 return self._call_fallback(sub_dict, raw_dict, marc21_dict)
 
-            """Explanation:
+            """
+            Explanation:
             I am rereading this and its quite confusing on the first glance, so here some prose. This assumes three modes,
             either returned value gets replaced by the graph_field function that works like a translation, or it inserts
             something, if it doesnt do  that it does the normal stuff where it adds some parts, divides some and does 
             all the other pre&post processing things. Those 3 modi are exclusive. If any value gets filtered by the 
             if function above we never get here, as of now only one valid value in a list of value is enough to get here
-            02.02.2021"""
+            02.02.2021
+            """
             if 'graph_field' in sub_dict:  # original boilerplate from dict
                 graph_value = self._graph_map(marc21_dict, sub_dict)
                 if graph_value:  # ? why i am even checking for that? Fallbacks, that's why, if this fails we end on the bottom of this function
                     self.debug_print(colored("✓ graph_field", "green"))
-                    return graph_value
+                    return graph_value  # * does not need the node return iron as it does that in itself
                 self.debug_print(colored(f"✗ graph mapping could not be fullfilled", "magenta"), end=" > ")
             elif 'insert_into' in sub_dict:
                 inserted_ones = self._inserter_string(marc21_dict, sub_dict)
@@ -464,7 +469,7 @@ class Spcht:
                     # ! this handling of the marc format is probably too simply
             else:
                 temp_value = Spcht._node_preprocessing(m21_value, sub_dict)
-                if temp_value is None or len(temp_value) <= 0:  # not sure how i feal about the explicit check of len<0
+                if not temp_value:  # not sure how i feel about the explicit check of len<0
                     self.debug_print(colored(f"✗ value preprocessing returned no matches", "magenta"), end=" > ")
                     return self._call_fallback(sub_dict, raw_dict, marc21_dict)
 
@@ -498,7 +503,7 @@ class Spcht:
             elif sub_dict['field'] in raw_dict:  # main field name
                 temp_value = raw_dict[sub_dict['field']]  # the raw value
                 temp_value = Spcht._node_preprocessing(temp_value, sub_dict)  # filters out entries
-                if temp_value is not None and len(temp_value) > 0:
+                if temp_value:
                     temp_value = self._node_mapping(temp_value, sub_dict.get('mapping'), sub_dict.get('mapping_settings'))
                     self.debug_print(colored("✓ simple field", "green"))
                     return Spcht._node_return_iron(sub_dict['graph'], self._node_postprocessing(temp_value, sub_dict))
@@ -509,7 +514,7 @@ class Spcht:
                 for entry in sub_dict['alternatives']:
                     if entry in raw_dict:
                         temp_value = Spcht._node_preprocessing(raw_dict[entry], sub_dict)
-                        if temp_value is not None and len(temp_value) > 0:
+                        if temp_value:
                             temp_value = self._node_mapping(temp_value, sub_dict.get('mapping'), sub_dict.get('mapping_settings'))
                             self.debug_print(colored("✓ alternative field", "green"))
                             return Spcht._node_return_iron(sub_dict['graph'], self._node_postprocessing(temp_value, sub_dict))
@@ -531,35 +536,35 @@ class Spcht:
     @staticmethod
     def _node_return_iron(graph: str, subject: list or str) -> list or None:
         """
-            Used in processing of content as last step before signing off to the processing functions
-            equalizes the output, desired is a format where there is a list of tuples, after the basic steps we normally
-            only get a string for the graph but a list for the subject, this makes it so that the graph is copied.
-            Only case when there is more than one graph would be the graph_mapping function
+        Used in processing of content as last step before signing off to the processing functions
+        equalizes the output, desired is a format where there is a list of tuples, after the basic steps we normally
+        only get a string for the graph but a list for the subject, this makes it so that the graph is copied.
+        Only case when there is more than one graph would be the graph_mapping function (and that doesnt call this)
 
-            :param graph: the mapped graph for this node
-            :param subject: a single mapped string or a list of such
-            :rtype: list or none
-            :return: a list of tuples where the first entry is the graph and the second the mapped subject
+        This method is static instead of beeing inside SpchtUtility cause it chars close and specific functionality with
+        the SpchtDescriptor Core function
+        :param graph: the mapped graph for this node
+        :param subject: a single mapped string or a list of such
+        :rtype: list or none
+        :return: a list of tuples where the first entry is the graph and the second the mapped subject
         """
         # this is a simple routine to adjust the output from the nodeprocessing to a more uniform look so that its always
         # a list of tuples that is returned, instead of a tuple made of a string and a list.
         if not isinstance(graph, str):
             raise TypeError("Graph has to be a string")  # ? has it thought?
-        if isinstance(subject, int) or isinstance(subject, float) or isinstance(subject, complex):
+        if isinstance(subject, (int,float)):
             subject = str(subject)  # i am feeling kinda bad here, but this should work right? # ? complex numbers?
-        if subject is None:
+        if not subject:
             return None
         if isinstance(subject, str):
             return [(graph, subject)]  # list of one tuple
         if isinstance(subject, list):
             new_list = []
             for each in subject:
-                if each is not None:
+                if each:
                     new_list.append((graph, each))
-            if len(new_list) > 0:  # at least one not-None element
-                return new_list
-            else:
-                return None
+            return new_list
+        logger.error(f"While using the node_return_iron something failed while ironing '{str(subject)}'")
         raise TypeError("Could handle graph, subject pair")
 
     @staticmethod
@@ -568,6 +573,8 @@ class Spcht:
         used in the processing after entries were found, this acts basically as filter for everything that does
         not match the provided regex in sub_dict
 
+        This method is static instead of beeing inside SpchtUtility cause it chars close and specific functionality with
+        the SpchtDescriptor Core function
         :param str or list value: value of the found field/subfield, can be a list
         :param dict sub_dict: sub dictionary containing a match key, if not nothing happens
         :return: None if not a single match was found, always a list of values, even its just one
@@ -575,8 +582,8 @@ class Spcht:
         """
         # if there is a match-filter, this filters out the entry or all entries not matching
         if f'{key_prefix}match' not in sub_dict:
-            return [value]  # the nothing happens clause
-        if isinstance(value, str):
+            return SpchtUtility.list_wrapper(value)  # the nothing happens clause
+        if isinstance(value, (list, float, int)):
             finding = re.search(sub_dict[f'{key_prefix}match'], str(value))
             if finding is not None:
                 return [finding.string]
@@ -585,9 +592,12 @@ class Spcht:
         elif isinstance(value, list):
             list_of_returns = []
             for item in value:
+                if not isinstance(item, (list, float, int)):
+                    logger.error(f"SPCHT.node_preprocessing - unable to handle data type {type(item)} in list")
+                    raise TypeError(f"SPCHT.node_preprocessing - Found a {type(value)} in a given list.")
                 finding = re.search(sub_dict[f'{key_prefix}match'], str(item))
                 if finding is not None:
-                    list_of_returns.append(finding.string)
+                    list_of_returns.append(finding.string)  # ? extend ?
             return list_of_returns
         else:  # fallback if its anything else i dont intended to handle with this
             logger.error(f"SPCHT.node_preprocessing - unable to handle data type {type(value)}")
@@ -609,7 +619,7 @@ class Spcht:
         # after having found a value for a given key and done the appropriate mapping the value gets transformed
         # once more to change it to the provided pattern
 
-        # as i have manipulated the preprocessing there should be no strings anymore
+        # as i have manipulated the preprocessing there should be no non-strings anymore
         if isinstance(value, str):
             if f'{key_prefix}cut' in sub_dict:
                 value = re.sub(sub_dict.get(f'{key_prefix}cut', ""), sub_dict.get(f'{key_prefix}replace', ""), value)
@@ -630,9 +640,7 @@ class Spcht:
                     if key_prefix != "":
                         self._addToSaveAs(pure_filter, sub_dict)
                 list_of_returns.append(rest_str)
-            if len(list_of_returns) < 0:
-                return None
-            return list_of_returns
+            return list_of_returns  # [] is falsey, replaces old "return None" clause
         else:  # fallback if its anything else i dont intended to handle with this
             return value
 
@@ -769,22 +777,24 @@ class Spcht:
         """
         # ? sometimes i wonder why i bother with the tuple AND list stuff and not just return a list [(graph, str)]
         # * check whether the base field even exists:
-        if extract_dictmarc_value(raw_dict, sub_dict) is None:
+        value = extract_dictmarc_value(raw_dict, sub_dict)
+        if not value:
             return None
         # check what actually exists in this instance of raw_dict
         inserters = []  # each entry is a list of strings that are the values stored in that value, some dict fields are
         # more than one value, therefore everything gets squashed into a list
         if sub_dict['source'] != "dict" and sub_dict['source'] != "marc":
             print(f"Unknown source {sub_dict['source']}found, are you from the future relative to me?")
+            logger.warning(f"Spcht._inserter_string was called with an unknown source type '{sub_dict['source']}'")
             return None
-        value = extract_dictmarc_value(raw_dict, sub_dict)
-        if value is None or value is False:
-            raise TypeError("Value for insert fields cannot be None or boolean")
-        # inserted MAIN values get the processing
+
+        # inserted MAIN values gets the processing, this seems like an oversight, but there was never an use case where
+        # somewhen wanted to individually process every field
         value = Spcht._node_preprocessing(value, sub_dict)
-        if value is None:
+        if not value:
             return None  # if for example the value does not match the match filter
         value = self._node_postprocessing(value, sub_dict)
+        # TODO: postprocessing list
         if isinstance(value, list):
             list_of_values = []
             for every in value:
@@ -796,11 +806,11 @@ class Spcht:
         else:
             inserters.append(SpchtUtility.list_wrapper(value))
 
-        if 'insert_add_fields' in sub_dict:
+        if 'insert_add_fields' in sub_dict:  # ? the two times this gets called it actually checks beforehand, why do i bother?
             for each in sub_dict['insert_add_fields']:
                 pseudo_dict = {"source": sub_dict['source'], "field": each}
                 value = extract_dictmarc_value(raw_dict, pseudo_dict)
-                if value is not None and value is not False:
+                if value:
                     inserters.append(SpchtUtility.list_wrapper(value))
                 else:
                     inserters.append([""])
@@ -856,12 +866,11 @@ class Spcht:
         # * so the point of this is to make shore and coast that we actually get stuff beyond simple != / ==
 
         #  for proper comparison we also need to use preprocessing and postprocessing to properly filter, i am pondering
-        #  to leave this undocumented
+        #  to leave this undocumented - but why would i do that?
         comparator_value = self._node_preprocessing(comparator_value, sub_dict, "if_")
         comparator_value = self._node_postprocessing(comparator_value, sub_dict, "if_")
-        # pre and post processing have annoyingly enough a functionality that de-listifies stuff, in this case that is bad
-        # so we have to listify again, the usage of pre&postprocessing was an afterthought, i hope this doesnt eat to
-        # much performance
+        # the usage of pre&postprocessing was an afterthought, i hope this doesnt eat to much performance
+        # TODO: remove listify process after updating all
         comparator_value = SpchtUtility.list_wrapper(comparator_value)
         # ? i really hope one day i learn how to do this better, this seems SUPER clunky, i am sorry
         # * New Feature, compare to list of values, its a bit more binary:

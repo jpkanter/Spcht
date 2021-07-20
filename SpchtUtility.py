@@ -554,7 +554,7 @@ def marc2list(marc_full_record, validation=True, replace_method='decimal', expli
                         except TypeError:
                             if explicit_exception:
                                 raise TypeError(f"Spcht.Marc2List: '{i:03d}', {record_dict.get(f'{i:03d}', None)}")
-                            print("NOTICE: TypeError in Spcht.Marc2List", f'{i:03d}', record_dict.get(f'{i:03d}', None))
+                            logger.warning("TypeError in Spcht.Marc2List", f'{i:03d}', record_dict.get(f'{i:03d}', None))
                         # normal len doesnt work cause no method, flat element
             marc_list.append(marcdict)
         if 0 < len(marc_list) < 2:
