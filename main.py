@@ -89,7 +89,7 @@ if __name__ == "__main__":
         usage="main.py --FullOrder NAME FETCH TYPE METHOD [--config CONFIG]",
         epilog="Individual settings overwrite settings from the config file",
         prefix_chars="-")
-    # ? in case we want to load arguments from a json
+    # ? extending the parser registry so we can actually add data types from json
     parser.register('type', 'float', float)
     parser.register('type', 'int', int)
     parser.register('type', 'str', str)
@@ -154,6 +154,9 @@ if __name__ == "__main__":
     if args.SpchtProcessing:
         par = args.SpchtProcessing
         heron = Spcht(par[2])
+        if not heron:
+            print("Loading of Spcht failed, aborting")
+            exit(1)
         status = WorkOrder.FulfillProcessingOrder(par[0], par[1], heron)
         if not status:
             print("Something went wrong, check log file for details")
@@ -324,10 +327,11 @@ if __name__ == "__main__":
                 exit(1)
 
         seagull = Spcht(PARA['spcht_descriptor'])
-        if seagull:
+        print(seagull)
+        if not seagull:
             print("Spcht loading failed")
             exit(1)
-            PARA['spcht_object'] = seagull
+        PARA['spcht_object'] = seagull
         try:
             old_res = 0
             work_order = WorkOrder.CreateWorkOrder(par[0], par[1], par[2], par[3])
