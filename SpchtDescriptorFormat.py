@@ -29,7 +29,7 @@ import sys
 from pathlib import Path
 
 import SpchtUtility
-from SpchtUtility import if_possible_make_this_numerical, insert_list_into_str, extract_dictmarc_value
+from SpchtUtility import if_possible_make_this_numerical, insert_list_into_str
 
 import SpchtErrors
 try:
@@ -54,6 +54,8 @@ class Spcht:
         self._debug = debug
         self.default_fields = ['fullrecord']
         self.descriptor_file = None
+        self._raw_dict = None  # processing data
+        self._m21_dict = None
         if filename is not None:
             if not self.load_descriptor_file(filename):
                 raise FileNotFoundError("Something with the specified Spcht file was wrong")
@@ -104,21 +106,23 @@ class Spcht:
         # most elemental check
         if not self:
             return False
+        if raw_dict:
+            self._raw_dict = raw_dict
         # Preparation of Data to make it more handy in the further processing
-        marc21_record = None  # setting a default here
+        self._m21_dict = None  # setting a default here
         if marc21_source.lower() == "dict":
             try:
-                marc21_record = SpchtUtility.marc2list(raw_dict.get(marc21))
+                self._m21_dict = SpchtUtility.marc2list(self._raw_dict.get(marc21))
             except AttributeError as e:
                 self.debug_print("AttributeError:", colored(e, "red"))
                 logger.error(f"Marc21 could not be loaded due an AttributeError: {e}")
-                marc21_record = None
+                self._m21_dict = None
             except ValueError as e:  # something is up
                 self.debug_print("ValueException:", colored(e, "red"))
-                marc21_record = None
+                self._m21_dict = None
             except TypeError as e:
-                self.debug_print(f"TypeException: (in {raw_dict.get('kxp_id_str', '')}", colored(e, "red"))
-                marc21_record = None
+                self.debug_print(f"TypeException: (in {self._raw_dict.get('kxp_id_str', '')}", colored(e, "red"))
+                self._m21_dict = None
         elif marc21_source.lower() == "none":
             pass  # this is more a nod to anyone reading this than actually doing anything
         else:
@@ -137,7 +141,7 @@ class Spcht:
             "fallback": self._DESCRI.get('id_fallback', None)
         }
         # ? what happens if there is more than one resource?
-        ressource = self._recursion_node(sub_dict, raw_dict, marc21_record)
+        ressource = self._recursion_node(sub_dict)
         if isinstance(ressource, list) and len(ressource) == 1:
             ressource = ressource[0][1]
             self.debug_print("Ressource", colored(ressource, "green", attrs=["bold"]))
@@ -151,7 +155,7 @@ class Spcht:
         for node in self._DESCRI['nodes']:
             # ! MAIN CALL TO PROCESS DATA
             try:
-                facet = self._recursion_node(node, raw_dict, marc21_record)
+                facet = self._recursion_node(node)
             except TypeError:
                 facet = None
             # ! Data Output Modelling Try 2
@@ -208,6 +212,8 @@ class Spcht:
                         triple_list.append(((graph + ressource), each[0], each[1], node_status))
                     # here was a check for empty elements, but we already know that not all are empty
                     # this should NEVER return an empty list cause the mandatory check above checks for that
+        self._m21_dict = None
+        self._raw_dict = None
         return triple_list  # * can be empty []
     # TODO: Error logs for known error entries and total failures as statistic
 
@@ -400,7 +406,7 @@ class Spcht:
 
         return node_dict  # whether nothing has had changed or not, this holds true
 
-    def _recursion_node(self, sub_dict: dict, raw_dict: dict, marc21_dict=None):
+    def _recursion_node(self, sub_dict: dict):
         """
         Main function of the data processing, this decides how to handle a specific node, gets also called recursivly
         if a node contains a fallback
@@ -427,24 +433,24 @@ class Spcht:
             self.debug_print(colored(sub_dict.get('name', ""), "cyan"), end=" ")
 
         if sub_dict['source'] == "marc":
-            if marc21_dict is None:
+            if self._m21_dict is None:
                 self.debug_print(colored("No Marc", "yellow"), end="|")
                 pass
             if "if_condition" in sub_dict:  # condition cancels out the entire node, triggers callback
-                if not self._handle_if(marc21_dict, sub_dict, 'flexible'):
-                    return self._call_fallback(sub_dict, raw_dict, marc21_dict)  # ! i created call_fallback just for this
+                if not self._handle_if(sub_dict, 'flexible'):
+                    return self._call_fallback(sub_dict)  # ! i created call_fallback just for this
 
-            m21_value = extract_dictmarc_value(marc21_dict, sub_dict)
+            m21_value = self.extract_dictmarc_value(sub_dict)
             if m21_value is None:
                 self.debug_print(colored(f"Marc around but not field {sub_dict['field']}", "yellow"), end=" > ")
-                return self._call_fallback(sub_dict, raw_dict, marc21_dict)
+                return self._call_fallback(sub_dict)
 
             self.debug_print(colored("Marc21", "yellow"), end="-> ")  # the first step
             # ? Whats the most important step a man can take? --- Always the next one
 
-            if m21_value is False:  # r"^[0-9]{1,3}:\w*$"
+            if not m21_value:  # r"^[0-9]{1,3}:\w*$"
                 self.debug_print(colored(f"✗ field found but subfield not present in marc21 dict", "magenta"), end=" > ")
-                return self._call_fallback(sub_dict, raw_dict, marc21_dict)
+                return self._call_fallback(sub_dict)
 
             """
             Explanation:
@@ -456,13 +462,13 @@ class Spcht:
             02.02.2021
             """
             if 'graph_field' in sub_dict:  # original boilerplate from dict
-                graph_value = self._graph_map(marc21_dict, sub_dict)
+                graph_value = self._graph_map(sub_dict)
                 if graph_value:  # ? why i am even checking for that? Fallbacks, that's why, if this fails we end on the bottom of this function
                     self.debug_print(colored("✓ graph_field", "green"))
                     return graph_value  # * does not need the node return iron as it does that in itself
                 self.debug_print(colored(f"✗ graph mapping could not be fullfilled", "magenta"), end=" > ")
             elif 'insert_into' in sub_dict:
-                inserted_ones = self._inserter_string(marc21_dict, sub_dict)
+                inserted_ones = self._inserter_string(sub_dict)
                 if inserted_ones is not None:
                     self.debug_print(colored("✓ insert_into", "green"))
                     return Spcht._node_return_iron(sub_dict['graph'], inserted_ones)
@@ -471,7 +477,7 @@ class Spcht:
                 temp_value = Spcht._node_preprocessing(m21_value, sub_dict)
                 if not temp_value:  # not sure how i feel about the explicit check of len<0
                     self.debug_print(colored(f"✗ value preprocessing returned no matches", "magenta"), end=" > ")
-                    return self._call_fallback(sub_dict, raw_dict, marc21_dict)
+                    return self._call_fallback(sub_dict)
 
                 self.debug_print(colored(f"✓ field", "green"))
                 temp_value = self._node_mapping(temp_value, sub_dict.get('mapping'), sub_dict.get('mapping_settings'))
@@ -482,26 +488,26 @@ class Spcht:
             self.debug_print(colored("Source Dict", "yellow"), end="-> ")
 
             if "if_condition" in sub_dict:  # condition cancels out the entire node, triggers callback
-                if not self._handle_if(raw_dict, sub_dict, 'flexible'):
-                    return self._call_fallback(sub_dict, raw_dict, marc21_dict)  # ! i created call_fallback just for this
+                if not self._handle_if(sub_dict, 'flexible'):
+                    return self._call_fallback(sub_dict)  # ! i created call_fallback just for this
 
             # graph_field matching - some additional checks necessary
             # the existence of graph_field invalidates the rest if graph field does not match
             if "graph_field" in sub_dict:
                 # ? i really hope this works like intended, if there is graph_field, do nothing of the normal matching
-                graph_value = self._graph_map(raw_dict, sub_dict)
+                graph_value = self._graph_map(sub_dict)
                 if graph_value:  # ? why i am even checking for that? Fallbacks, that's why
                     self.debug_print(colored("✓ graph_field", "green"))
                     return graph_value
             # normal field matching
             elif 'insert_into' in sub_dict:  # ? similar to graph field this is an alternate mode
-                inserted_ones = self._inserter_string(raw_dict, sub_dict)
+                inserted_ones = self._inserter_string(sub_dict)
                 if inserted_ones is not None:
                     self.debug_print(colored("✓ insert_field", "green"))
                     return Spcht._node_return_iron(sub_dict['graph'], self._node_postprocessing(inserted_ones, sub_dict))
                 # ! dont forget post processing
-            elif sub_dict['field'] in raw_dict:  # main field name
-                temp_value = raw_dict[sub_dict['field']]  # the raw value
+            elif sub_dict['field'] in self._raw_dict:  # main field name
+                temp_value = self._raw_dict[sub_dict['field']]  # the raw value
                 temp_value = Spcht._node_preprocessing(temp_value, sub_dict)  # filters out entries
                 if temp_value:
                     temp_value = self._node_mapping(temp_value, sub_dict.get('mapping'), sub_dict.get('mapping_settings'))
@@ -512,15 +518,15 @@ class Spcht:
             elif 'alternatives' in sub_dict and sub_dict['alternatives'] is not None:  # traverse list of alternative field names
                 self.debug_print(colored("Alternatives", "yellow"), end="-> ")
                 for entry in sub_dict['alternatives']:
-                    if entry in raw_dict:
-                        temp_value = Spcht._node_preprocessing(raw_dict[entry], sub_dict)
+                    if entry in self._raw_dict:
+                        temp_value = Spcht._node_preprocessing(self._raw_dict[entry], sub_dict)
                         if temp_value:
                             temp_value = self._node_mapping(temp_value, sub_dict.get('mapping'), sub_dict.get('mapping_settings'))
                             self.debug_print(colored("✓ alternative field", "green"))
                             return Spcht._node_return_iron(sub_dict['graph'], self._node_postprocessing(temp_value, sub_dict))
-        return self._call_fallback(sub_dict, raw_dict, marc21_dict)
+        return self._call_fallback(sub_dict)
 
-    def _call_fallback(self, sub_dict, raw_dict, marc21_dict):
+    def _call_fallback(self, sub_dict):
         if 'fallback' in sub_dict and sub_dict['fallback'] is not None:  # we only get here if everything else failed
             # * this is it, the dreaded recursion, this might happen a lot of times, depending on how motivated the
             # * librarian was who wrote the descriptor format
@@ -528,7 +534,7 @@ class Spcht:
             recursion_node = copy.deepcopy(sub_dict['fallback'])
             if 'graph' not in recursion_node:
                 recursion_node['graph'] = sub_dict['graph']  # so in theory you can define new graphs for fallbacks
-            return self._recursion_node(recursion_node, raw_dict, marc21_dict)
+            return self._recursion_node(recursion_node, self._raw_dict)
         else:
             self.debug_print(colored("absolutely nothing", "red"), end=" |\n")
             return None  # usually i return false in these situations, but none seems appropriate
@@ -707,12 +713,12 @@ class Spcht:
         else:
             print("field contains a non-list, non-string: {}".format(type(value)), file=self.std_err)
 
-    def _graph_map(self, raw_dict, sub_dict):
+    def _graph_map(self, sub_dict):
         # originally i had this as part of the node_recursion function, but i encountered the problem
         # where i had to perform a lot of checks till i can actually do anything which in the structure i had
         # would have resulted in a very nested if chain, as a separate function i can do this more neatly and readable
-        field = extract_dictmarc_value(raw_dict, sub_dict, "field")  # this is just here cause i was tired of typing the full thing every time
-        graph_field = extract_dictmarc_value(raw_dict, sub_dict, "graph_field")
+        field = self.extract_dictmarc_value(sub_dict, "field")  # this is just here cause i was tired of typing the full thing every time
+        graph_field = self.extract_dictmarc_value(sub_dict, "graph_field")
         # i am not entirely sure that those conjoined tests are all that useful at this place
         if field is None or graph_field is None:
             self.debug_print(colored(f"✗ field or graphfield could not be found in given data", "magenta"), end=" > ")
@@ -764,7 +770,7 @@ class Spcht:
                 continue
         return result_list  # ? can be empty, [] therefore falsey (but not none so the process itself was successful
 
-    def _inserter_string(self, raw_dict: dict, sub_dict: dict):
+    def _inserter_string(self, sub_dict: dict):
         """
             This inserts the value of field (and all additional fields defined in "insert_add_fields" into a string,
             when there are less placeholders than add strings those will be omitted, if there are less fields than
@@ -777,7 +783,7 @@ class Spcht:
         """
         # ? sometimes i wonder why i bother with the tuple AND list stuff and not just return a list [(graph, str)]
         # * check whether the base field even exists:
-        value = extract_dictmarc_value(raw_dict, sub_dict)
+        value = self.extract_dictmarc_value(sub_dict)
         if not value:
             return None
         # check what actually exists in this instance of raw_dict
@@ -809,7 +815,7 @@ class Spcht:
         if 'insert_add_fields' in sub_dict:  # ? the two times this gets called it actually checks beforehand, why do i bother?
             for each in sub_dict['insert_add_fields']:
                 pseudo_dict = {"source": sub_dict['source'], "field": each}
-                value = extract_dictmarc_value(raw_dict, pseudo_dict)
+                value = self.extract_dictmarc_value(pseudo_dict)
                 if value:
                     inserters.append(SpchtUtility.list_wrapper(value))
                 else:
@@ -829,7 +835,7 @@ class Spcht:
         else:
             return None
 
-    def _handle_if(self, raw_dict: dict, sub_dict: dict, mode: str):
+    def _handle_if(self, sub_dict: dict, mode: str):
         # ? for now this only needs one field to match the criteria and everything is fine
         # TODO: Expand if so that it might demand that every single field fulfill the condition
         # here is something to learn, list(obj) is a not actually calling a function and faster for small dictionaries
@@ -842,7 +848,7 @@ class Spcht:
         else:
             return False  # if your comparator is false nothing can be true
 
-        comparator_value = extract_dictmarc_value(raw_dict, sub_dict, "if_field")
+        comparator_value = self.extract_dictmarc_value(sub_dict, "if_field")
 
         if sub_dict['if_condition'] == "exi":
             if comparator_value is None:
@@ -934,6 +940,70 @@ class Spcht:
             if self._SAVEAS.get(sub_dict['saveas'], None) is None:
                 self._SAVEAS[sub_dict['saveas']] = []
             self._SAVEAS[sub_dict['saveas']].append(value)
+
+    def extract_dictmarc_value(self, sub_dict: dict, dict_field="field") -> list or None:
+        """
+        In the corner case and context of this program there are (for now) two different kinds of 'raw_dict', the first
+        is a flat dictionary containing a key:value relationship where the value might be a list, the second is the
+        transformed marc21_dict which is the data retrieved from the marc_string inside the datasource. The transformation
+        steps contained in spcht creates a dictionary similar to the 'normal' raw_dict. There are additional exceptions
+        like that there are marc values without sub-key, for these the special subfield 'none' exists, there are also
+        indicators that are actually standing outside of the normal data set but are included by the transformation script
+        and accessable with 'i1' and 'i2'. This function abstracts those special cases and just takes the dictionary of
+        a spcht node and uses it to extract the neeed data and returns it. If there is no field it will return None instead
+        :param dict raw_dict: either the solr dictionary or the tranformed marc21_dict
+        :param dict sub_dict: a spcht node describing the data source
+        :param str dict_field: name of the field in sub_dict, usually this is just 'field'
+        :return: A list of values or a simply None
+        :rtype: list or None
+        """
+        # 02.01.21 - Previously this also returned false, this behaviour was inconsistent
+        if sub_dict['source'] == 'dict':
+            if not sub_dict[dict_field] in self._raw_dict:
+                return None
+            if not isinstance(self._raw_dict[sub_dict[dict_field]], list):
+                value = [self._raw_dict[sub_dict[dict_field]]]
+            else:
+                value = []
+                for each in self._raw_dict[sub_dict[dict_field]]:
+                    value.append(each)
+            return SpchtUtility.list_wrapper(value)
+        elif sub_dict['source'] == "marc" and self._m21_dict:
+            field, subfield = SpchtUtility.slice_marc_shorthand(sub_dict[dict_field])
+            if field is None:
+                return None  # ! Exit 0 - No Match, exact reasons unknown
+            if field not in self._m21_dict:
+                return None  # ! Exit 1 - Field not present
+            value = None
+            if isinstance(self._m21_dict[field], list):
+                for each in self._m21_dict[field]:
+                    if str(subfield) in each:
+                        m21_subfield = each[str(subfield)]
+                        if isinstance(m21_subfield, list):
+                            for every in m21_subfield:
+                                value = SpchtUtility.fill_var(value, every)
+                        else:
+                            value = SpchtUtility.fill_var(value, m21_subfield)
+                    else:
+                        pass  # ? for now we are just ignoring that iteration
+                if value is None:
+                    return None  # ! Exit 2 - Field around but not subfield
+                return SpchtUtility.list_wrapper(value)
+            else:
+                if subfield in self._m21_dict[field]:
+                    if isinstance(self._m21_dict[field][subfield], list):
+                        for every in self._m21_dict[field][subfield]:
+                            value = SpchtUtility.fill_var(value, every)
+                        if value is None:  # i honestly cannot think why this should every happen, probably a faulty preprocessor
+                            return None  # ! Exit 2 - Field around but not subfield
+
+                        return SpchtUtility.list_wrapper(value)
+                    else:
+                        return SpchtUtility.list_wrapper(self._m21_dict[field][subfield])  # * Value Return  # a singular value
+                else:
+                    return None  # ! Exit 2 - Field around but not subfield
+        else:
+            return None
 
     def get_node_fields(self):
         """
