@@ -75,7 +75,7 @@ def quadro_console_out(quadro_list: list):
 
 
 if __name__ == "__main__":
-    NormalBird = Spcht("featuretest.spcht.json", debug=True, log_debug=True)
+    NormalBird = Spcht("featuretest.spcht.json", debug=True, log_debug=False)
     my_data = load_from_json(TEST_DATA)
     if not my_data:
         print("Test failed while loading testdata")

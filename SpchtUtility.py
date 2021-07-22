@@ -197,69 +197,6 @@ def insert_list_into_str(the_string_list: list, string_to_insert: str, regex_pat
     return string_to_insert
 
 
-def extract_dictmarc_value(raw_dict: dict, sub_dict: dict, dict_field="field") -> list or None:
-    """
-    In the corner case and context of this program there are (for now) two different kinds of 'raw_dict', the first
-    is a flat dictionary containing a key:value relationship where the value might be a list, the second is the
-    transformed marc21_dict which is the data retrieved from the marc_string inside the datasource. The transformation
-    steps contained in spcht creates a dictionary similar to the 'normal' raw_dict. There are additional exceptions
-    like that there are marc values without sub-key, for these the special subfield 'none' exists, there are also
-    indicators that are actually standing outside of the normal data set but are included by the transformation script
-    and accessable with 'i1' and 'i2'. This function abstracts those special cases and just takes the dictionary of
-    a spcht node and uses it to extract the neeed data and returns it. If there is no field it will return None instead
-    :param dict raw_dict: either the solr dictionary or the tranformed marc21_dict
-    :param dict sub_dict: a spcht node describing the data source
-    :param str dict_field: name of the field in sub_dict, usually this is just 'field'
-    :return: A list of values or a simply None
-    :rtype: list or None
-    """
-    # 02.01.21 - Previously this also returned false, this behaviour was inconsistent
-    if sub_dict['source'] == 'dict':
-        if not sub_dict[dict_field] in raw_dict:
-            return None
-        if not isinstance(raw_dict[sub_dict[dict_field]], list):
-            value = [raw_dict[sub_dict[dict_field]]]
-        else:
-            value = []
-            for each in raw_dict[sub_dict[dict_field]]:
-                value.append(each)
-        return list_wrapper(value)
-    elif sub_dict['source'] == "marc":
-        field, subfield = slice_marc_shorthand(sub_dict[dict_field])
-        if field is None:
-            return None  # ! Exit 0 - No Match, exact reasons unknown
-        if field not in raw_dict:
-            return None  # ! Exit 1 - Field not present
-        value = None
-        if isinstance(raw_dict[field], list):
-            for each in raw_dict[field]:
-                if str(subfield) in each:
-                    m21_subfield = each[str(subfield)]
-                    if isinstance(m21_subfield, list):
-                        for every in m21_subfield:
-                            value = fill_var(value, every)
-                    else:
-                        value = fill_var(value, m21_subfield)
-                else:
-                    pass  # ? for now we are just ignoring that iteration
-            if value is None:
-                return None  # ! Exit 2 - Field around but not subfield
-            return list_wrapper(value)
-        else:
-            if subfield in raw_dict[field]:
-                if isinstance(raw_dict[field][subfield], list):
-                    for every in raw_dict[field][subfield]:
-                        value = fill_var(value, every)
-                    if value is None:  # i honestly cannot think why this should every happen, probably a faulty preprocessor
-                        return None  # ! Exit 2 - Field around but not subfield
-
-                    return list_wrapper(value)
-                else:
-                    return list_wrapper(raw_dict[field][subfield])  # * Value Return  # a singular value
-            else:
-                return None  # ! Exit 2 - Field around but not subfield
-
-
 def fill_var(current_var: list or str or int or float or dict, new_var: any) -> list or any:
     """
     This is another of those functions that probably already exist or what i am trying to do is not wise. Anway
@@ -544,17 +481,18 @@ def marc2list(marc_full_record, validation=True, replace_method='decimal', expli
                             if not isinstance(marcdict[i], list):
                                 marcdict[i] = [marcdict[i]]
                             marcdict[i].append(temp_subdict)
+
                         else:
                             marcdict[i] = temp_subdict
                         try:
                             if not list_has_elements(single_type):
                                 temp = record_dict.get(f'{i:03d}', None)
                                 if temp is not None:
-                                    marcdict[i]['none'] = temp
-                        except TypeError:
+                                    marcdict[i] = {'none': temp}
+                        except TypeError as e:
                             if explicit_exception:
                                 raise TypeError(f"Spcht.Marc2List: '{i:03d}', {record_dict.get(f'{i:03d}', None)}")
-                            logger.warning("TypeError in Spcht.Marc2List", f'{i:03d}', record_dict.get(f'{i:03d}', None))
+                            logger.warning(f"TypeError in Spcht.Marc2List {i:03d}, {record_dict.get(f'{i:03d}', None)} - {e}")
                         # normal len doesnt work cause no method, flat element
             marc_list.append(marcdict)
         if 0 < len(marc_list) < 2:
