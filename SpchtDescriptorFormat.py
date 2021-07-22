@@ -86,7 +86,7 @@ class Spcht:
     def __iter__(self):
         return SpchtIterator(self)
 
-    def processData(self, raw_dict, graph, marc21="fullrecord", marc21_source="dict"):
+    def process_data(self, raw_dict, graph, marc21="fullrecord", marc21_source="dict"):
         """
             takes a raw solr query and converts it to a list of sparql queries to be inserted in a triplestore
             per default it assumes there is a marc entry in the solrdump but it can be provided directly
@@ -285,7 +285,7 @@ class Spcht:
             print("Unexpected Exception:", e.args, file=self.std_err)
             return False
 
-    def getSaveAs(self, key=None):
+    def get_save_as(self, key=None):
         """
             SaveAs key in SPCHT saves the value of the node without prepend or append but with cut and match into a
             list, this list is retrieved with this function. All data is saved inside the SPCHT object. It might get big.
@@ -301,7 +301,7 @@ class Spcht:
         else:
             return None
 
-    def cleanSaveaAs(self):
+    def clean_save_as(self):
         # i originally had this in the "getSaveAs" function, but maybe you have for some reasons the need to do this
         # manually or not at all. i dont know how expensive set to list is. We will find out, eventually
         for key in self._SAVEAS:
@@ -629,9 +629,9 @@ class Spcht:
         if isinstance(value, str):
             if f'{key_prefix}cut' in sub_dict:
                 value = re.sub(sub_dict.get(f'{key_prefix}cut', ""), sub_dict.get(f'{key_prefix}replace', ""), value)
-                self._addToSaveAs(value, sub_dict)
+                self._add_to_save_as(value, sub_dict)
             else:
-                self._addToSaveAs(value, sub_dict)
+                self._add_to_save_as(value, sub_dict)
             return [sub_dict.get(f'{key_prefix}prepend', "") + value + sub_dict.get(f'{key_prefix}append', "")]
         elif isinstance(value, list):
             list_of_returns = []
@@ -639,12 +639,12 @@ class Spcht:
                 if f'{key_prefix}cut' not in sub_dict:
                     rest_str = sub_dict.get(f'{key_prefix}prepend', "") + str(item) + sub_dict.get(f'{key_prefix}append', "")
                     if key_prefix != "":
-                        self._addToSaveAs(item, sub_dict)
+                        self._add_to_save_as(item, sub_dict)
                 else:
                     pure_filter = re.sub(sub_dict.get(f'{key_prefix}cut', ""), sub_dict.get(f'{key_prefix}replace', ""), str(item))
                     rest_str = sub_dict.get(f'{key_prefix}prepend', "") + pure_filter + sub_dict.get(f'{key_prefix}append', "")
                     if key_prefix != "":
-                        self._addToSaveAs(pure_filter, sub_dict)
+                        self._add_to_save_as(pure_filter, sub_dict)
                 list_of_returns.append(rest_str)
             return list_of_returns  # [] is falsey, replaces old "return None" clause
         else:  # fallback if its anything else i dont intended to handle with this
@@ -835,7 +835,22 @@ class Spcht:
         else:
             return None
 
-    def _handle_if(self, sub_dict: dict, mode: str):
+    def _handle_if(self, sub_dict: dict):
+        """
+        If portion of the spcht processing, takes place between preprocessing and post processing, means that values
+        that were already matched get compared. The dictionary entry that is used for the comparison can but must not be
+        the same as the mapped field. Furthermore it is also possible to test for membership in a whitelist or the
+        opposite, like if 'VALUE' is either 'X', 'Y' or 'Z' instead of just 'X', it is also possible to make size
+        comparison as long the tested field is some kind of number (strings that represent numbers will be converted).
+        Its also possible to test for existence of a field only, no previous transformation steps are used in that case.
+        For all other checks the full suite of pre&postprocessing operations will be used, so the value of the designated
+        field will first be filtered by 'match', then cut by 'cut', extend by 'append' & 'prepend' and only then  compared
+        to the content of 'if_value'. If there is more than one value in 'if_field' each field will be checked and as
+        long one is able to fulfill the condition this will return true.
+        :param dict sub_dict:
+        :return: True if the condition can be fulfilled, false if not OR parameters are missing (cause logic demands it)
+        :rtype: bool
+        """
         # ? for now this only needs one field to match the criteria and everything is fine
         # TODO: Expand if so that it might demand that every single field fulfill the condition
         # here is something to learn, list(obj) is a not actually calling a function and faster for small dictionaries
@@ -844,13 +859,13 @@ class Spcht:
         # that has the same result as just doing *obj --- this doesnt matter anymore cause i was wrong in the thing
         # that triggered this text, but the change to is_dictkey is made and this information is still useful
         if sub_dict['if_condition'] in SpchtUtility.SPCHT_BOOL_OPS:
-            sub_dict['if_condition'] = SpchtUtility.SPCHT_BOOL_OPS[sub_dict['if_condition']]
+            condition = SpchtUtility.SPCHT_BOOL_OPS[sub_dict['if_condition']]
         else:
             return False  # if your comparator is false nothing can be true
 
         comparator_value = self.extract_dictmarc_value(sub_dict, "if_field")
 
-        if sub_dict['if_condition'] == "exi":
+        if condition == "exi":
             if comparator_value is None:
                 self.debug_print(colored(f"✗ field {sub_dict['if_field']} doesnt exist", "blue"), end="-> ")
                 return False
@@ -858,10 +873,10 @@ class Spcht:
             return True
 
         # ! if we compare there is no if_value, so we have to do the transformation later
-        sub_dict['if_value'] = if_possible_make_this_numerical(sub_dict['if_value'])
+        if_value = if_possible_make_this_numerical(sub_dict['if_value'])
 
         if comparator_value is None:
-            if sub_dict['if_condition'] == "=" or sub_dict['if_condition'] == "<" or sub_dict['if_condition'] == "<=":
+            if condition == "=" or condition == "<" or condition == "<=":
                 self.debug_print(colored(f"✗ no if_field found", "blue"), end=" ")
                 return False
             else:  # redundant else
@@ -871,69 +886,76 @@ class Spcht:
             # now we have established that the field at least exists, onward
         # * so the point of this is to make shore and coast that we actually get stuff beyond simple != / ==
 
-        #  for proper comparison we also need to use preprocessing and postprocessing to properly filter, i am pondering
-        #  to leave this undocumented - but why would i do that?
         comparator_value = self._node_preprocessing(comparator_value, sub_dict, "if_")
         comparator_value = self._node_postprocessing(comparator_value, sub_dict, "if_")
-        # the usage of pre&postprocessing was an afterthought, i hope this doesnt eat to much performance
         # TODO: remove listify process after updating all
         comparator_value = SpchtUtility.list_wrapper(comparator_value)
         # ? i really hope one day i learn how to do this better, this seems SUPER clunky, i am sorry
         # * New Feature, compare to list of values, its a bit more binary:
         # * its either one of many is true or all of many are false
         failure_list = []
-        if isinstance(sub_dict['if_value'], list):
+        if isinstance(if_value, list):
             for each in comparator_value:
-                for value in sub_dict['if_value']:
-                    if sub_dict['if_condition'] == "==":
+                each = if_possible_make_this_numerical(each)
+                for value in if_value:
+                    if condition == "==":
                         if each == value:
                             self.debug_print(colored(f"✓{value}=={each}", "blue"), end=" ")
                             return True
-                    if sub_dict['if_condition'] == "!=":
+                    if condition == "!=":
                         if each == value:
                             self.debug_print(colored(f"✗{value}=={each} (but should not be)", "red"), end=" ")
                             return False  # ! the big difference, ALL values must be unequal
-                    if sub_dict['if_condition'] == ">" or sub_dict['if_condition'] == "<" or sub_dict['if_condition'] == ">=" or sub_dict['if_condition'] == "<=":
+                    if condition == ">" or condition == "<" or condition == ">=" or condition == "<=":
+                        logger.error(f"_handle_if: a list of values was provided but not a definite comparator (used {sub_dict['if_condition']} instead)")
                         raise TypeError("Cannot do greater/lesser than with a list of Values")
                     # i mean..why bother checking of something is smaller than 15, 20 and 35 if you could easily just check smaller than 35
                     # in theory i could implement this and rightify someone else illogical behaviour
                 failure_list.append(each)
             # if we get here and we checked for unequal to our condition was met
-            if sub_dict['if_condition'] == "!=":
+            if condition == "!=":
                 self.debug_print(colored(f"✓{sub_dict['if_field']} was not {sub_dict['if_condition']} [conditions] but {failure_list} instead", "blue"), end="-> ")
                 return True
         else:
             for each in comparator_value:
                 each = if_possible_make_this_numerical(each)
-                if sub_dict['if_condition'] == "==":
-                    if each == sub_dict['if_value']:
+                # ? if we attempt to do this, we just normally get a type error, so why bother?
+                numerical = [">", ">=", "<", "<="]
+                if not isinstance(if_value, (int, float, complex)) and condition in numerical:
+                    logger.error(f"_handle_if: field '{sub_dict['field']}' has a faulty value<>condition combination that tries to compare non-numbers")
+                    raise TypeError("Cannot compared with non-numbers")
+                if not isinstance(each, (int, float, complex)) and condition in numerical:
+                    logger.warning(f"_handle_if: field '{sub_dict['field']}' returns at least one value that is a not-number but condition is '{condition}'")
+                    return False
+                if condition == "==":
+                    if each == if_value:
                         self.debug_print(colored(f"✓{sub_dict['if_field']}=={each}", "blue"), end=" ")
                         return True
-                if sub_dict['if_condition'] == ">":
-                    if each > sub_dict['if_value']:
+                if condition == ">":
+                    if each > if_value:
                         self.debug_print(colored(f"✓{sub_dict['if_field']}<{each}", "blue"), end=" ")
                         return True
-                if sub_dict['if_condition'] == "<":
-                    if each < sub_dict['if_value']:
+                if condition == "<":
+                    if each < if_value:
                         self.debug_print(colored(f"✓{sub_dict['if_field']}<{each}", "blue"), end=" ")
                         return True
-                if sub_dict['if_condition'] == ">=":
-                    if each >= sub_dict['if_value']:
+                if condition == ">=":
+                    if each >= if_value:
                         self.debug_print(colored(f"✓{sub_dict['if_field']}>={each}", "blue"), end=" ")
                         return True
-                if sub_dict['if_condition'] == "<=":
-                    if each <= sub_dict['if_value']:
+                if condition == "<=":
+                    if each <= if_value:
                         self.debug_print(colored(f"✓{sub_dict['if_field']}<={each}", "blue"), end=" ")
                         return True
-                if sub_dict['if_condition'] == "!=":
-                    if each != sub_dict['if_value']:
+                if condition == "!=":
+                    if each != if_value:
                         self.debug_print(colored(f"✓{sub_dict['if_field']}!={each}", "blue"), end=" ")
                         return True
                 failure_list.append(each)
-        self.debug_print(colored(f" {sub_dict['if_field']} was not {sub_dict['if_condition']} {sub_dict['if_value']} but {failure_list} instead", "magenta"), end="-> ")
+        self.debug_print(colored(f" {sub_dict['if_field']} was not {condition} {if_value} but {failure_list} instead", "magenta"), end="-> ")
         return False
 
-    def _addToSaveAs(self, value, sub_dict):
+    def _add_to_save_as(self, value, sub_dict):
         # this was originally 3 lines of boilerplate inside postprocessing, i am not really sure if i shouldn't have
         # left it that way, i kinda dislike those mini functions, it divides the code
         if "saveas" in sub_dict:

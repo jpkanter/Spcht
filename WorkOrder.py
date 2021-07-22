@@ -820,7 +820,7 @@ def FulfillProcessingOrder(work_order_file: str, graph: str, spcht_object: Spcht
                 elements = 0
                 for entry in mapping_data:
                     try:
-                        quader = spcht_object.processData(entry, graph)
+                        quader = spcht_object.process_data(entry, graph)
                         elements += 1
                         quadros += quader
                     except SpchtErrors.MandatoryError:

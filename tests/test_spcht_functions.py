@@ -52,8 +52,8 @@ def gather_stats(existing_stats, variable_value) -> dict:
 if __name__ == "__main__":
     localTestData = "thetestset.json"
     print("Testing starts")
-    my_little_feather = Spcht("featuretest.spcht.json")
-    if not my_little_feather:
+    crow = Spcht("featuretest.spcht.json")
+    if not crow:
         print("Couldnt Load Spcht file")
         exit(1)
 
@@ -62,24 +62,25 @@ if __name__ == "__main__":
 
     stat = {"list": 0, "none": 0, "string": 0, "other": 0}
     for entry in testdata:
-        m21_record = SpchtUtility.marc2list(entry.get('fullrecord'))
+        crow._raw_dict = entry
+        crow._m21_dict = SpchtUtility.marc2list(crow._raw_dict.get('fullrecord'))
 
         # this basically does the same as .processData but a bit slimmed down
-        for node in my_little_feather._DESCRI['nodes']:
+        for node in crow._DESCRI['nodes']:
             if node['source'] == "marc":
-                value = SpchtUtility.extract_dictmarc_value(m21_record, node)
+                value = crow.extract_dictmarc_value(node)
                 stat = gather_stats(stat, value)
             if node['source'] == "dict":
-                value = SpchtUtility.extract_dictmarc_value(entry, node)
+                value = crow.extract_dictmarc_value(node)
                 stat = gather_stats(stat, value)
             if 'fallback' in node:
                 # i am interested in uniformity of my results, i only test for one level of callback
                 tempNode = copy.deepcopy(node['fallback'])
                 if tempNode['source'] == "marc":
-                    value = SpchtUtility.extract_dictmarc_value(m21_record, node)
+                    value = crow.extract_dictmarc_value(node)
                     stat = gather_stats(stat, value)
                 if tempNode['source'] == "dict":
-                    value = SpchtUtility.extract_dictmarc_value(entry, node)
+                    value = crow.extract_dictmarc_value(node)
                     stat = gather_stats(stat, value)
 
     print(f"Result of Extract Test: {stat['list']} Lists, {stat['none']} Nones, {stat['string']} Strings, {stat['other']} Others")
@@ -93,14 +94,16 @@ if __name__ == "__main__":
                  'insert_into': 'Author: {}, Author2: {} & Langugage: {}'
                  }
     for entry in testdata:
-        testVar = my_little_feather._inserter_string(entry, testNode)
+        crow._raw_dict = entry
+        crow._m21_dict = SpchtUtility.marc2list(crow._raw_dict.get('fullrecord'))
+        testVar = crow._inserter_string(testNode)
         if testVar:
-            print(type(testVar), len(testVar))
+            print(type(testVar), len(testVar), " - ", testVar)
 
     stat['processing'] = 0
     for entry in testdata:
         try:
-            line = my_little_feather.processData(entry, "https://featherbeast.bird/")
+            line = crow.process_data(entry, "https://featherbeast.bird/")
         except Exception as e:
             print(e)
             stat['processing'] += 1

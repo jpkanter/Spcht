@@ -83,7 +83,7 @@ if __name__ == "__main__":
 
     lines = []
     for every in my_data:
-        lines.extend(NormalBird.processData(every, "https://ressources.info/"))
+        lines.extend(NormalBird.process_data(every, "https://ressources.info/"))
 
     quadro_console_out(lines)
 
