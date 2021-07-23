@@ -574,22 +574,26 @@ class Spcht:
         raise TypeError("Could handle graph, subject pair")
 
     @staticmethod
-    def _node_preprocessing(value: str or list, sub_dict: dict, key_prefix="") -> list or None:
+    def _node_preprocessing(value: str or list, sub_dict: dict, key_prefix="") -> list:
         """
-        used in the processing after entries were found, this acts basically as filter for everything that does
-        not match the provided regex in sub_dict
+        Filtering the given value or list of values with the node-parameter 'match' or '{prefix}match', it will then
+        return a list with all strings that match, will convert numbers to strings, the entire string will be returned
+        not just the matching part. Regex Syntax is used (and regex itself of course) If no entry matches an empty
+        list will be returned. Will throw an TypeError if a non-str, non-int and non-float is given as value or as element
+        of the given list. List order should be preserved but there is no garantue for that.
 
         This method is static instead of beeing inside SpchtUtility cause it chars close and specific functionality with
         the SpchtDescriptor Core function
+
         :param str or list value: value of the found field/subfield, can be a list
         :param dict sub_dict: sub dictionary containing a match key, if not nothing happens
-        :return: None if not a single match was found, always a list of values, even its just one
-        :rtype: list or None
+        :return: if not a single match was found, always a list of values, even its just one
+        :raise TypeError: for value != (list, str, float, int), and value=list but list elements not str,float,int
         """
         # if there is a match-filter, this filters out the entry or all entries not matching
         if f'{key_prefix}match' not in sub_dict:
             return SpchtUtility.list_wrapper(value)  # the nothing happens clause
-        if isinstance(value, (list, float, int)):
+        if isinstance(value, (float, int, str)):
             finding = re.search(sub_dict[f'{key_prefix}match'], str(value))
             if finding is not None:
                 return [finding.string]
@@ -598,12 +602,12 @@ class Spcht:
         elif isinstance(value, list):
             list_of_returns = []
             for item in value:
-                if not isinstance(item, (list, float, int)):
+                if not isinstance(item, (float, int, str)):
                     logger.error(f"SPCHT.node_preprocessing - unable to handle data type {type(item)} in list")
                     raise TypeError(f"SPCHT.node_preprocessing - Found a {type(value)} in a given list.")
                 finding = re.search(sub_dict[f'{key_prefix}match'], str(item))
-                if finding is not None:
-                    list_of_returns.append(finding.string)  # ? extend ?
+                if finding:
+                    list_of_returns.append(item)  # ? extend ?
             return list_of_returns
         else:  # fallback if its anything else i dont intended to handle with this
             logger.error(f"SPCHT.node_preprocessing - unable to handle data type {type(value)}")
@@ -612,10 +616,13 @@ class Spcht:
 
     def _node_postprocessing(self, value: str or list, sub_dict: dict, key_prefix="") -> list:
         """
-        Used after filtering and mapping took place, this appends the pre and post text before the value if provided,
-        further also replaces part of the value with the replacement text or just removes the part that is
-        specified by cut if no replacement was provided. Without 'cut' there will be no replacement.
-        Order is first replace and cut and THEN appending text
+        Changes a string after it was already taken for inclusion as a node, this changes the string in two ways:
+
+        * cut & replace, exchanges the regex from 'cut' with the content of 'replace
+        * prepend & append, adds the text of 'prepend' before the string, 'append' to the end
+
+        if none of the parameters is defined it will just return the input value without any transformations. In that
+        case a non-list might be returned, if any operation took place, the data will always be in a list
 
         :param str or list value: the content of the field that got mapped till now
         :param dict sub_dict: the subdictionary of the node containing the 'cut', 'prepend', 'append' and 'replace' key
@@ -629,9 +636,11 @@ class Spcht:
         if isinstance(value, str):
             if f'{key_prefix}cut' in sub_dict:
                 value = re.sub(sub_dict.get(f'{key_prefix}cut', ""), sub_dict.get(f'{key_prefix}replace', ""), value)
-                self._add_to_save_as(value, sub_dict)
+                if key_prefix != "":  # ? in theory this can be used on any value, but 'save' should only save the main one
+                    self._add_to_save_as(value, sub_dict)
             else:
-                self._add_to_save_as(value, sub_dict)
+                if key_prefix != "":
+                    self._add_to_save_as(value, sub_dict)
             return [sub_dict.get(f'{key_prefix}prepend', "") + value + sub_dict.get(f'{key_prefix}append', "")]
         elif isinstance(value, list):
             list_of_returns = []
@@ -926,7 +935,7 @@ class Spcht:
                     raise TypeError("Cannot compared with non-numbers")
                 if not isinstance(each, (int, float, complex)) and condition in numerical:
                     logger.warning(f"_handle_if: field '{sub_dict['field']}' returns at least one value that is a not-number but condition is '{condition}'")
-                    return False
+                    continue
                 if condition == "==":
                     if each == if_value:
                         self.debug_print(colored(f"✓{sub_dict['if_field']}=={each}", "blue"), end=" ")
