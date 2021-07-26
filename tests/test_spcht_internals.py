@@ -37,7 +37,9 @@ logging.basicConfig(filename=os.devnull)  # hides logging that occurs when testi
 
 TEST_DATA = {
     "salmon": 5,
-    "perch": ["12", "9"]
+    "perch": ["12", "9"],
+    "trout": "ice water danger xfire air fire hairs flair",
+    "bowfin": ["air hair", "lair, air, fair", "stairs, fair and air"]
 }
 IF_NODE = {
             "field": "frogfish",
@@ -91,6 +93,66 @@ class TestSpchtInternal(unittest.TestCase):
             value = [["list"], "ente", {0: 25}, "ganz"]
             with self.assertRaises(TypeError):
                 Spcht._node_preprocessing(value, node)
+
+    def test_postprocessing_single_cut_replace(self):
+        node = {
+            "cut": "(air)\\b",
+            "replace": "xXx"
+        }
+        value = "ice water danger xfire air fire hairs flair"
+        expected = ["ice water danger xfire xXx fire hairs flxXx"]
+        self.assertEqual(expected, self.crow._node_postprocessing(value, node))
+
+    def test_postprocessing_multi_cut_replace(self):
+        node = {
+            "cut": "(air)\\b",
+            "replace": "xXx"
+        }
+        value = ["air hair", "lair, air, fair", "stairs, fair and air"]
+        expected = ["xXx hxXx", "lxXx, xXx, fxXx", "stairs, fxXx and xXx"]
+        self.assertEqual(expected, self.crow._node_postprocessing(value, node))
+
+    def test_postprocessing_append(self):
+        node = {"append": " :IC-1211"}
+        with self.subTest("Postprocessing: append -> one value"):
+            value = "some text"
+            expected = [value + node['append']]  # such things make you wonder why you are even testing for it
+            self.assertEqual(expected, self.crow._node_postprocessing(value, node))
+        with self.subTest("Postprocessing: append -> one value & prefix"):
+            value = "some text"
+            node['elephant_append'] = copy.copy(node['append'])
+            expected = [value + node['append']]  # such things make you wonder why you are even testing for it
+            self.assertEqual(expected, self.crow._node_postprocessing(value, node, "elephant_"))
+        with self.subTest("Postprocessing: append -> multi value"):
+            value = ["one text", "two text", "twenty text"]
+            expected = [value[0]+node['append'], value[1]+node['append'], value[2]+node['append']]
+            self.assertEqual(expected, self.crow._node_postprocessing(value, node))
+        with self.subTest("Postprocessing: append -> multi value & prefix"):
+            value = ["one text", "two text", "twenty text"]
+            node['dolphin_append'] = copy.copy(node['append'])
+            expected = [value[0]+node['append'], value[1]+node['append'], value[2]+node['append']]
+            self.assertEqual(expected, self.crow._node_postprocessing(value, node, "dolphin_"))
+
+    def test_postprocessing_prepend(self):
+        node = {"prepend": "AS-400: "}
+        with self.subTest("Postprocessing: prepend -> one value"):
+            value = "some text"
+            expected = [node['prepend'] + value]  # such things make you wonder why you are even testing for it
+            self.assertEqual(expected, self.crow._node_postprocessing(value, node))
+        with self.subTest("Postprocessing: prepend -> one value & prefix"):
+            value = "some different text"
+            expected = [node['prepend'] + value]  # such things make you wonder why you are even testing for it
+            node['macaw_prepend'] = copy.copy(node['prepend'])
+            self.assertEqual(expected, self.crow._node_postprocessing(value, node, "macaw_"))
+        with self.subTest("Postprocessing: prepend -> multi value"):
+            value = ["one text", "two text", "twenty text"]
+            expected = [node['prepend'] + value[0], node['prepend'] + value[1], node['prepend'] + value[2]]
+            self.assertEqual(expected, self.crow._node_postprocessing(value, node))
+        with self.subTest("Postprocessing: prepend -> multi value"):
+            value = ["one text.", "two text.", "twenty text."]
+            expected = [node['prepend'] + value[0], node['prepend'] + value[1], node['prepend'] + value[2]]
+            node['canine_prepend'] = copy.copy(node['prepend'])
+            self.assertEqual(expected, self.crow._node_postprocessing(value, node, 'canine'))
 
     def test_if(self):
         self.crow._raw_dict = copy.copy(TEST_DATA)

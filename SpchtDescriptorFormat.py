@@ -41,6 +41,11 @@ except ModuleNotFoundError:
 import logging
 logger = logging.getLogger(__name__)
 
+try:
+    import rdflib
+except ImportError:
+    logger.warning("RDFLib import error in Spcht, limits function")
+
 
 class Spcht:
     def __init__(self, filename=None, check_format=False, debug=False, log_debug=False):
@@ -128,6 +133,10 @@ class Spcht:
         else:
             raise SpchtErrors.UndefinedError("The choosen Source option doesnt exists")
             # ? what if there are just no marc data and we know that in advance?
+
+        if 'rdflib' in sys.modules and isinstance(graph, rdflib.URIRef):
+            graph = graph.toPython()
+
         # generate core graph, i presume we already checked the spcht for being correct
         # ? instead of making one hard coded go i could insert a special round of the general loop right?
         sub_dict = {
@@ -633,6 +642,7 @@ class Spcht:
         # once more to change it to the provided pattern
 
         # as i have manipulated the preprocessing there should be no non-strings anymore
+        # (Jul/21) there should also be no more strings as everything is a list by now (except in a test case i wrote)
         if isinstance(value, str):
             if f'{key_prefix}cut' in sub_dict:
                 value = re.sub(sub_dict.get(f'{key_prefix}cut', ""), sub_dict.get(f'{key_prefix}replace', ""), value)
