@@ -255,12 +255,12 @@
             "source": "dict",
             "graph": "http://purl.org/dc/terms/contributor",
             "comment1": "for this graph is the mandatory default",
-            "graph_map": {
+            "joined_map": {
                 "aus": "http://purl.org/dc/elements/1.1/creator",
                 "aut": "http://purl.org/dc/elements/1.1/creator"
                 },
-            "graph_map_ref": "./translation_maps/role_graphs.json",
-            "graph_field": "author2_role",
+            "joined_map_ref": "./translation_maps/role_graphs.json",
+            "joined_field": "author2_role",
             "field": "author2",
             "required": "optional"
         },
@@ -274,7 +274,7 @@
             "required": "optional",
             "mapping_settings": {
                 "$ref": "./translation_maps/roles.json",
-                "$default": true
+                "$inherit": true
                 }
         },
         {

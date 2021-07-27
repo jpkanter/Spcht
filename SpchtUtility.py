@@ -527,8 +527,8 @@ def get_node_fields_recursion(sub_dict):
         part_list.append(sub_dict['field'])
         if 'alternatives' in sub_dict:
             part_list += sub_dict['alternatives']
-        if 'graph_field' in sub_dict:
-            part_list.append(sub_dict['graph_field'])
+        if 'joined_field' in sub_dict:
+            part_list.append(sub_dict['joined_field'])
         if 'insert_add_fields' in sub_dict:
             for each in sub_dict['insert_add_fields']:
                 part_list.append(each)
@@ -858,9 +858,9 @@ def check_format_node(node, error_desc, out, base_path, is_root=False):
                         if not os.path.exists(fullpath):
                             print(error_desc['ref_not_exist'].format(fullpath), file=out)
                             return False
-        if 'graph_field' in node:
-            if not isinstance(node['graph_field'], str):
-                print(error_desc['must_str'].format("graph_field"), file=out)
+        if 'joined' in node:
+            if not isinstance(node['joined'], str):
+                print(error_desc['must_str'].format("joined_field"), file=out)
                 return False
             if 'graph_map' not in node and 'graph_map_ref' not in node:
                 print(error_desc['graph_map'], file=out)

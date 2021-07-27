@@ -470,8 +470,8 @@ class Spcht:
             if function above we never get here, as of now only one valid value in a list of value is enough to get here
             02.02.2021
             """
-            if 'graph_field' in sub_dict:  # original boilerplate from dict
-                graph_value = self._graph_map(sub_dict)
+            if 'joined_field' in sub_dict:  # original boilerplate from dict
+                graph_value = self._joined_map(sub_dict)
                 if graph_value:  # ? why i am even checking for that? Fallbacks, that's why, if this fails we end on the bottom of this function
                     self.debug_print(colored("✓ graph_field", "green"))
                     return graph_value  # * does not need the node return iron as it does that in itself
@@ -504,7 +504,7 @@ class Spcht:
             # the existence of graph_field invalidates the rest if graph field does not match
             if "graph_field" in sub_dict:
                 # ? i really hope this works like intended, if there is graph_field, do nothing of the normal matching
-                graph_value = self._graph_map(sub_dict)
+                graph_value = self._joined_map(sub_dict)
                 if graph_value:  # ? why i am even checking for that? Fallbacks, that's why
                     self.debug_print(colored("✓ graph_field", "green"))
                     return graph_value
@@ -669,7 +669,7 @@ class Spcht:
         else:  # fallback if its anything else i dont intended to handle with this
             return value
 
-    def _node_mapping(self, value, mapping, settings):
+    def _node_mapping(self, value, mapping, settings=None):
         """
         Used in the processing after filtering via match but before the postprocesing. This replaces every matched
         value from a dictionary or the default if no match. Its possible to set the default to inheritance to pass
@@ -681,93 +681,106 @@ class Spcht:
         :return: returns the same number of values as input, might replace all non_matches with the default value. It CAN return None if something funky is going on with the settings and mapping
         :rtype: str or list or None
         """
-        the_default = False
+        the_default = None
+        inherit = False
+        regex = False
         if not isinstance(mapping, dict) or mapping is None:
             return value
         if settings is not None and isinstance(settings, dict):
             if '$default' in settings:
-                the_default = settings['$default']
+                the_default = str(settings['$default'])
                 # if the value is boolean True it gets copied without mapping
                 # if the value is a str that is default, False does nothing but preserves the default state of default
                 # Python allows me to get three "boolean" states here done, value, yes and no. Yes is inheritance
-            if '$type' in settings:
-                pass  # placeholder # TODO: regex or rigid matching
-        # no big else block cause it would indent everything, i dont like that, and this is best practice anyway right?
+            if '$inherit' in settings and settings['$inherit']:
+                inherit = True
+            if '$regex' in settings and settings['$regex']:
+                regex = True
+            if '$casesens' in settings and not settings['$casesens']:  # carries the risk of losing entries
+                new_mapping = {}
+                # case insensitivity is achieved by just converting every key to lowercase
+                for key in mapping:
+                    new_mapping[str(key).lower()] = mapping[key]
+                mapping = new_mapping
+
+        if isinstance(value, (str, int, float)):
+            value = [value]  # listifies the value to work it in the next step
+
         if isinstance(value, list):  # ? repeated dictionary calls not good for performance?
-            # ? default is optional, if not is given there can be a discard of the value despite it being here
-            # TODO: make 'default': '$inherit' to an actual function
             response_list = []
-            for item in value:
-                one_entry = mapping.get(item)
-                if one_entry is not None:
-                    response_list.append(one_entry)
-                else:
-                    if isinstance(the_default, bool) and the_default is True:
-                        response_list.append(item)  # inherit the former value
-                    elif isinstance(the_default, str):
-                        response_list.append(the_default)  # use default text
-                del one_entry
+            if not regex:
+                for item in value:
+                    if item in mapping:
+                        response_list.append(mapping[item])
+                    else:
+                        if inherit:
+                            response_list.append(item)
+            else:  # ! regex call, probably somewhat expensive
+                patterns = {}
+                for each in mapping:
+                    patterns[re.compile(each)] = each
+                for entry in value:
+                    matching = None
+                    if any((match := regex.search(entry)) for regex in patterns):
+                        matching = mapping[patterns[match.re]]
+                    if matching:
+                        response_list.append(matching)
+                    elif inherit:
+                        response_list.append(entry)
+
             if len(response_list) > 0:
                 return response_list
-            elif len(response_list) <= 0 and isinstance(the_default, str):
-                # ? i wonder when this even triggers? when giving an empty list? in any other case default is there
-                # * caveat here, if there is a list of unknown things there will be only one default
-                response_list.append(the_default)  # there is no inheritance here, i mean, what should be inherited? void?
-                return response_list
-            else:  # if there is no response list but also no defined default, it crashes back to nothing
-                return None
-
-        elif isinstance(value, str):
-            if value in mapping:  # rigid key mapping
-                return mapping.get(value)
-            elif isinstance(the_default, bool) and the_default is True:
-                return value
-            elif isinstance(the_default, str):
-                return the_default
             else:
-                return None
+                if the_default:
+                    # ? i wonder when this even triggers? when giving an empty list? in any other case default is there
+                    # * caveat here, if there is a list of unknown things there will be only one default
+                    response_list.append(the_default)  # there is no inheritance here, i mean, what should be inherited? void?
+                return response_list
                 # ? i was contemplating whether it should return value or None. None is the better one i think
                 # ? cause if we no default is defined we probably have a reason for that right?
                 # ! stupid past me, it should throw an exception
         else:
-            print("field contains a non-list, non-string: {}".format(type(value)), file=self.std_err)
+            logger.error("_node_mapping: got a non-list, non-string as value.")
+            print(f"field contains a non-list, non-string: {type(value)}", file=self.std_err)
 
-    def _graph_map(self, sub_dict):
-        # originally i had this as part of the node_recursion function, but i encountered the problem
-        # where i had to perform a lot of checks till i can actually do anything which in the structure i had
-        # would have resulted in a very nested if chain, as a separate function i can do this more neatly and readable
+    def _joined_map(self, sub_dict: dict) -> list:
+        """
+        Utilises mapping twice to achieve cojoined operations.
+
+        :param dict sub_dict: the node dictionary containing the data to process this step, namely: graph_field, graph_map
+        :type sub_dict:
+        :return: a list of tuples
+        :rtype: list
+        """
         field = self.extract_dictmarc_value(sub_dict, "field")  # this is just here cause i was tired of typing the full thing every time
         graph_field = self.extract_dictmarc_value(sub_dict, "graph_field")
-        # i am not entirely sure that those conjoined tests are all that useful at this place
-        if field is None or graph_field is None:
-            self.debug_print(colored(f"✗ field or graphfield could not be found in given data", "magenta"), end=" > ")
-            return None
-        if field is False or graph_field is False:
-            self.debug_print(colored(f"✗ subfield could not be found in given field", "magenta"), end=" > ")
-            return None
+
+        if not field or not graph_field:
+            msg = "field or graphfield could not be found in given data"
+            self.debug_print(colored(f"✗ {msg}", "magenta"), end=" > ")
+            raise SpchtErrors.DataError(msg)
         if isinstance(field, list) and not isinstance(graph_field, list):
             self.debug_print(colored("GraphMap: list and non-list", "red"), end=" ")
-            logger.warning(f"_graph_map reports list and non-list, it should not be possible that there is a non-list.")
-            return None
-        if isinstance(field, str) and not isinstance(graph_field, str):
-            self.debug_print(colored("GraphMap: str and non-str", "red"), end=" ")
-            logger.warning("f_graph_map reports an instance of str for 'field', that should not be possible")
-            return None
-        if not isinstance(field, str) and not isinstance(field, list):
-            self.debug_print(colored("GraphMap: not-str, non-list", "red"), end=" ")
-            logger.warning(f"_graph_map reports another instance of str for 'field', that should not be possible")
-            return None
+            msg = "graph_field and field are not of the same, allowed, type."
+            logger.warning(f"_graph_map {msg}")
+            raise SpchtErrors.DataError(msg)
+        if not isinstance(field, (str, float, int, list)) or not isinstance(graph_field, (str, float, int, list)):
+            self.debug_print(colored("GraphMap: non-value, non-list", "red"), end=" ")
+            msg = "One or both of field and/or graph_field value are not of the allowed type, curious"
+            logger.error(f"_graph_map {msg}")
+            raise SpchtErrors.DataError(msg)
         if len(field) != len(graph_field):
             self.debug_print(colored("GraphMap: len difference", "red"), end=" ")
-            logger.debug(f"_graph map found different lengths for field and graphfield ({len(field)} vs. {len(graph_field)})")
-            return None
-        # if type(raw_dict[sub_dict['field']]) != type(raw_dict[sub_dict['graph_field']]): # technically possible
+            msg = f"Found different lengths for field and graphfield ({len(field)} vs. {len(graph_field)})"
+            logger.debug(f"_graph map {msg}")
+            raise SpchtErrors.DataError(msg)
+        # if type(raw_dict[sub_dict['field']]) != type(raw_dict[sub_dict['joined_field']]): # technically possible
 
         result_list = []
         for i in range(0, len(field)):  # iterating through the list every time is tedious
-            if not isinstance(field[i], str) or not isinstance(graph_field[i], str):
+            if not isinstance(field[i], (str, int, float)) or not isinstance(graph_field[i], (str, int, float)):
                 logger.debug(f"_graph_map has in field '{sub_dict['field']}' a non-instance of str either in '{field[i]}' or '{graph_field[i]}'")
-                continue  # we cannot work of non strings, although, what about numbers?
+                continue
             temp_value = Spcht._node_preprocessing(field[i], sub_dict)  # filters out entries
             if temp_value:
                 temp_value = self._node_mapping(temp_value, sub_dict.get('mapping'), sub_dict.get('mapping_settings'))

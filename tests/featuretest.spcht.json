@@ -302,12 +302,12 @@
       "name": "Dict Graph Map",
       "source": "dict",
       "graph": "http://complex.dict.two.fields.to.graph.map",
-      "graph_map": {
+      "joined_map": {
           "aus": "https://this.overwrites.the.loaded.graph.map",
           "aut": "http://purl.org/dc/elements/1.1/creator"
           },
-      "graph_map_ref": "../translation_maps/role_graphs.json",
-      "graph_field": "author2_role",
+      "joined_map_ref": "../translation_maps/role_graphs.json",
+      "joined_field": "author2_role",
       "field": "author2",
       "required": "optional"
     },
@@ -315,12 +315,12 @@
       "name": "Dict Graph Map with append, prepend",
       "source": "dict",
       "graph": "http://i.cannot.really.imagine.a.use.case.for.this.honestly",
-      "graph_map": {
+      "joined_map": {
           "aus": "https://this.overwrites.the.loaded.graph.map",
           "aut": "http://purl.org/dc/elements/1.1/creator"
           },
-      "graph_map_ref": "../translation_maps/role_graphs.json",
-      "graph_field": "author2_role",
+      "joined_map_ref": "../translation_maps/role_graphs.json",
+      "joined_field": "author2_role",
       "field": "author2",
       "prepend": "PREFIX",
       "append": "SUFFIX",
@@ -330,7 +330,7 @@
       "name": "Dict Graph Map with additional mapping of value",
       "source": "dict",
       "graph": "http://complex.dict.two.fields.to.graph.map.and.map.value",
-      "graph_map": {
+      "joined_map": {
           "aus": "https://this.overwrites.the.loaded.graph.map",
           "aut": "http://purl.org/dc/elements/1.1/creator",
           "act": "https://if.this.is.gary.oldman.it.wont.say.so/"
@@ -343,8 +343,8 @@
         "J\u00e4ger, Wolfram": "Jörgen Wolfram?",
         "Oldman, Gary": "xXx Geralt Altmann xXx"
       },
-      "graph_map_ref": "../translation_maps/role_graphs.json",
-      "graph_field": "author2_role",
+      "joined_map_ref": "../translation_maps/role_graphs.json",
+      "joined_field": "author2_role",
       "field": "author2",
       "required": "optional"
     },
@@ -393,22 +393,22 @@
       "graph": "https://complex.marc.with.graph.map//",
       "required": "optional",
       "field": "700:a",
-      "graph_field": "700:4",
-      "graph_map": {
+      "joined_field": "700:4",
+      "joined_map": {
             "aus": "https://this.overwrites.the.loaded.graph.map",
             "aut": "http://purl.org/dc/elements/1.1/creator"
             },
-      "graph_map_ref": "../translation_maps/role_graphs.json",
+      "joined_map_ref": "../translation_maps/role_graphs.json",
       "fallback": {
         "name": "Dict Graph Map in fallback for non-fullrecord",
         "source": "dict",
         "graph": "http://i.cannot.really.imagine.a.use.case.for.this.honestly",
-        "graph_map": {
+        "joined_map": {
             "aus": "https://this.overwrites.the.loaded.graph.map",
             "aut": "http://purl.org/dc/elements/1.1/creator"
             },
-        "graph_map_ref": "../translation_maps/role_graphs.json",
-        "graph_field": "author2_role",
+        "joined_map_ref": "../translation_maps/role_graphs.json",
+        "joined_field": "author2_role",
         "field": "author2"
       }
     }

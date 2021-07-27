@@ -39,7 +39,12 @@ TEST_DATA = {
     "salmon": 5,
     "perch": ["12", "9"],
     "trout": "ice water danger xfire air fire hairs flair",
-    "bowfin": ["air hair", "lair, air, fair", "stairs, fair and air"]
+    "bowfin": ["air hair", "lair, air, fair", "stairs, fair and air"],
+    "tench": 12,
+    "sturgeon": [4, 9, 12],
+    "cutthroat": "de",
+    "lamprey": ["en", "de", "DE"],
+    "catfish": ["air", "hair", "lair", "stairs", "fair", "tear"]
 }
 IF_NODE = {
             "field": "frogfish",
@@ -93,6 +98,67 @@ class TestSpchtInternal(unittest.TestCase):
             value = [["list"], "ente", {0: 25}, "ganz"]
             with self.assertRaises(TypeError):
                 Spcht._node_preprocessing(value, node)
+
+    def test_mapping(self):
+        node = {
+                12: "dutzend"
+            }
+        value = TEST_DATA['tench']
+
+        with self.subTest("mapping: normal"):
+            expected = ["dutzend"]
+            self.assertEqual(expected, self.crow._node_mapping(value, node))
+        with self.subTest("mapping: empty"):
+            expected = []
+            self.assertEqual(expected, self.crow._node_mapping(value, {}))
+
+    def test_mapping_multi(self):
+        node = {
+                4: "quartet",
+                9: "lives",
+                12: "dutzend"
+            }
+        value = TEST_DATA['sturgeon']
+
+        with self.subTest("mapping_multi: normal"):
+            expected = ["quartet", "lives", "dutzend"]
+            self.assertEqual(expected, self.crow._node_mapping(value, node))
+        with self.subTest("mapping_multi: empty"):
+            expected = []
+            self.assertEqual(expected, self.crow._node_mapping(value, {}))
+
+    def test_mapping_string(self):
+        node = {
+            "DE": "big de",
+            "de": "small de",
+            "De": "inbetween"
+        }
+        value = TEST_DATA['cutthroat']
+        with self.subTest("mapping_string: normal"):
+            expected = ["small de"]
+            self.assertEqual(expected, self.crow._node_mapping(value, node))
+        with self.subTest("mapping_string: case-insensitive"):
+            expected = ['inbetween']  # case case-insensitivity overwrites keys and 'inbetween' is the last
+            self.assertEqual(expected, self.crow._node_mapping(value, node, {'$casesens': False}))
+
+    def test_mapping_regex(self):
+        node = {
+            "^(water)": "air",
+            "(air)$": "fire"
+        }
+        value = TEST_DATA['catfish']
+        with self.subTest("mapping_regex: normal"):
+            expected = ['fire', 'fire', 'fire', 'fire']
+            # mapping replaces the entire thing and not just a part, this basically just checks how many instances were replaced
+            self.assertEqual(expected, self.crow._node_mapping(value, node, {'$regex': True}))
+        with self.subTest("mapping_regex: inherit"):
+            expected = ['fire', 'fire', 'fire', 'stairs', 'fire', 'tear']
+            self.assertEqual(expected, self.crow._node_mapping(value, node, {'$regex': True, '$inherit': True}))
+        with self.subTest("mapping_regex: default"):
+            del node['(air)$']
+            default = "this_is_defaul t"
+            expected = [default]
+            self.assertEqual(expected, self.crow._node_mapping(value, node, {'$regex': True, '$default': default}))
 
     def test_postprocessing_single_cut_replace(self):
         node = {
@@ -152,7 +218,7 @@ class TestSpchtInternal(unittest.TestCase):
             value = ["one text.", "two text.", "twenty text."]
             expected = [node['prepend'] + value[0], node['prepend'] + value[1], node['prepend'] + value[2]]
             node['canine_prepend'] = copy.copy(node['prepend'])
-            self.assertEqual(expected, self.crow._node_postprocessing(value, node, 'canine'))
+            self.assertEqual(expected, self.crow._node_postprocessing(value, node, 'canine_'))
 
     def test_if(self):
         self.crow._raw_dict = copy.copy(TEST_DATA)

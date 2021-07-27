@@ -189,9 +189,9 @@ It is possible to **map** the value of your dictionary key with the field `mappi
   *This key-type was created in response to a specific database field that contained a paired list of contributers and the type of contribution that person added, its written universally to be reused and to stay within doctrine*
   **Note:** due the strict nature of `graph_field` and `field` in pair an also defined `alternatives` will be ignored
   * Value: `a string`
-* `graph_map` - this works analogue as `mapping`
+* `joned_map` - this works analogue as `mapping`
   * Value: `a flat dictionary of strings {"key": "value", ..}`
-* `graph_map_ref` - Unlike the `mapping_settings` key this has only a singular purpose, therefore it only contains a string pointing to a **local** file containing the appropriated flat dictionary for the mapping. If both `graph_map` and `graph_map_ref` are defined the content of `graph_map` gets priority and entries with the same key in the referenced file will be ignored.
+* `joined_map_ref` - Unlike the `mapping_settings` key this has only a singular purpose, therefore it only contains a string pointing to a **local** file containing the appropriated flat dictionary for the mapping. If both `graph_map` and `graph_map_ref` are defined the content of `graph_map` gets priority and entries with the same key in the referenced file will be ignored.
   * Value: `a string pointing with the filepath to a local file` *Files handled by OS, networked resources in LAN might work*
 * `alternatives` - there is possibility that a specific data field isn't always available in your given database but you know there are other keys that might contain the desired data. `alternatives` is a list of different dictionary keys which will be tried in order of their appearance.
   * Values: `a list of strings [str, str, str]`

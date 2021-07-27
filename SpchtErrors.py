@@ -49,6 +49,11 @@ class ParameterError(Exception):
         return "The given parameter lead to an outcome that did not work"
 
 
+class DataError(Exception):
+    def __repr__(self):
+        return "The provided data do not work in the given context"
+
+
 class UndefinedError(Exception):
     def __repr__(self):
         return "The given parameter tried to access a feature that is not defined or (yet) present"
