@@ -63,7 +63,8 @@ class Spcht:
         self._m21_dict = None
         if filename is not None:
             if not self.load_descriptor_file(filename):
-                raise FileNotFoundError("Something with the specified Spcht file was wrong")
+                logger.critical("spcht_init: cannot load initial spcht file")
+                raise SpchtErrors.OperationalError("Something with the specified Spcht file was wrong")
 
         # does absolutely nothing in itself
 
@@ -91,14 +92,14 @@ class Spcht:
     def __iter__(self):
         return SpchtIterator(self)
 
-    def process_data(self, raw_dict, graph, marc21="fullrecord", marc21_source="dict"):
+    def process_data(self, raw_dict, subject, marc21="fullrecord", marc21_source="dict"):
         """
             takes a raw solr query and converts it to a list of sparql queries to be inserted in a triplestore
             per default it assumes there is a marc entry in the solrdump but it can be provided directly
             it also takes technically any dictionary with entries as input
 
             :param dict raw_dict: a flat dictionary containing a key sorted list of values to be processes
-            :param str graph: beginning of the assigned graph all entries become triples of
+            :param str subject: beginning of the assigned subject all entries become triples of
             :param str marc21: the raw_dict dictionary key that contains additional marc21 data
             :param str marc21_source: source for marc21 data
             :return: a list of tuples with 4 entries (subject, predicat, object, bit) - bit = 1 -> object is another triple. Returns True if absolutly nothing was matched but the process was a success otherwise. False if something didnt worked
@@ -134,18 +135,17 @@ class Spcht:
             raise SpchtErrors.UndefinedError("The choosen Source option doesnt exists")
             # ? what if there are just no marc data and we know that in advance?
 
-        if 'rdflib' in sys.modules and isinstance(graph, rdflib.URIRef):
-            graph = graph.toPython()
+        if 'rdflib' in sys.modules and isinstance(subject, rdflib.URIRef):
+            graph = subject.toPython()
 
-        # generate core graph, i presume we already checked the spcht for being correct
+        # generates the subject URI, i presume we already checked the spcht for being correct
         # ? instead of making one hard coded go i could insert a special round of the general loop right?
         sub_dict = {
             "name": "$Identifier$",  # this does nothing functional but gives the debug text a non-empty string
             "source": self._DESCRI['id_source'],
-            "graph": "none",  # recursion node presumes a graph but we dont have that for the root, this is a dummy
+            "predicate": "none",  # std recursion process assumes a predicate field that isnt used here but needed anyway
             "field": self._DESCRI['id_field'],
-            "subfield": self._DESCRI.get('id_subfield', None),
-            # i am aware that .get returns none anyway, this is about you
+            # i am aware that .get returns none anyway, this is about clarification
             "alternatives": self._DESCRI.get('id_alternatives', None),
             "fallback": self._DESCRI.get('id_fallback', None)
         }
@@ -165,7 +165,7 @@ class Spcht:
             # ! MAIN CALL TO PROCESS DATA
             try:
                 facet = self._recursion_node(node)
-            except TypeError:
+            except Exception as e:
                 facet = None
             # ! Data Output Modelling Try 2
             if node.get('type', "literal") == "triple":
@@ -208,17 +208,17 @@ class Spcht:
 
             # * data output - singular form
             if isinstance(facet, tuple):
-                triple_list.append(((graph + ressource), facet[0], facet[1], node_status))
+                triple_list.append(((subject + ressource), facet[0], facet[1], node_status))
                 # tuple form of 4
                 # [0] the identifier
-                # [1] the object name
+                # [1] the subject name
                 # [2] the value or graph
                 # [3] meta info whether its a graph or a literal
             # * data output - list form
             elif isinstance(facet, list):  # list of tuples form
                 for each in facet:  # this is a new thing, me naming the variable "each", i dont know why
                     if each[1] is not None:
-                        triple_list.append(((graph + ressource), each[0], each[1], node_status))
+                        triple_list.append(((subject + ressource), each[0], each[1], node_status))
                     # here was a check for empty elements, but we already know that not all are empty
                     # this should NEVER return an empty list cause the mandatory check above checks for that
         self._m21_dict = None
@@ -275,24 +275,29 @@ class Spcht:
             It also catches most exceptions that might happen
             :param: filename: full path to the file or relative from current position
             :type filename: string
-            :return: Returns the loaded object (list or dictionary) or ''False'' if something happend
-            :rtype: dict
+            :return: Returns the loaded object (list or dictionary) or 'None' if something happend
+            :rtype: dict or None
         """
+        msg0 = "Could not load json file - "
         try:
             with open(filename, mode='r') as file:
                 return json.load(file)
         except FileNotFoundError:
             print("nofile -", filename, file=self.std_err)
-            return False
+            logger.critical(f"{msg0}File not found")
+            return None
         except ValueError as error:
             print(colored("Error while parsing JSON:\n\r", "red"), error, file=self.std_err)
-            return False
-        except KeyError:
+            logger.critical(f"{msg0}Json could not be parsed {error}")
+            return None
+        except KeyError as key:
             print("KeyError", file=self.std_err)
-            return False
+            logger.critical(f"{msg0}KeyError '{key}'")
+            return None
         except Exception as e:
             print("Unexpected Exception:", e.args, file=self.std_err)
-            return False
+            logger.critical(f"{msg0}surprising exception: '{e}'")
+            return None
 
     def get_save_as(self, key=None):
         """
@@ -332,7 +337,7 @@ class Spcht:
         spcht_path = Path(filename)
         self.debug_print("Local Dir:", colored(os.getcwd(), "blue"))
         self.debug_print("Spcht Dir:", colored(spcht_path.parent, "cyan"))
-        if isinstance(descriptor, bool):  # load json goes wrong if something is wrong with the json
+        if not descriptor:  # load json goes wrong if something is wrong with the json
             return False
         if not SpchtUtility.check_format(descriptor, base_path=spcht_path.parent):
             return False
@@ -342,11 +347,18 @@ class Spcht:
         for item in descriptor['nodes']:
             try:
                 a_node = self._load_ref_node(item, str(spcht_path.parent))
+                new_node.append(a_node)
+            except TypeError as that_type:
+                self.debug_print("spcht_ref-type", colored(that_type, "red"))
+                logger.critical("load_spcht: cannot load due wrong types in referenced data")
+                return False
+            except SpchtErrors.OperationalError as text:
+                self.debug_print("spcht_ref-load", colored(text, "red"))
+                return False
             except Exception as e:
                 self.debug_print("spcht_ref", colored(e, "red"))
                 # raise ValueError(f"ValueError while working through Reference Nodes: '{e}'")
                 return False
-            new_node.append(a_node)
         descriptor['nodes'] = new_node  # replaces the old node with the new, enriched ones
         self._DESCRI = descriptor
         self.descriptor_file = filename
@@ -378,6 +390,8 @@ class Spcht:
             self.debug_print("Reference:", colored(file_path, "green"))
             try:
                 map_dict = self.load_json(os.path.normpath(os.path.join(base_path, file_path)))
+                if not map_dict:
+                    raise SpchtErrors.OperationalError("Could not load referenced node")
             except FileNotFoundError:
                 self.debug_print("Reference File not found")
                 raise FileNotFoundError(f"Reference File not found: '{file_path}'")
@@ -393,25 +407,27 @@ class Spcht:
                     raise TypeError("Value of mapping_settings is not a string")
                 if key not in node_dict['mapping']:  # existing keys have priority
                     node_dict['mapping'][key] = value
-            del map_dict
             # clean up mapping_settings node
             del (node_dict['mapping_settings']['$ref'])
             if len(node_dict['mapping_settings']) <= 0:
                 del (node_dict['mapping_settings'])  # if there are no other entries the entire mapping settings goes
+            # * that cleanup step is of interest for the 'compile_spcht' option
 
-        if 'graph_map_ref' in node_dict:  # mostly boiler plate from above, probably not my brightest day
-            file_path = node_dict['graph_map_ref']
+        if 'joined_map_ref' in node_dict:  # mostly boiler plate from above, probably not my brightest day
+            file_path = node_dict['joined_map_ref']
             map_dict = self.load_json(os.path.normpath(os.path.join(base_path, file_path)))
             if not isinstance(map_dict, dict):
-                raise TypeError("Structure of loaded graph_map_reference is not a dictionary")
-            node_dict['graph_map'] = node_dict.get('graph_map', {})
+                raise TypeError("Structure of loaded joned_map_reference is not a dictionary")
+            node_dict['joined_map'] = node_dict.get('joned_map', {})
             for key, value in map_dict.items():
-                if not isinstance(value, str):
+                if not isinstance(value, (str, int, float)):
                     self.debug_print("spcht_map")
-                    raise TypeError("Value of graph_map is not a string")
-                node_dict['graph_map'][key] = node_dict['graph_map'].get(key, value)
-            del map_dict
-            del node_dict['graph_map_ref']
+                    raise TypeError("Value of joined_map is not a string, integer or float")
+                if not isinstance(key, (str, int, float)):  # is that even possible in json?
+                    self.debug_print("spcht_map")
+                    raise TypeError("Key of joined_map is not a string, integer or float")
+                node_dict['joined_map'][key] = node_dict['joined_map'].get(key, value)   # ? not replacing existing keys
+            del node_dict['joined_map_ref']
 
         return node_dict  # whether nothing has had changed or not, this holds true
 
@@ -420,10 +436,8 @@ class Spcht:
         Main function of the data processing, this decides how to handle a specific node, gets also called recursivly
         if a node contains a fallback
         :param dict sub_dict: the sub node that describes the behaviour
-        :param dict raw_dict: the raw data, usually a flat dictionary (key: str|int|float)
-        :param dict marc21_dict: pre-transformed marc21 data in marc21-dictionary format as provided by SpchtUtility.marc2list
-        :return:
-        :rtype:
+        :return: a (predicate, object) tuple or a list of such tuples [(predicate, object), ...] as provided by node_return_iron
+        :rtype: tuple
         """
         # i do not like the general use of recursion, but for traversing trees this seems the best solution
         # there is actually not so much overhead in python, its more one of those stupid feelings, i googled some
@@ -432,9 +446,8 @@ class Spcht:
         # @param raw_dict = the big raw dictionary that we are working with
         # @param marc21_dict = an alternative marc21 dictionary, already cooked and ready
         # the header/id field is special in some sense, therefore there is a separated function for it
-        # ! this can return anything, string, list, dictionary, it just takes the content and relays, careful
-        # UPDATE 03.08.2020 : i made it so that this returns a tuple of the named graph and the actual value
-        # this is so cause i rised the need for manipulating the used named graph for that specific object via
+        # UPDATE 03.08.2020 : i made it so that this returns a tuple of the predicate and the actual value
+        # this is so cause i rised the need for manipulating the used predicate for that specific object via
         # mappings, it seemed most forward to change all the output in one central place, and that is here
         if sub_dict.get('name', "") == "$Identifier$":
             self.debug_print(colored("ID Source:", "red"), end=" ")
@@ -446,11 +459,11 @@ class Spcht:
                 self.debug_print(colored("No Marc", "yellow"), end="|")
                 pass
             if "if_condition" in sub_dict:  # condition cancels out the entire node, triggers callback
-                if not self._handle_if(sub_dict, 'flexible'):
+                if not self._handle_if(sub_dict):
                     return self._call_fallback(sub_dict)  # ! i created call_fallback just for this
 
             m21_value = self.extract_dictmarc_value(sub_dict)
-            if m21_value is None:
+            if not m21_value:
                 self.debug_print(colored(f"Marc around but not field {sub_dict['field']}", "yellow"), end=" > ")
                 return self._call_fallback(sub_dict)
 
@@ -464,23 +477,23 @@ class Spcht:
             """
             Explanation:
             I am rereading this and its quite confusing on the first glance, so here some prose. This assumes three modes,
-            either returned value gets replaced by the graph_field function that works like a translation, or it inserts
+            either returned value gets replaced by the joined_field function that works like a translation, or it inserts
             something, if it doesnt do  that it does the normal stuff where it adds some parts, divides some and does 
             all the other pre&post processing things. Those 3 modi are exclusive. If any value gets filtered by the 
             if function above we never get here, as of now only one valid value in a list of value is enough to get here
             02.02.2021
             """
             if 'joined_field' in sub_dict:  # original boilerplate from dict
-                graph_value = self._joined_map(sub_dict)
-                if graph_value:  # ? why i am even checking for that? Fallbacks, that's why, if this fails we end on the bottom of this function
-                    self.debug_print(colored("✓ graph_field", "green"))
-                    return graph_value  # * does not need the node return iron as it does that in itself
-                self.debug_print(colored(f"✗ graph mapping could not be fullfilled", "magenta"), end=" > ")
+                joined_value = self._joined_map(sub_dict)
+                if joined_value:  # ? why i am even checking for that? Fallbacks, that's why, if this fails we end on the bottom of this function
+                    self.debug_print(colored("✓ joined_field", "green"))
+                    return joined_value  # * does not need the node return iron as it does that in itself
+                self.debug_print(colored(f"✗ joined mapping could not be fullfilled", "magenta"), end=" > ")
             elif 'insert_into' in sub_dict:
                 inserted_ones = self._inserter_string(sub_dict)
                 if inserted_ones is not None:
                     self.debug_print(colored("✓ insert_into", "green"))
-                    return Spcht._node_return_iron(sub_dict['graph'], inserted_ones)
+                    return Spcht._node_return_iron(sub_dict['predicate'], inserted_ones)
                     # ! this handling of the marc format is probably too simply
             else:
                 temp_value = Spcht._node_preprocessing(m21_value, sub_dict)
@@ -490,30 +503,29 @@ class Spcht:
 
                 self.debug_print(colored(f"✓ field", "green"))
                 temp_value = self._node_mapping(temp_value, sub_dict.get('mapping'), sub_dict.get('mapping_settings'))
-                return Spcht._node_return_iron(sub_dict['graph'], self._node_postprocessing(temp_value, sub_dict))
+                return Spcht._node_return_iron(sub_dict['predicate'], self._node_postprocessing(temp_value, sub_dict))
 
             # TODO: gather more samples of awful marc and process it
         elif sub_dict['source'] == "dict":
             self.debug_print(colored("Source Dict", "yellow"), end="-> ")
 
             if "if_condition" in sub_dict:  # condition cancels out the entire node, triggers callback
-                if not self._handle_if(sub_dict, 'flexible'):
+                if not self._handle_if(sub_dict):
                     return self._call_fallback(sub_dict)  # ! i created call_fallback just for this
 
-            # graph_field matching - some additional checks necessary
-            # the existence of graph_field invalidates the rest if graph field does not match
-            if "graph_field" in sub_dict:
-                # ? i really hope this works like intended, if there is graph_field, do nothing of the normal matching
-                graph_value = self._joined_map(sub_dict)
-                if graph_value:  # ? why i am even checking for that? Fallbacks, that's why
-                    self.debug_print(colored("✓ graph_field", "green"))
-                    return graph_value
+            # the existence of joined_field invalidates the rest if joined field does not exists in the raw_data
+            if "joined_field" in sub_dict:
+                # ? i really hope this works like intended, if there is joined_field, do nothing of the normal matching
+                joined_value = self._joined_map(sub_dict)
+                if joined_value:  # ? why i am even checking for that? Fallbacks, that's why
+                    self.debug_print(colored("✓ joined_field", "green"))
+                    return joined_value
             # normal field matching
-            elif 'insert_into' in sub_dict:  # ? similar to graph field this is an alternate mode
+            elif 'insert_into' in sub_dict:  # ? similar to joined field this is an alternate mode
                 inserted_ones = self._inserter_string(sub_dict)
                 if inserted_ones is not None:
                     self.debug_print(colored("✓ insert_field", "green"))
-                    return Spcht._node_return_iron(sub_dict['graph'], self._node_postprocessing(inserted_ones, sub_dict))
+                    return Spcht._node_return_iron(sub_dict['predicate'], self._node_postprocessing(inserted_ones, sub_dict))
                 # ! dont forget post processing
             elif sub_dict['field'] in self._raw_dict:  # main field name
                 temp_value = self._raw_dict[sub_dict['field']]  # the raw value
@@ -521,8 +533,8 @@ class Spcht:
                 if temp_value:
                     temp_value = self._node_mapping(temp_value, sub_dict.get('mapping'), sub_dict.get('mapping_settings'))
                     self.debug_print(colored("✓ simple field", "green"))
-                    return Spcht._node_return_iron(sub_dict['graph'], self._node_postprocessing(temp_value, sub_dict))
-            # ? since i prime the sub_dict what is even the point for checking the existence of the key, its always there
+                    return Spcht._node_return_iron(sub_dict['predicate'], self._node_postprocessing(temp_value, sub_dict))
+            # ? since i prime the sub_dict, what is even the point for checking the existence of the key, its always there
             # alternatives matching, like field but as a list of alternatives
             elif 'alternatives' in sub_dict and sub_dict['alternatives'] is not None:  # traverse list of alternative field names
                 self.debug_print(colored("Alternatives", "yellow"), end="-> ")
@@ -532,7 +544,7 @@ class Spcht:
                         if temp_value:
                             temp_value = self._node_mapping(temp_value, sub_dict.get('mapping'), sub_dict.get('mapping_settings'))
                             self.debug_print(colored("✓ alternative field", "green"))
-                            return Spcht._node_return_iron(sub_dict['graph'], self._node_postprocessing(temp_value, sub_dict))
+                            return Spcht._node_return_iron(sub_dict['predicate'], self._node_postprocessing(temp_value, sub_dict))
         return self._call_fallback(sub_dict)
 
     def _call_fallback(self, sub_dict):
@@ -541,46 +553,49 @@ class Spcht:
             # * librarian was who wrote the descriptor format
             self.debug_print(colored("Fallback triggered", "yellow"), end="-> ")
             recursion_node = copy.deepcopy(sub_dict['fallback'])
-            if 'graph' not in recursion_node:
-                recursion_node['graph'] = sub_dict['graph']  # so in theory you can define new graphs for fallbacks
-            return self._recursion_node(recursion_node, self._raw_dict)
+            if 'predicate' not in recursion_node:
+                recursion_node['predicate'] = sub_dict['predicate']  # so in theory you can define new graphs for fallbacks
+            return self._recursion_node(recursion_node)
         else:
             self.debug_print(colored("absolutely nothing", "red"), end=" |\n")
             return None  # usually i return false in these situations, but none seems appropriate
 
     @staticmethod
-    def _node_return_iron(graph: str, subject: list or str) -> list or None:
+    def _node_return_iron(predicate: str, subject: list or str) -> list:
         """
         Used in processing of content as last step before signing off to the processing functions
         equalizes the output, desired is a format where there is a list of tuples, after the basic steps we normally
-        only get a string for the graph but a list for the subject, this makes it so that the graph is copied.
-        Only case when there is more than one graph would be the graph_mapping function (and that doesnt call this)
+        only get a string for the predicate but a list for the subject, this makes it so that there are as many
+        predicates as there are value to fill the tuples
+        Only case when there is more than one predicate would be the joined_mapping function (and that doesnt call this)
 
-        This method is static instead of beeing inside SpchtUtility cause it chars close and specific functionality with
-        the SpchtDescriptor Core function
-        :param graph: the mapped graph for this node
+        This method is static, instead of beeing inside SpchtUtility cause it shares close and specific functionality
+        with the SpchtDescriptor Core function
+
+        :param predicate: the mapped predicate for this node
         :param subject: a single mapped string or a list of such
-        :rtype: list or none
-        :return: a list of tuples where the first entry is the graph and the second the mapped subject
+        :rtype: list
+        :return: a list of tuples where the first entry is the graph and the second the mapped subject, might be empty
         """
         # this is a simple routine to adjust the output from the nodeprocessing to a more uniform look so that its always
         # a list of tuples that is returned, instead of a tuple made of a string and a list.
-        if not isinstance(graph, str):
-            raise TypeError("Graph has to be a string")  # ? has it thought?
-        if isinstance(subject, (int,float)):
-            subject = str(subject)  # i am feeling kinda bad here, but this should work right? # ? complex numbers?
+        if not isinstance(predicate, str):
+            raise TypeError("Predicate has to be a string")  # ? has it thought?
+        if isinstance(subject, (int, float)):
+            subject = str(subject)  # i am feeling kinda bad here, but this should work right?
+            # although i am not sure how a number or a float can be a valid URI
         if not subject:
-            return None
+            return []
         if isinstance(subject, str):
-            return [(graph, subject)]  # list of one tuple
+            return [(predicate, subject)]  # list of one tuple
         if isinstance(subject, list):
             new_list = []
             for each in subject:
                 if each:
-                    new_list.append((graph, each))
+                    new_list.append((predicate, each))
             return new_list
         logger.error(f"While using the node_return_iron something failed while ironing '{str(subject)}'")
-        raise TypeError("Could handle graph, subject pair")
+        raise TypeError("Could handle predicate, subject pair")
 
     @staticmethod
     def _node_preprocessing(value: str or list, sub_dict: dict, key_prefix="") -> list:
@@ -591,7 +606,7 @@ class Spcht:
         list will be returned. Will throw an TypeError if a non-str, non-int and non-float is given as value or as element
         of the given list. List order should be preserved but there is no garantue for that.
 
-        This method is static instead of beeing inside SpchtUtility cause it chars close and specific functionality with
+        This method is static instead of beeing inside SpchtUtility cause it shares close and specific functionality with
         the SpchtDescriptor Core function
 
         :param str or list value: value of the found field/subfield, can be a list
@@ -745,7 +760,16 @@ class Spcht:
 
     def _joined_map(self, sub_dict: dict) -> list:
         """
-        Utilises mapping twice to achieve cojoined operations.
+        This innocent word hides a whole host of operations that mimic the other stuff. Normally the predicate part of
+        any one node is constant, this allows to dynamically change the predicate based on another field. For this there
+        must be a second field that serves as decider for which kind of predicate the process goes. The value is then
+        served to a map and choosen among the values present in that map (and defaults to the static predicate if nothing
+        is matching). If the secondary field is more than one value it must have exactly as many list-entries as the
+        object value. Each value is then matched to the same position as the predicate.
+
+        * Mode 1: **n=1** predicate field value, many object fields --- dynamic predicate for all values
+        * Mode 2: **n=x** predicate field values, **x** object field values --- matching predciate & object
+        * **any other combination will fail**
 
         :param dict sub_dict: the node dictionary containing the data to process this step, namely: graph_field, graph_map
         :type sub_dict:
@@ -753,53 +777,49 @@ class Spcht:
         :rtype: list
         """
         field = self.extract_dictmarc_value(sub_dict, "field")  # this is just here cause i was tired of typing the full thing every time
-        graph_field = self.extract_dictmarc_value(sub_dict, "graph_field")
+        joined_field = self.extract_dictmarc_value(sub_dict, "joined_field")
 
-        if not field or not graph_field:
-            msg = "field or graphfield could not be found in given data"
+        if not field or not joined_field:
+            msg = "field or joined_field could not be found in given data"
             self.debug_print(colored(f"✗ {msg}", "magenta"), end=" > ")
             raise SpchtErrors.DataError(msg)
-        if isinstance(field, list) and not isinstance(graph_field, list):
-            self.debug_print(colored("GraphMap: list and non-list", "red"), end=" ")
-            msg = "graph_field and field are not of the same, allowed, type."
-            logger.warning(f"_graph_map {msg}")
+        if isinstance(field, list) and not isinstance(joined_field, list):
+            self.debug_print(colored("JoinedMap: list and non-list", "red"), end=" ")
+            msg = "joined_field and field are not of the same, allowed, type."
+            logger.warning(f"_joined_map {msg}")
             raise SpchtErrors.DataError(msg)
-        if not isinstance(field, (str, float, int, list)) or not isinstance(graph_field, (str, float, int, list)):
-            self.debug_print(colored("GraphMap: non-value, non-list", "red"), end=" ")
-            msg = "One or both of field and/or graph_field value are not of the allowed type, curious"
-            logger.error(f"_graph_map {msg}")
+        if not isinstance(field, (str, float, int, list)) or not isinstance(joined_field, (str, float, int, list)):
+            self.debug_print(colored("JoinedMap: non-value, non-list", "red"), end=" ")
+            msg = "One or both of field and/or joined_field value are not of the allowed type, curious"
+            logger.error(f"_joined_map {msg}")
             raise SpchtErrors.DataError(msg)
-        if len(field) != len(graph_field):
-            self.debug_print(colored("GraphMap: len difference", "red"), end=" ")
-            msg = f"Found different lengths for field and graphfield ({len(field)} vs. {len(graph_field)})"
-            logger.debug(f"_graph map {msg}")
+        if len(field) != len(joined_field):
+            self.debug_print(colored("JoinedMap: len difference", "red"), end=" ")
+            msg = f"Found different lengths for field and joinedfield ({len(field)} vs. {len(joined_field)})"
+            logger.debug(f"_joined map {msg}")
             raise SpchtErrors.DataError(msg)
         # if type(raw_dict[sub_dict['field']]) != type(raw_dict[sub_dict['joined_field']]): # technically possible
 
         result_list = []
         for i in range(0, len(field)):  # iterating through the list every time is tedious
-            if not isinstance(field[i], (str, int, float)) or not isinstance(graph_field[i], (str, int, float)):
-                logger.debug(f"_graph_map has in field '{sub_dict['field']}' a non-instance of str either in '{field[i]}' or '{graph_field[i]}'")
+            if not isinstance(field[i], (str, int, float)) or not isinstance(joined_field[i], (str, int, float)):
+                logger.debug(f"_joined_map has in field '{sub_dict['field']}' a non-instance of str either in '{field[i]}' or '{joined_field[i]}'")
                 continue
-            temp_value = Spcht._node_preprocessing(field[i], sub_dict)  # filters out entries
-            if temp_value:
-                temp_value = self._node_mapping(temp_value, sub_dict.get('mapping'), sub_dict.get('mapping_settings'))
-                # ? when testing all the functions i got very confused at this part. What this does: it basically
-                # ? allows us to use graph_map in conjunction with mapping, i dont know if there is any use ever, but
-                # ? its possible. For reasons unknown to me i wrote this so the value that is mapped to the resulting
-                # ? graph by the mapping function instead of just plain taking the actual value, i think that is cause
-                # ? copied that part from the normal processing to get the pre/postprocessor working. One way or
-                # ? another, since this uses .get it wont fail even if there is no mapping specified but it will work
-                # ? if its the case. The clunky definition in the graph setter below this is the actual default
-                # ? definition, so the default graph is always the graph field if not set to something different.
-                # ? the field is mandatory for all nodes anyway so it should be pretty save
-                graph = self._node_mapping(graph_field[i], sub_dict.get("graph_map"), {"$default": sub_dict['graph']})
-                # danger here, if the graph_map is none, it will return graph_field instead of default, hrrr
-                if sub_dict.get("graph_map") is None:
-                    graph = sub_dict['graph']
-                result_list.append((graph, self._node_postprocessing(temp_value, sub_dict)))  # a tuple
-            else:
-                continue
+            sobject = Spcht._node_preprocessing(field[i], sub_dict)  # filters out entries
+            if sobject:
+                sobject = self._node_mapping(sobject, sub_dict.get('mapping'), sub_dict.get('mapping_settings'))
+                sobject = self._node_postprocessing(sobject, sub_dict)
+                if len(sobject) == 1:
+                    sobject = sobject[0]
+                else:
+                    logger.critical("_joined_map, for some uneexptected reasons, the output inside the joined_map loop had more than one value for the object, that should not happen, never. Investigate!")
+                    raise SpchtErrors.OperationalError("Cannot continue processing with undecisive data")
+                # * predicate processing
+                predicate = self._node_mapping(joined_field[i], sub_dict.get("joined_map"), {"$default": sub_dict['predicate']})
+                if len(predicate) == 1:
+                    predicate = predicate[0]
+
+                result_list.append((predicate, sobject))  # a tuple
         return result_list  # ? can be empty, [] therefore falsey (but not none so the process itself was successful
 
     def _inserter_string(self, sub_dict: dict):
@@ -808,44 +828,33 @@ class Spcht:
             when there are less placeholders than add strings those will be omitted, if there are less fields than
             placeholders (maybe cause the data source doesnt score that many hits) then those will be empty "". This
             wont fire at all if not at least field doesnt exits
-        :param dict raw_dict: a flat dictionary containing a key sorted list of values to be processes
         :param dict sub_dict: the subdictionary of the node containing all the nodes insert_into and insert_add_fields
-        :return: a list of tuple or a singular tuple of (graph, string)
+        :return: a list of tuple or a singular tuple of (predicate, string)
         :rtype: tuple or list
         """
-        # ? sometimes i wonder why i bother with the tuple AND list stuff and not just return a list [(graph, str)]
         # * check whether the base field even exists:
         value = self.extract_dictmarc_value(sub_dict)
         if not value:
-            return None
+            return []
         # check what actually exists in this instance of raw_dict
         inserters = []  # each entry is a list of strings that are the values stored in that value, some dict fields are
         # more than one value, therefore everything gets squashed into a list
         if sub_dict['source'] != "dict" and sub_dict['source'] != "marc":
             print(f"Unknown source {sub_dict['source']}found, are you from the future relative to me?")
             logger.warning(f"Spcht._inserter_string was called with an unknown source type '{sub_dict['source']}'")
-            return None
+            return []
 
         # inserted MAIN values gets the processing, this seems like an oversight, but there was never an use case where
         # somewhen wanted to individually process every field
         value = Spcht._node_preprocessing(value, sub_dict)
-        if not value:
-            return None  # if for example the value does not match the match filter
         value = self._node_postprocessing(value, sub_dict)
-        # TODO: postprocessing list
-        if isinstance(value, list):
-            list_of_values = []
-            for every in value:
-                if every is not None:
-                    list_of_values.append(every)
-            if len(list_of_values) <= 0:
-                return None
-            inserters.append(list_of_values)
-        else:
-            inserters.append(SpchtUtility.list_wrapper(value))
+        # * pre & postprocessing listify by themselfs, at this point value IS a list, but might be empty
+        if not value:
+            return []  # if for example the value does not match the match filter
 
         if 'insert_add_fields' in sub_dict:  # ? the two times this gets called it actually checks beforehand, why do i bother?
             for each in sub_dict['insert_add_fields']:
+                # TODO: here is potential for an extension of possible of insert fields
                 pseudo_dict = {"source": sub_dict['source'], "field": each}
                 value = self.extract_dictmarc_value(pseudo_dict)
                 if value:
@@ -898,7 +907,7 @@ class Spcht:
         comparator_value = self.extract_dictmarc_value(sub_dict, "if_field")
 
         if condition == "exi":
-            if comparator_value is None:
+            if not comparator_value:
                 self.debug_print(colored(f"✗ field {sub_dict['if_field']} doesnt exist", "blue"), end="-> ")
                 return False
             self.debug_print(colored(f"✓ field {sub_dict['if_field']}  exists", "blue"), end="-> ")
@@ -907,7 +916,7 @@ class Spcht:
         # ! if we compare there is no if_value, so we have to do the transformation later
         if_value = if_possible_make_this_numerical(sub_dict['if_value'])
 
-        if comparator_value is None:
+        if not comparator_value:
             if condition == "=" or condition == "<" or condition == "<=":
                 self.debug_print(colored(f"✗ no if_field found", "blue"), end=" ")
                 return False
@@ -920,8 +929,6 @@ class Spcht:
 
         comparator_value = self._node_preprocessing(comparator_value, sub_dict, "if_")
         comparator_value = self._node_postprocessing(comparator_value, sub_dict, "if_")
-        # TODO: remove listify process after updating all
-        comparator_value = SpchtUtility.list_wrapper(comparator_value)
         # ? i really hope one day i learn how to do this better, this seems SUPER clunky, i am sorry
         # * New Feature, compare to list of values, its a bit more binary:
         # * its either one of many is true or all of many are false
@@ -995,7 +1002,7 @@ class Spcht:
                 self._SAVEAS[sub_dict['saveas']] = []
             self._SAVEAS[sub_dict['saveas']].append(value)
 
-    def extract_dictmarc_value(self, sub_dict: dict, dict_field="field") -> list or None:
+    def extract_dictmarc_value(self, sub_dict: dict, dict_field="field") -> list:
         """
         In the corner case and context of this program there are (for now) two different kinds of 'raw_dict', the first
         is a flat dictionary containing a key:value relationship where the value might be a list, the second is the
@@ -1005,16 +1012,15 @@ class Spcht:
         indicators that are actually standing outside of the normal data set but are included by the transformation script
         and accessable with 'i1' and 'i2'. This function abstracts those special cases and just takes the dictionary of
         a spcht node and uses it to extract the neeed data and returns it. If there is no field it will return None instead
-        :param dict raw_dict: either the solr dictionary or the tranformed marc21_dict
         :param dict sub_dict: a spcht node describing the data source
         :param str dict_field: name of the field in sub_dict, usually this is just 'field'
-        :return: A list of values or a simply None
-        :rtype: list or None
+        :return: A list of values, might be empty
+        :rtype: list
         """
         # 02.01.21 - Previously this also returned false, this behaviour was inconsistent
         if sub_dict['source'] == 'dict':
             if not sub_dict[dict_field] in self._raw_dict:
-                return None
+                return []
             if not isinstance(self._raw_dict[sub_dict[dict_field]], list):
                 value = [self._raw_dict[sub_dict[dict_field]]]
             else:
@@ -1025,9 +1031,9 @@ class Spcht:
         elif sub_dict['source'] == "marc" and self._m21_dict:
             field, subfield = SpchtUtility.slice_marc_shorthand(sub_dict[dict_field])
             if field is None:
-                return None  # ! Exit 0 - No Match, exact reasons unknown
+                return []  # ! Exit 0 - No Match, exact reasons unknown
             if field not in self._m21_dict:
-                return None  # ! Exit 1 - Field not present
+                return []  # ! Exit 1 - Field not present
             value = None
             if isinstance(self._m21_dict[field], list):
                 for each in self._m21_dict[field]:
@@ -1041,7 +1047,7 @@ class Spcht:
                     else:
                         pass  # ? for now we are just ignoring that iteration
                 if value is None:
-                    return None  # ! Exit 2 - Field around but not subfield
+                    return []  # ! Exit 2 - Field around but not subfield
                 return SpchtUtility.list_wrapper(value)
             else:
                 if subfield in self._m21_dict[field]:
@@ -1049,20 +1055,20 @@ class Spcht:
                         for every in self._m21_dict[field][subfield]:
                             value = SpchtUtility.fill_var(value, every)
                         if value is None:  # i honestly cannot think why this should every happen, probably a faulty preprocessor
-                            return None  # ! Exit 2 - Field around but not subfield
+                            return []  # ! Exit 2 - Field around but not subfield
 
                         return SpchtUtility.list_wrapper(value)
                     else:
                         return SpchtUtility.list_wrapper(self._m21_dict[field][subfield])  # * Value Return  # a singular value
                 else:
-                    return None  # ! Exit 2 - Field around but not subfield
+                    return []  # ! Exit 2 - Field around but not subfield
         else:
-            return None
+            return []
 
     def get_node_fields(self):
         """
             Returns a list of all the fields that might be used in processing of the data, this includes all
-            alternatives, fallbacks and graph_field keys with source dictionary
+            alternatives, fallbacks and joined_field keys with source dictionary
 
             :return: a list of strings
             :rtype: list
@@ -1075,14 +1081,88 @@ class Spcht:
         the_list.extend(self.default_fields)
         if self._DESCRI['id_source'] == "dict":
             the_list.append(self._DESCRI['id_field'])
-        temp_list = SpchtUtility.get_node_fields_recursion(self._DESCRI['id_fallback'])
+        temp_list = Spcht.get_node_fields_recursion(self._DESCRI['id_fallback'])
         if temp_list is not None and len(temp_list) > 0:
             the_list += temp_list
         for node in self._DESCRI['nodes']:
-            temp_list = SpchtUtility.get_node_fields_recursion(node)
+            temp_list = Spcht.get_node_fields_recursion(node)
             if temp_list is not None and len(temp_list) > 0:
                 the_list += temp_list
         return sorted(set(the_list))
+
+    def get_node_predicates(self):
+        """
+            Returns a list of all different predicates that could be mapped by the loaded spcht file. As for get_node_fields
+            this includes the referenced predicates in joined_map and fallbacks. This can theoretically return an empty list
+            when there are less than 1 node in the spcht file. But that raises other questions anyway...
+
+            :return: a list of string
+            :rtype: list
+        """
+        if not self:  # requires initiated SPCHT Load
+            self.debug_print("list_of_dict_fields requires loaded SPCHT")
+            return []
+        the_other_list = []
+        for node in self._DESCRI['nodes']:
+            temp_list = Spcht.get_node_predicates_recursion(node)
+            if temp_list is not None and len(temp_list) > 0:
+                the_other_list += temp_list
+        # list set for deduplication, crude method but best i have for the moment
+        return sorted(set(the_other_list))  # unlike the field equivalent this might return an empty list
+
+    @staticmethod
+    def get_node_predicates_recursion(sub_dict: dict) -> list:
+        """
+        Recursivly traverses a node to find the usage of predicate URIs
+
+        This method is static instead of beeing inside SpchtUtility cause it shares close and specific functionality with
+        the SpchtDescriptor Core function
+
+        :param dict sub_dict: a Spcht Node
+        :return: a list of strings
+        :rtype: list
+        """
+        part_list = []
+        if 'predicate' in sub_dict:
+            part_list.append(sub_dict['predicate'])
+        if 'joined_map' in sub_dict:
+            for key, value in sub_dict['joined_map'].items():
+                part_list.append(value)  # probably some duplicates here
+        if 'fallback' in sub_dict:
+            temp_list = Spcht.get_node_fields_recursion(sub_dict['fallback'])
+            if temp_list is not None and len(temp_list) > 0:
+                part_list += temp_list
+        return part_list
+
+    @staticmethod
+    def get_node_fields_recursion(sub_dict: dict) -> list:
+        """
+        Traverses the given node recursivly to find all usage of fields
+
+        This method is static instead of beeing inside SpchtUtility cause it shares close and specific functionality with
+        the SpchtDescriptor Core function
+
+        :param dict sub_dict: a Spcht Node
+        :return: a list of used data fields
+        :rtype: list
+        """
+        part_list = []
+        if sub_dict['source'] == "dict":
+            part_list.append(sub_dict['field'])
+            if 'alternatives' in sub_dict:
+                part_list += sub_dict['alternatives']
+            if 'joined_field' in sub_dict:
+                part_list.append(sub_dict['joined_field'])
+            if 'insert_add_fields' in sub_dict:
+                for each in sub_dict['insert_add_fields']:
+                    part_list.append(each)
+            if 'if_field' in sub_dict:
+                part_list.append(sub_dict['if_field'])
+        if 'fallback' in sub_dict:
+            temp_list = Spcht.get_node_fields_recursion(sub_dict['fallback'])
+            if temp_list is not None and len(temp_list) > 0:
+                part_list += temp_list
+        return part_list
 
     @property
     def default_fields(self):
@@ -1143,26 +1223,6 @@ class Spcht:
             self._log_debug = True
         else:
             self._log_debug = False
-
-    def get_node_graphs(self):
-        """
-            Returns a list of all different graphs that could be mapped by the loaded spcht file. As for get_node_fields
-            this includes the referenced graphs in graph_map and fallbacks. This can theoretically return an empty list
-            when there are less than 1 node in the spcht file. But that raises other questions anyway...
-
-            :return: a list of string
-            :rtype: list
-        """
-        if not self:  # requires initiated SPCHT Load
-            self.debug_print("list_of_dict_fields requires loaded SPCHT")
-            return []
-        the_other_list = []
-        for node in self._DESCRI['nodes']:
-            temp_list = SpchtUtility.get_node_graphs_recursion(node)
-            if temp_list is not None and len(temp_list) > 0:
-                the_other_list += temp_list
-        # list set for deduplication, crude method but best i have for the moment
-        return sorted(set(the_other_list))  # unlike the field equivalent this might return an empty list
 
 
 class SpchtIterator:

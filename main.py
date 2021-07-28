@@ -58,7 +58,7 @@ def load_config(file_path="config.json"):
     :return: True if everything went well, will raise exception otherwise
     """
     expected_settings = ("solr_url", "query", "total_rows", "chunk_size", "spcht_path", "save_folder",
-                         "graph", "named_graph", "isql_path", "user", "password", "isql_port", "virt_folder",
+                         "subject", "named_graph", "isql_path", "user", "password", "isql_port", "virt_folder",
                          "processes", "sparql_endpoint", "spcht_descriptor", "max_age")
     config_dict = load_from_json(file_path)
     if not config_dict:
@@ -111,7 +111,7 @@ if __name__ == "__main__":
             print("Config file loaded")
 
     simple_parameters = ["work_order_file", "solr_url", "query", "chunk_size", "total_rows", "spcht_descriptor", "save_folder",
-                         "graph", "named_graph", "isql_path", "user", "password", "virt_folder", "sparql_endpoint", "force",
+                         "subject", "named_graph", "isql_path", "user", "password", "virt_folder", "sparql_endpoint", "force",
                          "debug"]
     default_parameters = ["chunk_size", "total_rows", "isql_port", "save_folder"]  # ? default would overwrite config file settings
 
@@ -162,7 +162,7 @@ if __name__ == "__main__":
             print("Something went wrong, check log file for details")
 
     if args.SpchtProcessingPara:
-        expected = ("work_order_file", "spcht_descriptor", "graph")
+        expected = ("work_order_file", "spcht_descriptor", "subject")
         for each in expected:
             if each not in PARA:
                 print("SpchtProcessingPara - linear processed data")
@@ -171,7 +171,7 @@ if __name__ == "__main__":
                     print(f"\t{colored(avery, attrs=['bold'])} - {colored(arguments[avery]['help'], 'green')}")
                 exit(1)
         crow = Spcht(PARA['spcht_descriptor'])
-        status = WorkOrder.FulfillProcessingOrder(PARA['work_order_file'], PARA['graph'], crow)
+        status = WorkOrder.FulfillProcessingOrder(PARA['work_order_file'], PARA['subject'], crow)
         if not status:
             print("Something went wrong, check log file for details")
 
@@ -185,7 +185,7 @@ if __name__ == "__main__":
         # * multi does not give any process update, it just happens..or does not, it might print something to console
 
     if args.SpchtProcessingMultiPara:
-        expected = ("work_order_file", "spcht_descriptor", "graph", "processes")
+        expected = ("work_order_file", "spcht_descriptor", "subject", "processes")
         for each in expected:
             if each not in PARA:
                 print("SpchtProcessingMultiPara - parallel processed data")
@@ -194,7 +194,7 @@ if __name__ == "__main__":
                     print(f"\t{colored(avery, attrs=['bold'])} - {colored(arguments[avery]['help'], 'green')}")
                 exit(1)
         eagle = Spcht(PARA['spcht_descriptor'])
-        WorkOrder.ProcessOrderMultiCore(PARA['work_order_file'], graph=PARA['graph'], spcht_object=eagle, processes=PARA['processes'])
+        WorkOrder.ProcessOrderMultiCore(PARA['work_order_file'], graph=PARA['subject'], spcht_object=eagle, processes=PARA['processes'])
 
     # ! inserting operation
 
@@ -288,7 +288,7 @@ if __name__ == "__main__":
         # * Processing Type
         if par[2].lower() == "insert" or par[2].lower() == "update":
             dynamic_requirements.append("spcht_descriptor")
-            dynamic_requirements.append("graph")
+            dynamic_requirements.append("subject")
             if par[2].lower() == "update":
                 dynamic_requirements.append("max_age")
         else:

@@ -69,6 +69,7 @@ def is_dictkey(dictionary: dict, *keys: str or int or list):
 
 
 def list_has_elements(iterable):
+    # also know as "is object iterable", i dont think this is ever needed
     # technically this can check more than lists, but i use it to check some crude object on having objects or not
     for item in iterable:
         return True
@@ -507,40 +508,6 @@ def marc2list(marc_full_record, validation=True, replace_method='decimal', expli
     # returned but everything else went fine, although, i am not sure if that even triggers and under what circumstances
 
 
-def get_node_graphs_recursion(sub_dict):
-    part_list = []
-    if 'graph' in sub_dict:
-        part_list.append(sub_dict['graph'])
-    if 'graph_map' in sub_dict:
-        for key, value in sub_dict['graph_map'].items():
-            part_list.append(value)  # probably some duplicates here
-    if 'fallback' in sub_dict:
-        temp_list = get_node_fields_recursion(sub_dict['fallback'])
-        if temp_list is not None and len(temp_list) > 0:
-            part_list += temp_list
-    return part_list
-
-
-def get_node_fields_recursion(sub_dict):
-    part_list = []
-    if sub_dict['source'] == "dict":
-        part_list.append(sub_dict['field'])
-        if 'alternatives' in sub_dict:
-            part_list += sub_dict['alternatives']
-        if 'joined_field' in sub_dict:
-            part_list.append(sub_dict['joined_field'])
-        if 'insert_add_fields' in sub_dict:
-            for each in sub_dict['insert_add_fields']:
-                part_list.append(each)
-        if 'if_field' in sub_dict:
-            part_list.append(sub_dict['if_field'])
-    if 'fallback' in sub_dict:
-        temp_list = get_node_fields_recursion(sub_dict['fallback'])
-        if temp_list is not None and len(temp_list) > 0:
-            part_list += temp_list
-    return part_list
-
-
 def quickSparql(quadro_list: tuple, graph: str) -> str:
     """
         Does some basic string manipulation to create one solid block of entries for the inserts via sparql
@@ -633,7 +600,7 @@ def check_format(descriptor, out=sys.stderr, base_path="", i18n=None):
     error_desc = {
         "header_miss": "The main header informations [id_source, id_field, main] are missing, is this even the right file?",
         "header_mal": "The header information seems to be malformed",
-        "basic_struct": "Elements of the basic structure ( [source, field, required, graph] ) are missing",
+        "basic_struct": "Elements of the basic structure ( [source, field, required, predicate] ) are missing",
         "basic_struct2": "An Element of the basic sub node structure is missing [source or field]",
         "ref_not_exist": "The file {} cannot be found (probably either rights or wrong path)",
         "type_str": "the type key must contain a string value that is either 'triple' or anything else",
@@ -651,10 +618,10 @@ def check_format(descriptor, out=sys.stderr, base_path="", i18n=None):
         "fallback": "-> structure of the fallback node contains errors",
         "nodes": "-> error in structure of Node",
         "fallback_dict": "Fallback structure must be an dictionary build like a regular node",
-        "graph_map": "When defining graph_field there must also be a graph_map key defining the mapping.",
-        "graph_map_dict": "The graph mapping must be a dictionary of strings",
-        "graph_map_dict_str": "Each key must reference a string value in the graph_map key",
-        "graph_map_ref": "The key graph_map_ref must be a string pointing to a local file",
+        "joined_map": "When defining joined_field there must also be a joined_map key defining the mapping.",
+        "joined_map_dict": "The joined mapping must be a dictionary of strings",
+        "joined_map_dict_str": "Each key must reference a string value in the joined_map key",
+        "joined_map_ref": "The key joined_map_ref must be a string pointing to a local file",
         "add_fields_list": "The additional fields for the insert string have to be in a list, even if its only one ['str']",
         "add_field_list_str": "Every element of the add_fields has to be a string",
         "add_field_list_marc_str1": "Every single string in the insert_fields list has to be of the format '604:a'",
@@ -722,7 +689,7 @@ def check_format_node(node, error_desc, out, base_path, is_root=False):
 
     # root node specific things
     if is_root:
-        if not is_dictkey(node, 'source', 'field', 'required', 'graph'):
+        if not is_dictkey(node, 'source', 'field', 'required', 'predicate'):
             print(error_desc['basic_struct'], file=out)
             return False
         if not isinstance(node['required'], str):
@@ -772,17 +739,12 @@ def check_format_node(node, error_desc, out, base_path, is_root=False):
             print(error_desc['if_need_value'], file=out)
             return False
         if 'if_value' in node:
-            if not isinstance(node['if_value'], str) \
-                    and not isinstance(node['if_value'], int) \
-                    and not isinstance(node['if_value'], float) \
-                    and not isinstance(node['if_value'], list):
+            if not isinstance(node['if_value'], (str, int, float, list)):
                 print(error_desc['if_value_types'], file=out)
                 return False
             if isinstance(node['if_value'], list):
                 for each in node['if_value']:
-                    if not isinstance(each, str) \
-                            and not isinstance(each, int) \
-                            and not isinstance(each, float):
+                    if not isinstance(each, str, int, float):
                         print(error_desc['if_value_types'], file=out)
                         return False
 
@@ -858,27 +820,27 @@ def check_format_node(node, error_desc, out, base_path, is_root=False):
                         if not os.path.exists(fullpath):
                             print(error_desc['ref_not_exist'].format(fullpath), file=out)
                             return False
-        if 'joined' in node:
-            if not isinstance(node['joined'], str):
+        if 'joined_field' in node:
+            if not isinstance(node['joined_field'], str):
                 print(error_desc['must_str'].format("joined_field"), file=out)
                 return False
-            if 'graph_map' not in node and 'graph_map_ref' not in node:
-                print(error_desc['graph_map'], file=out)
+            if 'joined_map' not in node and 'joined_map_ref' not in node:
+                print(error_desc['joined_map'], file=out)
                 return False
-            if 'graph_map' in node:
-                if not isinstance(node['graph_map'], dict):
-                    print(error_desc['graph_map_dict'], file=out)
+            if 'joined_map' in node:
+                if not isinstance(node['joined_map'], dict):
+                    print(error_desc['joined_map_dict'], file=out)
                     return False
                 else:
-                    for value in node['graph_map'].values():
+                    for value in node['joined_map'].values():
                         if not isinstance(value, str):
-                            print(error_desc['graph_map_dict_str'], file=out)
+                            print(error_desc['joined_map_dict_str'], file=out)
                             return False
-            if 'graph_map_ref' in node and not isinstance(node['graph_map_ref'], str):
-                print(error_desc['graph_map_ref'], file=out)
+            if 'joined_map_ref' in node and not isinstance(node['joined_map_ref'], str):
+                print(error_desc['joined_map_ref'], file=out)
                 return False
-            if 'graph_map_ref' in node and isinstance(node['graph_map_ref'], str):
-                file_path = node['graph_map_ref']
+            if 'joined_map_ref' in node and isinstance(node['joined_map_ref'], str):
+                file_path = node['joined_map_ref']
                 fullpath = os.path.normpath(os.path.join(base_path, file_path))
                 if not os.path.exists(fullpath):
                     print(error_desc['ref_not_exist'].format(fullpath), file=out)

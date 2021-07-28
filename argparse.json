@@ -111,7 +111,7 @@
                 "action": "store_true",
                 "help": "Procesesses the given order with multiple processes, needs: --work_order_file, --graph, --spcht_descriptor, --processes"
             },
-        "graph":
+        "subject":
             {
                 "type": "str",
                 "help": "URI of the subject part the graph gets mapped to in the <subject> <predicate> <object> triple"

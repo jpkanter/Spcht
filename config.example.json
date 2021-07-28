@@ -4,7 +4,7 @@
     "spcht_descriptor": "default.spcht.json",
     "user": "<user>",
     "password": "<password>",
-    "graph": "<URI>",
+    "subject": "<URI>",
     "named_graph": "<URI>",
     "query": "*:*",
     "query_rows": 5000,

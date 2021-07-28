@@ -400,7 +400,7 @@ def UseWorkOrder(work_order_file, **kwargs) -> list or int:
                     return 3
             if work_order['meta']['status'] == 2 or work_order['meta']['status'] == 3:  # fetching completed
                 # ! checks
-                expected = ("work_order_file", "spcht_descriptor", "graph")
+                expected = ("work_order_file", "spcht_descriptor", "subject")
                 missing = CheckForParameters(expected, **kwargs)
                 if missing:
                     return missing
@@ -766,11 +766,11 @@ def FetchWorkOrderSolr(work_order_file: str,
     return True
 
 
-def FulfillProcessingOrder(work_order_file: str, graph: str, spcht_object: Spcht, force=False, **kwargs):
+def FulfillProcessingOrder(work_order_file: str, subject: str, spcht_object: Spcht, force=False, **kwargs):
     """
     Processes all raw data files specified in the work order file list
     :param str work_order_file: filename of a work order file
-    :param str graph: graph the data gets mapped to, technically a subject in the <subject> <predicate> <object> chain
+    :param str subject: a part of the subject without identifier  in the <subject> <predicate> <object> chain
     :param Spcht spcht_object: ready loaded Spcht object
     :param bool force: if true, will ignore security checks like order status
     :return: True if everything worked, False if something is not working
@@ -782,8 +782,8 @@ def FulfillProcessingOrder(work_order_file: str, graph: str, spcht_object: Spcht
     if not os.path.exists(work_order_file):
         print("Work order does not exists")
         return False
-    if not isinstance(graph, str):
-        print("Graph/Subject mst be a string")
+    if not isinstance(subject, str):
+        print("Subject mst be a string")
         return False
     if not isinstance(spcht_object, Spcht):
         print("Provided Spcht Object is not a genuine Spcht Object")
@@ -820,7 +820,7 @@ def FulfillProcessingOrder(work_order_file: str, graph: str, spcht_object: Spcht
                 elements = 0
                 for entry in mapping_data:
                     try:
-                        quader = spcht_object.process_data(entry, graph)
+                        quader = spcht_object.process_data(entry, subject)
                         elements += 1
                         quadros += quader
                     except SpchtErrors.MandatoryError:

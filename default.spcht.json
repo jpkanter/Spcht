@@ -3,14 +3,13 @@
     "id_field": "id",
     "id_fallback": {
         "source": "marc",
-        "field": "001",
-        "subfield": "none"
+        "field": "001:none",
     },
     "nodes": [
         {
             "name": "ISBN",
             "source": "dict",
-            "graph": "http://schema.org/isbn",
+            "predicate": "http://schema.org/isbn",
             "field": "isbn",
             "required": "optional",
             "comment": "abweichend von DINI-KIM-Empfehlung schema.org statt bibo",
@@ -22,7 +21,7 @@
         {
             "name": "ISSN",
             "source": "dict",
-            "graph":  "https://schema.org/issn",
+            "predicate":  "https://schema.org/issn",
             "field": "issn",
             "required": "optional",
             "comment": "abweichend von DINI-KIM-Empfehlung schema.org statt bibo",
@@ -34,7 +33,7 @@
         {
             "name": "Hauptsachtitel des Werkes",
             "source": "dict",
-            "graph": "http://purl.org/dc/terms/title",
+            "predicate": "http://purl.org/dc/terms/title",
             "field": "title",
             "alternatives": ["title_short"],
             "required": "optional",
@@ -47,7 +46,7 @@
         {
             "name": "Zusatz zum Hauptsachtitel",
             "source": "dict",
-            "graph": "http://rdaregistry.info/Elements/u/P60493",
+            "predicate": "http://rdaregistry.info/Elements/u/P60493",
             "field": "title_sub",
             "alternatives": ["title_part"],
             "required": "optional",
@@ -59,7 +58,7 @@
         {
             "name": "gleich wie",
             "source": "dict",
-            "graph": "http://umbel.org/umbel/isLike",
+            "predicate": "http://umbel.org/umbel/isLike",
             "field": "url",
             "required": "optional",
             "comment": "ohne Marc-Fallback; in den SOLR gelangen nur URNs nach einem bestimmten Muster aus 024a:037n:856u",
@@ -71,7 +70,7 @@
         {
             "name": "Erscheinungsvermerk",
             "source": "dict",
-            "graph": "http://rdaregistry.info/Elements/u/P60333",
+            "predicate": "http://rdaregistry.info/Elements/u/P60333",
             "field": "imprint_str_mv",
             "required": "optional",
             "comment": "ohne fallback; kommt aus Marc 260abc:264abc (und 533) aber nach einem bestimmten Muster"
@@ -79,7 +78,7 @@
         {
             "name": "Erscheinungssort",
             "source": "dict",
-            "graph": "http://rdaregistry.info/Elements/u/P60163",
+            "predicate": "http://rdaregistry.info/Elements/u/P60163",
             "field": "publishPlace",
             "required": "optional",
             "fallback": {
@@ -94,7 +93,7 @@
         {
             "name": "Verlag",
             "source": "dict",
-            "graph": "http://purl.org/dc/terms/publisher",
+            "predicate": "http://purl.org/dc/terms/publisher",
             "field": "publisher",
             "required": "optional",
             "fallback": {
@@ -109,7 +108,7 @@
         {
             "name": "Erscheinungsjahr",
             "source": "dict",
-            "graph": "http://purl.org/dc/terms/issued",
+            "predicate": "http://purl.org/dc/terms/issued",
             "field": "publishDate",
             "alternatives": ["publishDateSort"],
             "required": "optional",
@@ -126,7 +125,7 @@
         {
             "name": "ISBD",
             "source": "dict",
-            "graph": "http://iflastandards.info/ns/isbd/elements/P1053",
+            "predicate": "http://iflastandards.info/ns/isbd/elements/P1053",
             "field": "physical",
             "required": "optional",
             "fallback": {
@@ -137,7 +136,7 @@
         {
             "name": "Übergeordnetes Werk",
             "source": "dict",
-            "graph": "http://purl.org/dc/terms/bibliographicCitation",
+            "predicate": "http://purl.org/dc/terms/bibliographicCitation",
             "field": "container_title",
             "alternatives": ["container_reference"],
             "required": "optional",
@@ -158,7 +157,7 @@
         {
             "name": "Hochschulschriftenvermerk",
             "source": "dict",
-            "graph": "http://rdaregistry.info/Elements/u/P60489",
+            "predicate": "http://rdaregistry.info/Elements/u/P60489",
             "field": "dissertation_note",
             "required": "optional",
             "comment": "Neu: das Solr-Feld dissertation_note wird inzwischen nicht mehr befüllt",
@@ -170,7 +169,7 @@
         {
             "name": "Typ der Dokument Art",
             "source": "dict",
-            "graph": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+            "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
             "field": "format_finc",
             "required": "optional",
             "comment": "TODO",
@@ -183,7 +182,7 @@
         {
             "name": "Medium des Objekts",
             "source": "dict",
-            "graph": "http://purl.org/dc/terms/medium",
+            "predicate": "http://purl.org/dc/terms/medium",
             "field": "format_finc",
             "required": "optional",
             "comment": "TODO",
@@ -197,7 +196,7 @@
          {
             "name": "Sprache des Objects",
             "source": "dict",
-            "graph": "http://purl.org/dc/terms/language",
+            "predicate": "http://purl.org/dc/terms/language",
             "required": "optional",
             "field": "language",
             "type": "triple",
@@ -206,7 +205,7 @@
         {
             "name": "Verfügbarkeitswachtel",
             "source": "dict",
-            "graph": "http://schema.org/availability",
+            "predicate": "http://schema.org/availability",
             "required": "optional",
             "field": "id",
             "prepend": "https://data.ub.uni-leipzig.de/item/wachtl/DE-15:ppn:",
@@ -219,9 +218,9 @@
             "name": "Verfügbarkeitswachtel, neues System",
             "comment": "Nutzt neues Feld InsertString",
             "comment1": "Die Frage besteht ob man 'field' mitnimmt oder es rein auf InsertFields beschränkt",
-            "comment2": "What if any of those fields is a multivalued field?", 
+            "comment2": "What if any of those fields is a multivalued field?",
             "source": "dict",
-            "graph": "http://schema.org/availability",
+            "predicate": "http://schema.org/availability",
             "required": "optional",
             "field": "institution",
             "insert_into": "https://data.ub.uni-leipzig.de/item/wachtl/{}:ppn:{}",
@@ -232,7 +231,7 @@
             "name": "Marc21 Insert Into Test String",
             "comment": "theoretically marc should work with this, but i have no practical example",
             "source": "marc",
-            "graph": "https://graphs.toucancorp.com/marcstring",
+            "predicate": "https://graphs.toucancorp.com/marcstring",
             "required": "optional",
             "field": "001:none",
             "insert_into": "Field 3 {} - 40a: {} and 40b = {}",
@@ -242,7 +241,7 @@
         {
             "name" : "Teilhaber als Graph",
             "source": "dict",
-            "graph": "http://purl.org/dc/terms/contributor",
+            "predicate": "http://purl.org/dc/terms/contributor",
             "field": "names_id_str_mv",
             "required": "optional",
             "type": "triple",
@@ -253,7 +252,7 @@
         {
             "name": "Experimentell: definitive Authoren - literal",
             "source": "dict",
-            "graph": "http://purl.org/dc/terms/contributor",
+            "predicate": "http://purl.org/dc/terms/contributor",
             "comment1": "for this graph is the mandatory default",
             "joined_map": {
                 "aus": "http://purl.org/dc/elements/1.1/creator",
@@ -268,7 +267,7 @@
             "name": "Verfasserrolle",
             "comment": "nicht immer vergeben, kann aber auch mehrfach vergeben sein",
             "source": "dict",
-            "graph": "http://id.loc.gov/vocabulary/relators.html",
+            "predicate": "http://id.loc.gov/vocabulary/relators.html",
             "field": "author_role",
             "alternatives": ["author_corporate_role", "author2_role", "author_corporate2_role"],
             "required": "optional",
@@ -280,7 +279,7 @@
         {
             "name": "Hierarchy Top ID / IS Part of",
             "source": "dict",
-            "graph": "http://purl.org/dc/terms/isPartOf",
+            "predicate": "http://purl.org/dc/terms/isPartOf",
             "required": "optional",
             "prepend": "https://data.finc.info/resources/",
             "type": "triple",

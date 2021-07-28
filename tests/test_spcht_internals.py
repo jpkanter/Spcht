@@ -44,7 +44,12 @@ TEST_DATA = {
     "sturgeon": [4, 9, 12],
     "cutthroat": "de",
     "lamprey": ["en", "de", "DE"],
-    "catfish": ["air", "hair", "lair", "stairs", "fair", "tear"]
+    "catfish": ["air", "hair", "lair", "stairs", "fair", "tear"],
+    "goldfish": ["001", "002", "003"],
+    "silverfish": ["Yellow", "Blue", "Red"],
+    "foulfish": ["Yellow", "Purple"],
+    "bronzefish": "001",
+    "copperfish": "Pink"
 }
 IF_NODE = {
             "field": "frogfish",
@@ -298,6 +303,38 @@ class TestSpchtInternal(unittest.TestCase):
         with self.subTest("if_multi_value equal"):
             node['if_value'] = "9"
             self.assertTrue(self.crow._handle_if(node))
+
+    def test_joined_map(self):
+        self.crow._raw_dict = copy.copy(TEST_DATA)
+        node = {
+            "field": "silverfish",
+            "predicate": "thousand",
+            "joined_field": "goldfish",
+            "joined_map": {
+                "001": "nullnullone",
+                "002": "twonullnull",
+                "003": "nullthreenull"
+            },
+            "source": "dict"
+        }
+        expected = [('nullnullone', 'Yellow'), ('twonullnull', 'Blue'), ('nullthreenull', 'Red')]
+        self.assertEqual(self.crow._joined_map(node), expected)
+
+    def test_joined_map_single(self):
+        self.crow._raw_dict = copy.copy(TEST_DATA)
+        node = {
+            "field": "copperfish",
+            "predicate": "thousand",
+            "joined_field": "bronzefish",
+            "joined_map": {
+                "001": "nullnullone",
+                "002": "twonullnull",
+                "003": "nullthreenull"
+            },
+            "source": "dict"
+        }
+        expected = [('nullnullone', 'Pink')]
+        self.assertEqual(self.crow._joined_map(node), expected)
 
 
 if __name__ == '__main__':
