@@ -793,33 +793,51 @@ class Spcht:
             msg = "One or both of field and/or joined_field value are not of the allowed type, curious"
             logger.error(f"_joined_map {msg}")
             raise SpchtErrors.DataError(msg)
-        if len(field) != len(joined_field):
-            self.debug_print(colored("JoinedMap: len difference", "red"), end=" ")
-            msg = f"Found different lengths for field and joinedfield ({len(field)} vs. {len(joined_field)})"
-            logger.debug(f"_joined map {msg}")
-            raise SpchtErrors.DataError(msg)
+        if isinstance(field, list) and isinstance(joined_field, list):
+            # this is a weird one, the extracation procedure above should always result in a list, even with length 1,
+            # but i know that i have to extend that function, so i might need to change that, therefore i already added
+            # this check to keep the input compatibility
+            if len(joined_field) == 1 and len(field) != len(joined_field):
+                # ? this is a rather small 'hack' to get the n=1 effect without having a lot of complicated things
+                temp_list = []
+                for _ in range(len(field)):
+                    temp_list.append(joined_field[0])
+                joined_field = temp_list
+            if len(field) != len(joined_field):
+                self.debug_print(colored("JoinedMap: len difference", "red"), end=" ")
+                msg = f"Found different lengths for field and joinedfield ({len(field)} vs. {len(joined_field)})"
+                logger.debug(f"_joined map {msg}")
+                raise SpchtErrors.DataError(msg)
+        else:
+            field = SpchtUtility.list_wrapper(field)
+            joined_field = SpchtUtility.list_wrapper(joined_field)
         # if type(raw_dict[sub_dict['field']]) != type(raw_dict[sub_dict['joined_field']]): # technically possible
 
         result_list = []
         for i in range(0, len(field)):  # iterating through the list every time is tedious
-            if not isinstance(field[i], (str, int, float)) or not isinstance(joined_field[i], (str, int, float)):
-                logger.debug(f"_joined_map has in field '{sub_dict['field']}' a non-instance of str either in '{field[i]}' or '{joined_field[i]}'")
-                continue
-            sobject = Spcht._node_preprocessing(field[i], sub_dict)  # filters out entries
-            if sobject:
-                sobject = self._node_mapping(sobject, sub_dict.get('mapping'), sub_dict.get('mapping_settings'))
-                sobject = self._node_postprocessing(sobject, sub_dict)
-                if len(sobject) == 1:
-                    sobject = sobject[0]
-                else:
-                    logger.critical("_joined_map, for some uneexptected reasons, the output inside the joined_map loop had more than one value for the object, that should not happen, never. Investigate!")
-                    raise SpchtErrors.OperationalError("Cannot continue processing with undecisive data")
-                # * predicate processing
-                predicate = self._node_mapping(joined_field[i], sub_dict.get("joined_map"), {"$default": sub_dict['predicate']})
-                if len(predicate) == 1:
-                    predicate = predicate[0]
+            try:
+                if not isinstance(field[i], (str, int, float)) or not isinstance(joined_field[i], (str, int, float)):
+                    logger.debug(f"_joined_map has in field '{sub_dict['field']}' a non-instance of str either in '{field[i]}' or '{joined_field[i]}'")
+                    continue
+                sobject = Spcht._node_preprocessing(field[i], sub_dict)  # filters out entries
+                if sobject:
+                    sobject = self._node_mapping(sobject, sub_dict.get('mapping'), sub_dict.get('mapping_settings'))
+                    sobject = self._node_postprocessing(sobject, sub_dict)
+                    if len(sobject) == 1:
+                        sobject = sobject[0]
+                    else:
+                        logger.critical("_joined_map, for some uneexptected reasons, the output inside the joined_map loop had more than one value for the object, that should not happen, never. Investigate!")
+                        raise SpchtErrors.OperationalError("Cannot continue processing with undecisive data")
+                    # * predicate processing
+                    predicate = self._node_mapping(joined_field[i], sub_dict.get("joined_map"), {"$default": sub_dict['predicate']})
+                    if len(predicate) == 1:
+                        predicate = predicate[0]
 
-                result_list.append((predicate, sobject))  # a tuple
+                    result_list.append((predicate, sobject))  # a tuple
+            except IndexError as e:
+                msg = f"joined map found an out of index error for field&joined_field, this means something is wrongly coded: {e}"
+                logger.error(msg)
+                raise SpchtErrors.OperationalError(msg)
         return result_list  # ? can be empty, [] therefore falsey (but not none so the process itself was successful
 
     def _inserter_string(self, sub_dict: dict):

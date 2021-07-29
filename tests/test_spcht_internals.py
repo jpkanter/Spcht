@@ -51,12 +51,25 @@ TEST_DATA = {
     "bronzefish": "001",
     "copperfish": "Pink"
 }
+
 IF_NODE = {
             "field": "frogfish",
             "source": "dict",
             "if_field": "salmon",
             "if_condition": ">",
             "if_value": 10
+        }
+
+JOINED_NODE = {
+            "field": "copperfish",
+            "predicate": "thousand",
+            "joined_field": "bronzefish",
+            "joined_map": {
+                "001": "nullnullone",
+                "002": "twonullnull",
+                "003": "nullthreenull"
+            },
+            "source": "dict"
         }
 
 
@@ -306,34 +319,28 @@ class TestSpchtInternal(unittest.TestCase):
 
     def test_joined_map(self):
         self.crow._raw_dict = copy.copy(TEST_DATA)
-        node = {
-            "field": "silverfish",
-            "predicate": "thousand",
-            "joined_field": "goldfish",
-            "joined_map": {
-                "001": "nullnullone",
-                "002": "twonullnull",
-                "003": "nullthreenull"
-            },
-            "source": "dict"
-        }
+        node = copy.copy(JOINED_NODE)
+        node['field'] = "silverfish"
+        node['joined_field'] = "goldfish"
+
         expected = [('nullnullone', 'Yellow'), ('twonullnull', 'Blue'), ('nullthreenull', 'Red')]
         self.assertEqual(self.crow._joined_map(node), expected)
 
     def test_joined_map_single(self):
         self.crow._raw_dict = copy.copy(TEST_DATA)
-        node = {
-            "field": "copperfish",
-            "predicate": "thousand",
-            "joined_field": "bronzefish",
-            "joined_map": {
-                "001": "nullnullone",
-                "002": "twonullnull",
-                "003": "nullthreenull"
-            },
-            "source": "dict"
-        }
+        node = copy.copy(JOINED_NODE)
+        node['field'] = "copperfish"
+        node['joined_field'] = "bronzefish"
+
         expected = [('nullnullone', 'Pink')]
+        self.assertEqual(self.crow._joined_map(node), expected)
+
+    def test_joined_map_singlepred_to_multi_object(self):
+        self.crow._raw_dict = copy.copy(TEST_DATA)
+        node = copy.copy(JOINED_NODE)
+        node['field'] = "silverfish"
+        node['joined_field'] = "bronzefish"
+        expected = [('nullnullone', 'Yellow'), ('nullnullone', 'Blue'), ('nullnullone', 'Red')]
         self.assertEqual(self.crow._joined_map(node), expected)
 
 
