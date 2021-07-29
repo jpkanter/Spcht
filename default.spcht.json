@@ -3,7 +3,7 @@
     "id_field": "id",
     "id_fallback": {
         "source": "marc",
-        "field": "001:none",
+        "field": "001:none"
     },
     "nodes": [
         {

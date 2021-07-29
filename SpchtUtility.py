@@ -744,7 +744,7 @@ def check_format_node(node, error_desc, out, base_path, is_root=False):
                 return False
             if isinstance(node['if_value'], list):
                 for each in node['if_value']:
-                    if not isinstance(each, str, int, float):
+                    if not isinstance(each, (str, int, float)):
                         print(error_desc['if_value_types'], file=out)
                         return False
 
@@ -809,8 +809,9 @@ def check_format_node(node, error_desc, out, base_path, is_root=False):
                 for key, value in node['mapping_settings'].items():
                     if not isinstance(value, str):
                         # special cases upon special cases, here its the possibility of true or false for $default
-                        if isinstance(value, bool) and key == "$default":
-                            continue
+                        if isinstance(value, bool):
+                            if value != "$default":
+                                continue
                         else:
                             print(error_desc['maps_dict_str'], file=out)
                             return False

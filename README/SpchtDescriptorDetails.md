@@ -85,14 +85,7 @@ For some reasons the title is split in two parts and we don't have a suitable da
 
 To combine our data we leverage the abilities of `insert_into` with the addition of the optional node-component `insert_add_fields` which defines additional fields that will be inserted into the placeholders:
 
-![transform_complexinsert](./transform_complexinsert.png "{
-  "source": "dict",
-  "field": "title_short",
-  "predicate": "http://purl.org/dc/terms/title",
-  "insert_into": "{}: {}",
-  "insert_add_fields": ["title_sub"],
-  "mandatory": "optional"
-}")
+![transform_complexinsert](./transform_complexinsert.png)
 
 The actual string to insert into is quite simple, it barely contains more than two placeholders and a colon with a space. The content of `insert_add_fields` is more interesting as the field name is written in square brackets `[]`. This defines a **list** in *JSON*, the data-structure used in all Spcht-context. A *JSON*-list can contain any number of data and data-types (for example, the nodes itself reside in a list that contains so called *dictionaries*), the order of data in a list is preserved and duplicates can be present. If, for some reason, you required, to insert the same value twice in at different positions in a placeholder. In this notation the first placeholder will always contain the `field` value, the second placeholder the first position of `insert_add_fields`  will be the second placeholder, the second *add_fields* position will be the third placeholder and so on. Therefore, if you want to set the first placeholder to the content of the first `insert_add_fields` content, you have to swap fields with the one of `field`.
 

@@ -1,0 +1,53 @@
+{
+  "window_title": {
+    "en": "SPCHT Format Checker & analyzer"
+  },
+  "btn_sdf_txt": {
+    "en": "spcht.json"
+  },
+  "str_sdf_file_placeholder": {
+    "en": "Click the load button to open a spcht.json file"
+  },
+  "generic_retry": {
+    "en": "retry"
+  },
+  "str_jsonfile_placeholder": {
+    "en": "Click the open button after loading a spcht.json file to try out testdata"
+  },
+  "str_subject_placeholder": {
+    "en": "Graph name"
+  },
+  "btn_testdata_txt": {
+    "en": "Testdata"
+  },
+  "btn_testdata_tooltip": {
+    "en": "A spcht testdata file is formated in json with a list as root and each element containing the dictionary of one entry."
+  },
+  "btn_retry_tooltip": {
+    "en": "This does not only retry to load the Testdata but instead reloads the Spcht File and THEN reloads the testdata as part of its routine"
+  },
+  "generic_expandall": {
+    "en": "Expand all"
+  },
+  "generic_collapseall": {
+    "en": "Collapse all"
+  },
+  "generic_name": {
+    "en": "Name"
+  },
+  "generic_predicate": {
+    "en": "Predicate"
+  },
+  "generic_source": {
+    "en": "Source"
+  },
+  "generic_objects": {
+    "en": "Objects"
+  },
+  "generic_info": {
+    "en": "Info"
+  },
+  "generic_comments": {
+    "en": "Comments"
+  }
+}
