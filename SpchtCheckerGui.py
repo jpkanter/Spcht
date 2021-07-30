@@ -111,58 +111,60 @@ class SpchtChecker(QDialog):
         main_layout = QGridLayout(self)
 
         # left side
-        line1 = QHBoxLayout()
-        self.str_sdf_file = QLineEdit()
-        self.str_sdf_file.setPlaceholderText(i18n['str_sdf_file_placeholder'])
-        self.str_sdf_file.setReadOnly(True)
-        self.btn_sdf_file = QPushButton(i18n['btn_sdf_txt'])
-        self.btn_sdf_retry = QPushButton(i18n['generic_retry'])
-        self.btn_sdf_retry.setDisabled(True)
-        line1.addWidget(self.str_sdf_file)
-        line1.addWidget(self.btn_sdf_file)
-        line1.addWidget(self.btn_sdf_retry)
+        top_file_bar = QHBoxLayout()
+        self.linetext_spcht_filepath = QLineEdit()
+        self.linetext_spcht_filepath.setPlaceholderText(i18n['str_sdf_file_placeholder'])
+        self.linetext_spcht_filepath.setReadOnly(True)
+        self.btn_create_spcht = QPushButton(i18n['btn_create_spcht'])
+        self.btn_load_spcht_file = QPushButton(i18n['btn_sdf_txt'])
+        self.btn_load_spcht_retry = QPushButton(i18n['generic_retry'])
+        self.btn_load_spcht_retry.setDisabled(True)
+        top_file_bar.addWidget(self.linetext_spcht_filepath)
+        top_file_bar.addWidget(self.btn_create_spcht)
+        top_file_bar.addWidget(self.btn_load_spcht_file)
+        top_file_bar.addWidget(self.btn_load_spcht_retry)
 
-        line3 = QHBoxLayout()
-        self.str_json_file = QLineEdit()
-        self.str_json_file.setPlaceholderText(i18n['str_jsonfile_placeholder'])
-        self.str_json_file.setReadOnly(True)
-        self.str_graph = QLineEdit()
-        self.str_graph.setPlaceholderText(i18n['str_subject_placeholder'])
-        self.str_graph.setReadOnly(True)
-        self.str_graph.setMaximumWidth(250)
-        self.btn_json_file = QPushButton(i18n['btn_testdata_txt'])
-        self.btn_json_file.setToolTip(i18n['btn_testdata_tooltip'])
-        self.btn_json_file.setDisabled(True)
-        self.btn_json_retry = QPushButton(i18n['generic_retry'])
-        self.btn_json_retry.setToolTip(i18n['btn_retry_tooltip'])
-        self.btn_json_retry.setDisabled(True)
-        line3.addWidget(self.str_json_file)
-        line3.addWidget(self.str_graph)
-        line3.addWidget(self.btn_json_file)
-        line3.addWidget(self.btn_json_retry)
+        bottom_file_bar = QHBoxLayout()
+        self.str_testdata_filepath = QLineEdit()
+        self.str_testdata_filepath.setPlaceholderText(i18n['str_jsonfile_placeholder'])
+        self.str_testdata_filepath.setReadOnly(True)
+        self.linetext_subject_prefix = QLineEdit()
+        self.linetext_subject_prefix.setPlaceholderText(i18n['str_subject_placeholder'])
+        self.linetext_subject_prefix.setReadOnly(True)
+        self.linetext_subject_prefix.setMaximumWidth(250)
+        self.btn_load_testdata_file = QPushButton(i18n['btn_testdata_txt'])
+        self.btn_load_testdata_file.setToolTip(i18n['btn_testdata_tooltip'])
+        self.btn_load_testdata_file.setDisabled(True)
+        self.btn_load_testdata_retry = QPushButton(i18n['generic_retry'])
+        self.btn_load_testdata_retry.setToolTip(i18n['btn_retry_tooltip'])
+        self.btn_load_testdata_retry.setDisabled(True)
+        bottom_file_bar.addWidget(self.str_testdata_filepath)
+        bottom_file_bar.addWidget(self.linetext_subject_prefix)
+        bottom_file_bar.addWidget(self.btn_load_testdata_file)
+        bottom_file_bar.addWidget(self.btn_load_testdata_retry)
 
         # middle part - View 1
-        middleLayout = QHBoxLayout()
+        center_layout = QHBoxLayout()
 
-        tree_and_buttons = QGridLayout()
-        tree_and_buttons.setMargin(0)
+        control_bar_above_treeview = QGridLayout()
+        control_bar_above_treeview.setMargin(0)
         self.btn_tree_expand = QPushButton(i18n['generic_expandall'])
         self.btn_tree_expand.setFlat(True)
         self.btn_tree_expand.setFixedHeight(15)
         self.btn_tree_collapse = QPushButton(i18n['generic_collapseall'])
         self.btn_tree_collapse.setFlat(True)
         self.btn_tree_collapse.setFixedHeight(15)
-        self.tre_spcht_data = QTreeView()
-        self.treeViewModel = QStandardItemModel()
-        self.treeViewModel.setHorizontalHeaderLabels(
+        self.treeview_main_spcht_data = QTreeView()
+        self.spchttree_view_model = QStandardItemModel()
+        self.spchttree_view_model.setHorizontalHeaderLabels(
             [i18n['generic_name'], i18n['generic_predicate'], i18n['generic_source'], i18n['generic_objects'], i18n['generic_info'], i18n['generic_comments']])
-        self.tre_spcht_data.setModel(self.treeViewModel)
-        self.tre_spcht_data.setSelectionBehavior(QAbstractItemView.SelectRows)
-        self.tre_spcht_data.setUniformRowHeights(True)
-        tree_and_buttons.addWidget(self.btn_tree_expand, 0, 0)
-        tree_and_buttons.addWidget(self.btn_tree_collapse, 0, 1)
-        tree_and_buttons.setColumnStretch(2, 1)
-        tree_and_buttons.addWidget(self.tre_spcht_data, 1, 0, 1, 3)
+        self.treeview_main_spcht_data.setModel(self.spchttree_view_model)
+        self.treeview_main_spcht_data.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.treeview_main_spcht_data.setUniformRowHeights(True)
+        control_bar_above_treeview.addWidget(self.btn_tree_expand, 0, 0)
+        control_bar_above_treeview.addWidget(self.btn_tree_collapse, 0, 1)
+        control_bar_above_treeview.setColumnStretch(2, 1)
+        control_bar_above_treeview.addWidget(self.treeview_main_spcht_data, 1, 0, 1, 3)
 
         label_fields = QLabel("Fields")
         self.lst_fields = QListView()
@@ -182,9 +184,9 @@ class SpchtChecker(QDialog):
         graphs.addWidget(label_graphs)
         graphs.addWidget(self.lst_graphs)
 
-        middleLayout.addLayout(tree_and_buttons)
-        middleLayout.addLayout(fields)
-        middleLayout.addLayout(graphs)
+        center_layout.addLayout(control_bar_above_treeview)
+        center_layout.addLayout(fields)
+        center_layout.addLayout(graphs)
 
         # middle part - View 2
         self.console = QTextEdit()
@@ -230,45 +232,89 @@ class SpchtChecker(QDialog):
         self.bottomStack.addWidget(randombarasWidget)
         self.bottomStack.addWidget(self.processBar)
 
-        # general layouting
-        self.centralLayout = QStackedWidget()
-        randomStackasWidget = QWidget()
-        randomStackasWidget.setLayout(middleLayout)
-        self.centralLayout.addWidget(self.console)
-        self.centralLayout.addWidget(randomStackasWidget)
-        self.centralLayout.addWidget(tabView)
+        # * explorer layout
+        self.explorer = QWidget()
+        self.explore_main_vertical = QVBoxLayout(self.explorer)
 
-        main_layout.addLayout(line1, 0, 0)
-        main_layout.addWidget(self.centralLayout, 1, 0)
-        main_layout.addLayout(line3, 2, 0)
+        # ? top row explorer
+        self.explorer_top_layout = QHBoxLayout()
+
+        self.linetext_field_filter = QLineEdit(self.explorer)
+        self.linetext_field_filter.setPlaceholderText(i18n['linetext_field_filter_placeholder'])
+        # additional widgets here
+
+        self.explorer_top_layout.addWidget(self.linetext_field_filter)
+        self.explore_main_vertical.addLayout(self.explorer_top_layout)
+
+        # ? central row
+        self.explorer_center_layout = QHBoxLayout()
+
+        self.explorer_toolbox = QToolBox(self.explorer)
+        self.explorer_toolbox_page1 = QWidget()
+        self.explorer_toolbox_page2 = QWidget()
+        self.explorer_toolbox.addItem(self.explorer_toolbox_page1, i18n['toolbox_page1'])
+        self.explorer_toolbox.addItem(self.explorer_toolbox_page2, i18n['toolbox_page2'])
+        self.explorer_dictionary_treeview = QTreeView(self.explorer_toolbox_page1)
+        self.explorer_marc_treeview = QTreeView(self.explorer_toolbox_page2)
+
+        self.explorer_center_layout.addWidget(self.explorer_toolbox)
+        self.explore_main_vertical.addLayout(self.explorer_center_layout)
+
+        # ? bottom row
+        self.explorer_bottom_layout = QHBoxLayout()
+
+        self.explorer_left_horizontal_spacer = QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum)
+        self.explorer_right_horizontal_spacer = QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum)
+        self.explorer_leftleft_button = QPushButton("<<")
+        self.explorer_left_button = QPushButton("<")
+        self.explorer_rightright_button = QPushButton(">>")
+        self.explorer_right_button = QPushButton(">")
+        self.explorer_bottom_center_layout = QVBoxLayout()
+        self.explorer_linetext_search = QLineEdit(self.explorer)
+        self.explorer_center_search_button = QPushButton(i18n['find'])
+        self.explorer_bottom_center_layout.addWidget(self.explorer_linetext_search)
+        self.explorer_bottom_center_layout.addWidget(self.explorer_center_search_button)
+
+        self.explorer_bottom_layout.addItem(self.explorer_left_horizontal_spacer)
+        self.explorer_bottom_layout.addWidget(self.explorer_leftleft_button)
+        self.explorer_bottom_layout.addWidget(self.explorer_left_button)
+        self.explorer_bottom_layout.addLayout(self.explorer_bottom_center_layout)
+        self.explorer_bottom_layout.addWidget(self.explorer_right_button)
+        self.explorer_bottom_layout.addWidget(self.explorer_rightright_button)
+        self.explorer_bottom_layout.addItem(self.explorer_right_horizontal_spacer)
+
+        self.explore_main_vertical.addLayout(self.explorer_bottom_layout)
+
+        # general layouting
+        self.MainPageLayout = QStackedWidget()
+        randomStackasWidget = QWidget()
+        randomStackasWidget.setLayout(center_layout)
+        self.MainPageLayout.addWidget(self.console)
+        self.MainPageLayout.addWidget(randomStackasWidget)
+        self.MainPageLayout.addWidget(tabView)
+        self.MainPageLayout.addWidget(self.explorer)
+
+        main_layout.addLayout(top_file_bar, 0, 0)
+        main_layout.addWidget(self.MainPageLayout, 1, 0)
+        main_layout.addLayout(bottom_file_bar, 2, 0)
         #main_layout.addLayout(bottombar, 3, 0)
         main_layout.addWidget(self.bottomStack, 3, 0)
 
-        # Event Binds
-        self.btn_sdf_file.clicked.connect(self.btn_spcht_load_dialogue)
-        self.btn_sdf_retry.clicked.connect(self.btn_spcht_load_retry)
+        # * Event Binds
+        self.btn_load_spcht_file.clicked.connect(self.btn_spcht_load_dialogue)
+        self.btn_load_spcht_retry.clicked.connect(self.btn_spcht_load_retry)
         self.btn_tristate.clicked.connect(self.toogleTriState)
-        self.btn_json_file.clicked.connect(self.btn_clk_loadtestdata)
-        self.btn_json_retry.clicked.connect(self.btn_clk_loadtestdata_retry)
-        self.btn_tree_expand.clicked.connect(self.tre_spcht_data.expandAll)
-        self.btn_tree_collapse.clicked.connect(self.tre_spcht_data.collapseAll)
+        self.btn_load_testdata_file.clicked.connect(self.btn_clk_loadtestdata)
+        self.btn_load_testdata_retry.clicked.connect(self.btn_clk_loadtestdata_retry)
+        self.btn_tree_expand.clicked.connect(self.treeview_main_spcht_data.expandAll)
+        self.btn_tree_collapse.clicked.connect(self.treeview_main_spcht_data.collapseAll)
         self.toogleTriState(0)
 
         # various
         self.console.insertPlainText(time_log(f"Init done, program started"))
 
-    def btn_spcht_load_dialogue(self):
-        path_To_File, type = QtWidgets.QFileDialog.getOpenFileName(self, "Open spcht descriptor file", "./", "Spcht Json File (*.spcht.json);;Json File (*.json);;Every file (*.*)")
-
-        if path_To_File == "":
-            return None
-
-        self.btn_sdf_retry.setDisabled(False)
-        self.str_sdf_file.setText(path_To_File)
-        self.load_spcht(path_To_File)
-
     def btn_spcht_load_retry(self):
-        self.load_spcht(self.str_sdf_file.displayText())
+        self.load_spcht(self.linetext_spcht_filepath.displayText())
 
     def load_spcht(self, path_To_File):
         try:
@@ -294,7 +340,7 @@ class SpchtChecker(QDialog):
                 self.write_status("Unexpected kind of error while loading Spcht")
                 return False
             self.toogleTriState(1)
-            self.btn_json_file.setDisabled(False)
+            self.btn_load_testdata_file.setDisabled(False)
             self.populate_treeview_with_spcht()
             self.populate_text_views()
             self.write_status("Loaded spcht discriptor file")
@@ -306,15 +352,15 @@ class SpchtChecker(QDialog):
     def populate_treeview_with_spcht(self):
         i = 0
         # populate views
-        if self.treeViewModel.hasChildren():
-            self.treeViewModel.removeRows(0, self.treeViewModel.rowCount())
+        if self.spchttree_view_model.hasChildren():
+            self.spchttree_view_model.removeRows(0, self.spchttree_view_model.rowCount())
         for each in self.taube:
             i += 1
             tree_row = QStandardItem(each.get('name', f"Element #{i}"))
             SpchtChecker.populate_treeview_recursion(tree_row, each)
             tree_row.setEditable(False)
-            self.treeViewModel.appendRow(tree_row)
-            self.tre_spcht_data.setFirstColumnSpanned(i - 1, self.tre_spcht_data.rootIndex(), True)
+            self.spchttree_view_model.appendRow(tree_row)
+            self.treeview_main_spcht_data.setFirstColumnSpanned(i - 1, self.treeview_main_spcht_data.rootIndex(), True)
 
     @staticmethod
     def populate_treeview_recursion(parent, node):
@@ -375,17 +421,27 @@ class SpchtChecker(QDialog):
             self.lst_graphs_model.appendRow(tempItem)
 
     def toogleTriState(self, status=0):
-        toggleTexts = ["Console", "View", "Tests"]
+        toggleTexts = ["Console", "View", "Tests", "Explorer"]
         if isinstance(status, bool):  # connect calls as false
-            if self.tristate >= 2:
+            if self.tristate == 3:
                 self.tristate = 0
             else:
                 self.tristate += 1
-            self.centralLayout.setCurrentIndex(self.tristate)
+            self.MainPageLayout.setCurrentIndex(self.tristate)
         else:
-            self.centralLayout.setCurrentIndex(status)
-            self.tristate = self.centralLayout.currentIndex()
+            self.MainPageLayout.setCurrentIndex(status)
+            self.tristate = self.MainPageLayout.currentIndex()
         self.btn_tristate.setText(toggleTexts[self.tristate])
+
+    def btn_spcht_load_dialogue(self):
+        path_To_File, file_type = QtWidgets.QFileDialog.getOpenFileName(self, "Open spcht descriptor file", "./", "Spcht Json File (*.spcht.json);;Json File (*.json);;Every file (*.*)")
+
+        if not path_To_File :
+            return None
+
+        self.btn_load_spcht_retry.setDisabled(False)
+        self.linetext_spcht_filepath.setText(path_To_File)
+        self.load_spcht(path_To_File)
 
     def btn_clk_loadtestdata(self):
         path_To_File, type = QtWidgets.QFileDialog.getOpenFileName(self, "Open sample data", "./",
@@ -394,20 +450,20 @@ class SpchtChecker(QDialog):
         if path_To_File == "":
             return None
 
-        graphtext = self.str_graph.displayText()
+        graphtext = self.linetext_subject_prefix.displayText()
         graph, status = QtWidgets.QInputDialog.getText(self, "Insert Subject name",
                                                     "Insert non-identifier part of the subject that is supposed to be mapped onto",
                                                     text=graphtext)
         if status is False or graph.strip() == "":
             return None
         if self.btn_act_loadtestdata(path_To_File, graph):
-            self.btn_json_retry.setDisabled(False)
-            self.str_json_file.setText(path_To_File)
-            self.str_graph.setText(graph)
+            self.btn_load_testdata_retry.setDisabled(False)
+            self.str_testdata_filepath.setText(path_To_File)
+            self.linetext_subject_prefix.setText(graph)
 
     def btn_clk_loadtestdata_retry(self):
-        self.load_spcht(self.str_sdf_file.displayText())
-        self.btn_act_loadtestdata(self.str_json_file.displayText(), self.str_graph.displayText())
+        self.load_spcht(self.linetext_spcht_filepath.displayText())
+        self.btn_act_loadtestdata(self.str_testdata_filepath.displayText(), self.linetext_subject_prefix.displayText())
         # its probably bad style to directly use interface element text
 
     def btn_act_loadtestdata(self, filename, graph):
@@ -498,16 +554,16 @@ class SpchtChecker(QDialog):
         # ! might go hay wire if used elsewhere cause it resets the buttons in a sense, unproblematic when
         # ! only used in processData cause all buttons are active there
         if mode:
-            self.btn_json_retry.setDisabled(True)
-            self.btn_json_file.setDisabled(True)
-            self.btn_sdf_retry.setDisabled(True)
-            self.btn_sdf_file.setDisabled(True)
+            self.btn_load_testdata_retry.setDisabled(True)
+            self.btn_load_testdata_file.setDisabled(True)
+            self.btn_load_spcht_retry.setDisabled(True)
+            self.btn_load_spcht_file.setDisabled(True)
             self.bottomStack.setCurrentIndex(1)
         else:
-            self.btn_json_retry.setDisabled(False)
-            self.btn_json_file.setDisabled(False)
-            self.btn_sdf_retry.setDisabled(False)
-            self.btn_sdf_file.setDisabled(False)
+            self.btn_load_testdata_retry.setDisabled(False)
+            self.btn_load_testdata_file.setDisabled(False)
+            self.btn_load_spcht_retry.setDisabled(False)
+            self.btn_load_spcht_file.setDisabled(False)
             self.bottomStack.setCurrentIndex(0)
 
 
