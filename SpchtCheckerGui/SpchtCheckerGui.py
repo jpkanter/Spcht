@@ -29,7 +29,7 @@ from io import StringIO
 from datetime import datetime
 from pathlib import Path
 
-from PySide2.QtGui import QStandardItemModel, QStandardItem, QFont, QFontDatabase, QIcon
+from PySide2.QtGui import QStandardItemModel, QStandardItem, QFontDatabase, QIcon
 from PySide2.QtWidgets import *
 from PySide2 import QtWidgets, QtCore
 from dateutil.relativedelta import relativedelta
@@ -46,7 +46,7 @@ except ImportError:
     pass
 
 # ! import language stuff
-i18n = SpchtCheckerGui_i18n.Spcht_i18n("GuiLanguage.json")
+i18n = SpchtCheckerGui_i18n.Spcht_i18n("./SpchtCheckerGui/GuiLanguage.json")
 
 
 def delta_time_human(**kwargs):
@@ -434,7 +434,7 @@ class SpchtChecker(QDialog):
         self.btn_tristate.setText(toggleTexts[self.tristate])
 
     def btn_spcht_load_dialogue(self):
-        path_To_File, file_type = QtWidgets.QFileDialog.getOpenFileName(self, "Open spcht descriptor file", "./", "Spcht Json File (*.spcht.json);;Json File (*.json);;Every file (*.*)")
+        path_To_File, file_type = QtWidgets.QFileDialog.getOpenFileName(self, "Open spcht descriptor file", "../", "Spcht Json File (*.spcht.json);;Json File (*.json);;Every file (*.*)")
 
         if not path_To_File :
             return None
@@ -444,7 +444,7 @@ class SpchtChecker(QDialog):
         self.load_spcht(path_To_File)
 
     def btn_clk_loadtestdata(self):
-        path_To_File, type = QtWidgets.QFileDialog.getOpenFileName(self, "Open sample data", "./",
+        path_To_File, type = QtWidgets.QFileDialog.getOpenFileName(self, "Open sample data", "../",
                                                                    "Json File (*.json);;Every file (*.*)")
 
         if path_To_File == "":

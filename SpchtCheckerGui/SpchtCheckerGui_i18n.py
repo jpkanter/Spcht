@@ -80,7 +80,8 @@ class Spcht_i18n:
             logger.warning(f"Could not load json because error: {decoder}")
             return False
         except FileNotFoundError:
-            logger.warning(f"Could not locate given langauge file")
+            logger.warning(f"Could not locate given language file")
+            return False
 
         if not isinstance(language_dictionary, dict):
             return False

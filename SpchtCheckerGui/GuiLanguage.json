@@ -1,0 +1,74 @@
+{
+  "window_title": {
+    "en": "SPCHT Format Checker & analyzer",
+    "de": "SPCHT Format Prüfer und Analysegerät"
+  },
+  "btn_sdf_txt": {
+    "en": "open spcht.json",
+    "de": "spcht.json Öffnen"
+  },
+  "str_sdf_file_placeholder": {
+    "en": "Click the load button to open a spcht.json file",
+    "de": "Laden Knopf drücken um einen spcht.json Deskriptor zu öffnen"
+  },
+  "btn_create_spcht": {
+    "en": "New Spcht",
+    "de": "Neuer Spcht"
+  },
+  "str_jsonfile_placeholder": {
+    "en": "Click the open button after loading a spcht.json file to try out testdata",
+    "de": "Öffnen Knopf nach erfolreichen Laden des spcht.json Deskriptors drücken um Testdatein auszuprobieren"
+  },
+  "str_subject_placeholder": {
+    "en": "generic subject part",
+    "de": "generischer Teil des Sujektes"
+  },
+  "btn_testdata_txt": {
+    "en": "Testdata"
+  },
+  "btn_testdata_tooltip": {
+    "en": "A spcht testdata file is formated in json with a list as root and each element containing the dictionary of one entry."
+  },
+  "btn_retry_tooltip": {
+    "en": "This does not only retry to load the Testdata but instead reloads the Spcht File and THEN reloads the testdata as part of its routine"
+  },
+  "linetext_field_filter_placeholder": {
+    "en": "Filtertext, Format: field1 | field2 | field3",
+    "de": "Filtertext, Formatvorlage: \"Feld1 | Feld2 | Feld3 \""
+  },
+  "generic_retry": {
+    "en": "retry",
+    "de": "wiederholen"
+  },
+  "generic_expandall": {
+    "en": "Expand all",
+    "de": "Alle erweitern"
+  },
+  "generic_collapseall": {
+    "en": "Collapse all",
+    "de": "Alle einklappen"
+  },
+  "generic_name": {
+    "en": "Name",
+    "de": "Name"
+  },
+  "generic_predicate": {
+    "en": "Predicate",
+    "de": "Prädikat"
+  },
+  "generic_source": {
+    "en": "Source",
+    "de": "Quelle"
+  },
+  "generic_objects": {
+    "en": "Objects",
+    "de": "Objekte"
+  },
+  "generic_info": {
+    "en": "Info"
+  },
+  "generic_comments": {
+    "en": "Comments",
+    "de": "Kommentare"
+  }
+}
