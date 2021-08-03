@@ -217,8 +217,7 @@
       "source": "marc",
       "predicate": "https://_25_simple.marc.with.prepend/",
       "required": "optional",
-      "field": "001",
-      "subfield": "none",
+      "field": "001:none",
       "prepend": "PREFIX"
     },
     {
@@ -226,8 +225,7 @@
       "source": "marc",
       "predicate": "https://_26_simple.marc.with.append/",
       "required": "optional",
-      "field": "001",
-      "subfield": "none",
+      "field": "001:none",
       "append": "POSTFIX"
     },
     {
@@ -274,7 +272,7 @@
       "required": "optional",
       "mapping_settings": {
           "$ref": "../translation_maps/roles.json",
-          "$default": true
+          "$inherit": true
           },
       "mapping": {
         "aut": "https://_31_this.overwrites.the.loaded.mapping"
@@ -289,7 +287,7 @@
       "required": "optional",
       "mapping_settings": {
           "$ref": "../translation_maps/roles.json",
-          "$default": true
+          "$inherit": true
           },
       "mapping": {
         "aut": "https://_32_this.overwrites.the.loaded.mapping"
@@ -335,7 +333,7 @@
           "act": "https://_35_if.this.is.gary.oldman.it.wont.say.so/"
           },
       "mapping_settings": {
-          "$default": true
+          "$inherit": true
           },
       "mapping": {
         "Heisig, Bernhard": "<<><NOT Bernhard Heisig <<>>",

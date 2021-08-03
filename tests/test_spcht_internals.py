@@ -77,7 +77,7 @@ class TestSpchtInternal(unittest.TestCase):
 
     def __init__(self, *args, **kwargs):
         super(TestSpchtInternal, self).__init__(*args, **kwargs)
-        self.crow = Spcht("./featuretest.spcht.json")
+        self.crow = Spcht("./featuretest.spcht.json", schema_path="./../SpchtSchema.json")
 
     def test_preproccesing_single(self):
         node = {

@@ -6,28 +6,27 @@
     "type": "object",
     "required": ["id_field", "id_source", "nodes"],
     "properties": {
-        "source": {
-            "id_field": {
-                "descriptions": "Variable part of the subject, data-field name",
-                "type": "string"
-            },
-            "id_source": {
-                "description": "Source of the variable subject part ('dict' or 'marc')",
-                "type": "string"
-            },
-            "id_fallback": {
-                "description": "alternative part of the variable subject",
-                "$ref": "#/$defs/main_node"
-            },
-            "nodes": {
-                "description": "Main description of the spcht",
-                "type": "array",
-                "items": { "$ref":  "#/$defs/node" }
-            }
+        "id_field": {
+            "descriptions": "Variable part of the subject, data-field name",
+            "type": "string"
+        },
+        "id_source": {
+            "description": "Source of the variable subject part ('dict' or 'marc')",
+            "type": "string"
+        },
+        "id_fallback": {
+            "description": "alternative part of the variable subject",
+            "$ref": "#/$defs/main_node"
+        },
+        "nodes": {
+            "description": "Main description of the spcht",
+            "type": "array",
+            "items": { "$ref":  "#/$defs/root_node" },
+            "additionalItems": false
         }
     },
     "$defs": {
-        "node": {
+        "root_node": {
             "type": "object",
             "required": ["field", "source", "predicate", "required"],
             "properties": {
@@ -109,7 +108,7 @@
                     "description": "inserts the text of this field into every part that was removed by 'cut",
                     "type": "string"
                 },
-                "insert_string": {
+                "insert_into": {
                     "description": "Inserts the object value at the placeholder position in this string",
                     "type": "string"
                 },
@@ -133,7 +132,130 @@
                 },
                 "fallback": {
                     "description": "recursive node if the first one does not match",
-                    "$ref":  "#/$defs/node"
+                    "$ref":  "#/$defs/sub_node"
+                },
+                "comment": {
+                    "description": "Provided commentary that is not used for the actual mapping but can provide context for analysis tools",
+                    "type": "string"
+                },
+                "name": {
+                    "description": "Name for a node, is not used for any processing",
+                    "type": "string"
+                }
+            },
+            "patternProperties": {
+                "^(comment)\\w*$": { "type":  "string" }
+            },
+            "additionalProperties": false
+        },
+        "sub_node": {
+            "type": "object",
+            "description": "Copy & Paste of root_node but with two less requirements",
+            "required": ["field", "source"],
+            "properties": {
+                "source": {
+                    "description": "Source of the field, either dict or marc",
+                    "type": "string",
+                    "enum": ["dict", "marc"]
+                },
+                "field": {
+                    "description": "Name of the data-field that gets converted to the object",
+                    "type": "string"
+                },
+                "predicate": {
+                    "description": "Static predicate string",
+                    "type": "string"
+                },
+                "required": {
+                    "description": "designates whether a field is needed for the graph or not",
+                    "type": "string",
+                    "enum": ["mandatory", "optional"]
+                },
+                "type": {
+                    "description": "Designates if the final triple has a triple as object or a literal",
+                    "type": "string",
+                    "enum": ["triple", "literal"]
+                },
+                "alternatives": {
+                    "description": "If 'field' cannot be found alternatives is used as direct standin",
+                    "type": "array"
+                },
+                "mapping": {
+                    "description": "Replaces a given value with the other side of the map.",
+                    "type": "object",
+                    "additionalProperties": { "type": ["string", "number"] }
+                },
+                "mapping_settings": {
+                    "description": "Settings for the map",
+                    "type": "object",
+                    "properties": {
+                        "$default": { "type":  "string" },
+                        "$inherit": { "type":  "boolean" },
+                        "$casesens": { "type": "boolean"},
+                        "$ref": { "type":  "string" },
+                        "$regex": { "type": "boolean"}
+                    },
+                    "additionalProperties": false
+                },
+                "joined_map": {
+                    "description": "Map that defines the replacing predicate from 'joined_field",
+                    "type": "object",
+                    "additionalProperties": { "type": "string" }
+                },
+                "joined_field": {
+                    "description": "A data-field that is used in combination with 'joined_map' to replace the predicate",
+                    "type": "string"
+                },
+                "joined_map_ref": {
+                    "description": "referenced file for additional mappings in 'joined_field'",
+                    "type": "string"
+                },
+                "match":
+                {
+                    "description": "Regex String, matching function, filters out string that do not match regex",
+                    "type": "string"
+                },
+                "append": {
+                    "description": "Adds text after the objects value",
+                    "type": ["string", "number"]
+                },
+                "prepend": {
+                    "description": "Adds text before the objects value",
+                    "type": ["string", "number"]
+                },
+                "cut": {
+                    "description": "Deletes every instance of the string found described",
+                    "type": "string"
+                },
+                "replace": {
+                    "description": "inserts the text of this field into every part that was removed by 'cut",
+                    "type": "string"
+                },
+                "insert_into": {
+                    "description": "Inserts the object value at the placeholder position in this string",
+                    "type": "string"
+                },
+                "insert_add_fields": {
+                    "description": "Additional values that can be inserted in additional 'insert_string' placeholder",
+                    "type": "array",
+                    "additionalItems": { "type": "string" }
+                },
+                "if_field": {
+                    "description": "Data-field that is used in the left side of a comparison",
+                    "type": "string"
+                },
+                "if_value": {
+                    "description": "Right side of the comparion that is compared against 'if_field'",
+                    "type": ["string", "number"]
+                },
+                "if_condition": {
+                    "description": "Comparator operator",
+                    "type": "string",
+                    "enum": ["equal", "eq", "greater", "gr", "lesser", "ls", "greater_equal", "gq", "lesser_equal", "lq", "unequal", "uq", "=", "==", "<", ">", "<=", ">=", "!=", "exi"]
+                },
+                "fallback": {
+                    "description": "recursive node if the first one does not match",
+                    "$ref":  "#/$defs/sub_node"
                 },
                 "comment": {
                     "description": "Provided commentary that is not used for the actual mapping but can provide context for analysis tools",

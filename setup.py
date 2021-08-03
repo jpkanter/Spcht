@@ -30,7 +30,7 @@ with open("README.md", "r") as readme:
     long_desc = readme.read()
     setup(
         name="solr2virtuoso-bridge",
-        version="0.6",
+        version="0.7",
         description="Utility package that provides the spcht library and a cli tool to convert flat data to linked data",
         author="JP Kanter",
         author_email="kanter@ub.uni-leipzig.de",
@@ -41,7 +41,7 @@ with open("README.md", "r") as readme:
         python_requires=">=3.6",
         zip_safe=False,
         py_modules=['local_tools', 'main', 'SpchtDescriptorFormat', 'SpchtErrors', 'WorkOrder', 'SpchtUtility'],
-        data_files=[('config', ['default.spcht.json', 'config.example.json', "argparse.json"]),
+        data_files=[('config', ['default.spcht.json', 'config.example.json', "argparse.json", "SpchtSchema.json"]),
                     ('maps', ['translation_maps/documents.json', 'translation_maps/languages.json', 'translation_maps/role_graphs.json', 'translation_maps/roles.json'])],
         classifiers=[
                 "Programming Language :: Python :: 3",
@@ -54,7 +54,8 @@ with open("README.md", "r") as readme:
             "pyodbc",
             "requests",
             "pymarc>=4.0.0",
-            "python-dateutil"
+            "python-dateutil",
+            "jsonschema>=3.2.0"
         ],
         extras_require={"dev": [
             "termcolor"

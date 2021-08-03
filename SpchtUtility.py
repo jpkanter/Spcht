@@ -20,12 +20,15 @@
 # along with Solr2Triplestore Tool.  If not, see <http://www.gnu.org/licenses/>.
 #
 # @license GPL-3.0-only <https://www.gnu.org/licenses/gpl-3.0.en.html>
+import json
 import os
 import sys
 import re
 import pymarc
 from pymarc.exceptions import RecordLengthInvalid, RecordLeaderInvalid, BaseAddressNotFound, BaseAddressInvalid, \
     RecordDirectoryInvalid, NoFieldsFound
+from jsonschema import validate, ValidationError, SchemaError, RefResolutionError
+
 # ? if i import this i get circular imports and i really dont want that so got a bit of boilerplate here in the sincere
 # ? hope that the amount of boolean operators never changes
 # from SpchtDescriptorFormat import SPCHT_BOOL_OPS
@@ -574,6 +577,61 @@ def process2RDF(quadro_list: list, export_format_type="turtle", export=True) -> 
     except Exception as e:
         print(f"serialisation couldnt be completed - {e}", file=sys.stderr)
         return f"serialisation couldnt be completed - {e}"
+
+
+def schema_validation(descriptor: dict, schema="./SpchtSchema.json"):
+    # ? load schema, per default this should be the Spcht one but this function is written reusable
+    try:
+        with open(schema, "r") as schema_file:
+            rdy_schema = json.load(schema_file)
+    except FileNotFoundError as e:
+        if schema == "./SpchtSchema.json":
+            logger.critical("Standard Spcht Schema file could not be found, this is worrysome as its part of the package")
+        else:
+            logger.warning(f"JSON schema {schema} could not be found")
+        msg = f"Schema file {e} not found"
+        return False, msg
+    except json.JSONDecodeError as e:
+        if schema == "./SpchtSchema.json":
+            logger.critical("Package Schema for Spcht contains an error, this is worrysome.")
+        else:
+            logger.warning(f"JSON schema {schema} contains an error within the encoding")
+        msg = f"Schema file has in correct json encoding: {e}"
+        return False, msg
+    except Exception as e:
+        msg = f"Unexpected exception in 'schema_validation': {e}"
+        logger.error(msg)
+        return False, msg
+    # * actual validation
+    try:
+        validate(instance=descriptor, schema=rdy_schema)
+        return True, "All OK"
+    except ValidationError as error:
+        # ? trying to retrieve node
+        traversing_dict = descriptor
+        try:
+            for key in error.absolute_path:
+                traversing_dict = traversing_dict[key]
+        except KeyError as failing_key:
+            logger.warning(f"schema_validation: when traversing the failing descriptor the offending part could not be located, key '{failing_key} unobtainable")
+            traversing_dict = None
+        msg = "An unnamed, unknown node"  # in case something is srsly going under
+        if traversing_dict:
+            if 'name' in traversing_dict:
+                msg = f"'{traversing_dict['name']}'"
+            elif 'field' in traversing_dict:
+                msg = f"FIELD='{traversing_dict['field']}'"
+        msg += f": an error was found with the schema, Validator: '{error.validator}', Message: '{error.message}', Instance: {error.instance}"
+        logger.warning(f"schema_validator: a schema failed to validate with message {error.message}")
+        return False, msg
+    except SchemaError as e:
+        msg = f"Schema not valid: {e}"
+        logger.warning(f"schema_validation: the schema '{schema}' seems to be not valid, error: {e}")
+        return False, msg
+    except RefResolutionError as e:
+        msg = f"Referenced object could not be found: {e}"
+        logger.warning(f"schema_validation: found an error within the schema '{schema}': {msg}")
+        return False, msg
 
 
 def check_format(descriptor, out=sys.stderr, base_path="", i18n=None):

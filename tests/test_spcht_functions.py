@@ -52,7 +52,7 @@ def gather_stats(existing_stats, variable_value) -> dict:
 if __name__ == "__main__":
     localTestData = "thetestset.json"
     print("Testing starts")
-    crow = Spcht("featuretest.spcht.json")
+    crow = Spcht("featuretest.spcht.json", schema_path="./../SpchtSchema.json")
     if not crow:
         print("Couldnt Load Spcht file")
         exit(1)

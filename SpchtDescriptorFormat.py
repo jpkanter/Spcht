@@ -48,7 +48,7 @@ except ImportError:
 
 
 class Spcht:
-    def __init__(self, filename=None, check_format=False, debug=False, log_debug=False):
+    def __init__(self, filename=None, schema_path="./SpchtSchema.json", debug=False, log_debug=False):
         self._DESCRI = None  # the finally loaded descriptor file with all references solved
         self._SAVEAS = {}
         # * i do all this to make it more customizable, maybe it will never be needed, but i like having options
@@ -61,6 +61,7 @@ class Spcht:
         self.descriptor_file = None
         self._raw_dict = None  # processing data
         self._m21_dict = None
+        self._schema_path = schema_path
         if filename is not None:
             if not self.load_descriptor_file(filename):
                 logger.critical("spcht_init: cannot load initial spcht file")
@@ -339,8 +340,13 @@ class Spcht:
         self.debug_print("Spcht Dir:", colored(spcht_path.parent, "cyan"))
         if not descriptor:  # load json goes wrong if something is wrong with the json
             return False
-        if not SpchtUtility.check_format(descriptor, base_path=spcht_path.parent):
+        status, msg = SpchtUtility.schema_validation(descriptor, self._schema_path)
+        if not status:
+            self.debug_print(colored(msg, "red"))
             return False
+        # old method of validation, replaced by jsonSchema
+        # if not SpchtUtility.check_format(descriptor, base_path=spcht_path.parent):
+        #     return False
         # * goes through every mapping node and adds the reference files, which makes me basically rebuild the thing
         # ? python iterations are not with pointers, so this will expose me as programming apprentice but this will work
         new_node = []
