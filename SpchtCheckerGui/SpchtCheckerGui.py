@@ -312,6 +312,7 @@ class SpchtChecker(QDialog):
 
         # various
         self.console.insertPlainText(time_log(f"Init done, program started"))
+        self.console.insertPlainText(f"Working Directory: {os.getcwd()}")
 
     def btn_spcht_load_retry(self):
         self.load_spcht(self.linetext_spcht_filepath.displayText())
@@ -320,8 +321,7 @@ class SpchtChecker(QDialog):
         try:
             with open(path_To_File, "r") as file:
                 testdict = json.load(file)
-                output = StringIO()
-                status = SpchtUtility.check_format(testdict, out=output)
+                status, output = SpchtUtility.schema_validation(testdict, schema="./SpchtSchema.json")
         except json.decoder.JSONDecodeError as e:
             self.console.insertPlainText(time_log(f"JSON Error: {str(e)}"))
             self.write_status("Json error while loading Spcht")
@@ -345,9 +345,10 @@ class SpchtChecker(QDialog):
             self.populate_text_views()
             self.write_status("Loaded spcht discriptor file")
         else:
-            self.console.insertPlainText(time_log(f"SPCHT Error: {output.getvalue()}"))
+            self.console.insertPlainText(time_log(f"SPCHT Schema Error: {output}"))
             self.write_status("Loading of spcht failed")
             self.toogleTriState(0)
+            return None
 
     def populate_treeview_with_spcht(self):
         i = 0

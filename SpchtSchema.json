@@ -123,7 +123,9 @@
                 },
                 "if_value": {
                     "description": "Right side of the comparion that is compared against 'if_field'",
-                    "type": ["string", "number"]
+                    "type": ["string", "number", "array"],
+                    "items": { "type": ["string", "number"] },
+                    "additionalItems": false
                 },
                 "if_condition": {
                     "description": "Comparator operator",
@@ -246,7 +248,9 @@
                 },
                 "if_value": {
                     "description": "Right side of the comparion that is compared against 'if_field'",
-                    "type": ["string", "number"]
+                    "type": ["string", "number", "array"],
+                    "items": { "type": ["string", "number"] },
+                    "additionalItems": false
                 },
                 "if_condition": {
                     "description": "Comparator operator",
