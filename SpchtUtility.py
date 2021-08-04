@@ -579,7 +579,75 @@ def process2RDF(quadro_list: list, export_format_type="turtle", export=True) -> 
         return f"serialisation couldnt be completed - {e}"
 
 
-def schema_validation(descriptor: dict, schema="./SpchtSchema.json"):
+def regex_validation(descriptor: dict or list) -> (bool, str):
+    """
+
+    :param dict or list descriptor:
+    :return: a tuple of boolean and a message
+    :rtype: (bool, str)
+    """
+    nodes = None
+    if isinstance(descriptor, dict):
+        if not 'node' in descriptor:
+            msg = "Cannot determine node list"
+            return False, msg
+        nodes = descriptor['node']
+    if isinstance(descriptor, list):
+        nodes = descriptor
+    if not nodes:
+        msg = "Cannot determine node list"
+        return False, msg
+    for node in nodes:
+        status, message = regex_validation_recursion(node)
+        if not status:
+            name = "unknown"
+            if 'name' in node:
+                name = node['name']
+            elif 'field' in node:
+                name = f"FIELD:{node['field']}"
+            logger.warning(f"Regex invalid for key '{message} in {name} node")
+            msg = "Not Valid TODO"
+            return False, msg
+    return True, "All OK"
+
+
+def regex_validation_recursion(node: dict) -> (bool, str):
+    """
+    Validates the regex inside a singular node of a Spcht Descriptor
+
+    :param dict node:
+    :return: True, msg or False, msg if any one key is wrong
+    :rtype: (bool, str)
+    """
+    # * mapping settings
+    if 'map_setting' in node:
+        if '$regex' in node['mapping_settings']:
+            if node['mapping_settings']['$regex'] == True and 'mapping' in node:
+                for key in node['mapping']:
+                    if not validate_regex(key):
+                        return False, "mapping"
+    if 'cut' in node:
+        if not validate_regex(node['cut']):
+            return False, "cut"
+    if 'match' in node:
+        if not validate_regex(node['match']):
+            return False, "match"
+    if 'fallback' in node:
+        return regex_validation_recursion(node['fallback'])
+    return True, "none"
+
+
+def schema_validation(descriptor: dict, schema="./SpchtSchema.json") -> (bool, str):
+    """
+    Validates the given dictionary (loaded from a json) against a validation scheme, this function can technically
+    accept every kind of dictionary/json-object and schema. It will write some log informations and give back a tuple
+    of boolean and message
+
+    :param dict descriptor: a loaded dictionary from a spcht.json
+    :param str schema: file path to a json schema
+    :return: True or False and a mesage
+    :rtype: (bool, str)
+    """
     # ? load schema, per default this should be the Spcht one but this function is written reusable
     try:
         with open(schema, "r") as schema_file:

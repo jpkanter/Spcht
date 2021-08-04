@@ -396,7 +396,7 @@ def UseWorkOrder(work_order_file, **kwargs) -> list or int:
                 if not SoftResetWorkOrder(work_order_file):
                     msg = f"Reseting work order to state {WORK_ORDER_STATUS[work_order['meta']['status']] - 1} failed"
                     print(msg)
-                    logger.error(f"UserWorkOrder > {msg}")
+                    logger.critical(f"UserWorkOrder > {msg}")
                     return 3
             if work_order['meta']['status'] == 2 or work_order['meta']['status'] == 3:  # fetching completed
                 # ! checks
@@ -420,7 +420,7 @@ def UseWorkOrder(work_order_file, **kwargs) -> list or int:
                 if not SoftResetWorkOrder(work_order_file):
                     msg = f"Reseting work order to state {WORK_ORDER_STATUS[work_order['meta']['status']] - 1} failed"
                     print(msg)
-                    logger.error(f"UserWorkOrder > {msg}")
+                    logger.critical(f"UserWorkOrder > {msg}")
                     return 3
             if work_order['meta']['status'] == 4 or work_order['meta']['status'] == 5:  # processing done
                 if work_order['meta']['type'] == "insert":
@@ -463,7 +463,7 @@ def UseWorkOrder(work_order_file, **kwargs) -> list or int:
                             print(f"{msg}{boiler_print}")
                             return 5
                     else:
-                        logger.error(
+                        logger.critical(
                             f"Unknown method '{work_order['meta']['method']}' in work order file {work_order_file}")
             if work_order['meta']['status'] == 7:  # inserting started
                 print(
@@ -471,7 +471,7 @@ def UseWorkOrder(work_order_file, **kwargs) -> list or int:
                 if not SoftResetWorkOrder(work_order_file):
                     msg = f"Reseting work order to state {WORK_ORDER_STATUS[work_order['meta']['status']] - 1} failed"
                     print(msg)
-                    logger.error(f"UserWorkOrder > {msg}")
+                    logger.critical(f"UserWorkOrder > {msg}")
                     return 3
             if work_order['meta']['status'] == 6 or work_order['meta']['status'] == 7:  # intermediate processing done
                 if work_order['meta']['method'] == "isql":
@@ -505,7 +505,7 @@ def UseWorkOrder(work_order_file, **kwargs) -> list or int:
                         return 8
                     else:
                         msg = "Sparql based insert operation failed"
-                        logger.error(msg)
+                        logger.critical(msg)
                         print(f"{msg}{boiler_print}")
                         return 7
             if work_order['meta']['status'] == 8:  # inserting completed
@@ -519,7 +519,7 @@ def UseWorkOrder(work_order_file, **kwargs) -> list or int:
                 return 9
 
         except KeyError as key:
-            logger.error(f"The supplied json file doesnt appear to have the needed data, '{key}' was missing")
+            logger.critical(f"The supplied json file doesnt appear to have the needed data, '{key}' was missing")
         except TypeError as e:
             if e == "'NoneType' object is not subscriptable":  # feels brittle
                 msg = "Could not properly load work order file"
@@ -843,7 +843,7 @@ def FulfillProcessingOrder(work_order_file: str, subject: str, spcht_object: Spc
         print(f"End of Spcht Processing - {os.getpid()}")
         return True
     except KeyError as key:
-        logger.error(f"The supplied work order doesnt appear to have the needed data, '{key}' was missing")
+        logger.critical(f"The supplied work order doesnt appear to have the needed data, '{key}' was missing")
         return False
     except TypeError as e:
         if e == "'NoneType' object is not subscriptable":  # feels brittle
@@ -914,10 +914,10 @@ def IntermediateStepSparqlDelete(work_order_file: str, sparql_endpoint: str, use
         return True
     # ? boilerplate code from sparql insert
     except KeyError as foreign_key:
-        logger.error(f"Missing key in work order: '{foreign_key}'")
+        logger.critical(f"Missing key in work order: '{foreign_key}'")
         return False
     except FileNotFoundError as file:
-        logger.error(f"Cannot find file {file}")
+        logger.critical(f"Cannot find file {file}")
         return False
     except TypeError as e:
         if e == "'NoneType' object is not subscriptable":  # feels brittle
@@ -974,10 +974,10 @@ def IntermediateStepISQLDelete(work_order_file: str, isql_path: str, user: str, 
         return True
     # ? boilerplate code from sparql insert
     except KeyError as foreign_key:
-        logger.error(f"Missing key in work order: '{foreign_key}'")
+        logger.critical(f"Missing key in work order: '{foreign_key}'")
         return False
     except FileNotFoundError as file:
-        logger.error(f"Cannot find file {file}")
+        logger.critical(f"Cannot find file {file}")
         return False
     except subprocess.CalledProcessError as e:
         logger.error(f"Error while running isql interface, exited with non-zero exit-code {e.returncode}\n"
@@ -988,7 +988,7 @@ def IntermediateStepISQLDelete(work_order_file: str, isql_path: str, user: str, 
             msg = "Could not properly load work order file"
             fnc = "IntermediateStepISQLDelete"
             print(msg)
-            logger.error(f"{fnc} > {msg}")
+            logger.critical(f"{fnc} > {msg}")
         return False
 
 
@@ -1069,17 +1069,17 @@ def FulfillSparqlInsertOrder(work_order_file: str,
                                              insert=('file_list', key, 'insert_finish', datetime.now().isoformat()))
         return True
     except KeyError as foreign_key:
-        logger.error(f"Missing key in work order: '{foreign_key}'")
+        logger.critical(f"Missing key in work order: '{foreign_key}'")
         return False
     except FileNotFoundError as file:
-        logger.error(f"Cannot find file {file}")
+        logger.critical(f"Cannot find file {file}")
         return False
     except TypeError as e:
         if e == "'NoneType' object is not subscriptable":  # feels brittle
             msg = "Could not properly load work order file"
             fnc = "FulFillSparqlInsertOrder"
             print(msg)
-            logger.error(f"{fnc} > {msg}")
+            logger.critical(f"{fnc} > {msg}")
         return False
     except xml.parsers.expat.ExpatError as e:
         logger.error(f"Parsing of triple file failed: {e}")
@@ -1149,24 +1149,24 @@ def FulfillISqlInsertOrder(work_order_file: str,
         logger.info(f"Successfully called {len(work_order['file_list'])} times the bulk loader")
         return True
     except KeyError as foreign_key:
-        logger.error(f"Missing key in work order: '{foreign_key}'")
+        logger.critical(f"Missing key in work order: '{foreign_key}'")
         return False
     except PermissionError as folder:
-        logger.error(f"Cannot access folder {folder} to copy turtle into.")
+        logger.critical(f"Cannot access folder {folder} to copy turtle into.")
         return False
     except TypeError as e:
         if e == "'NoneType' object is not subscriptable":  # feels brittle
             msg = "Could not properly load work order file"
             fnc = "FulFillSqlInsertOrder"
             print(msg)
-            logger.error(f"{fnc} > {msg}")
+            logger.critical(f"{fnc} > {msg}")
         return False
     except subprocess.CalledProcessError as e:
         logger.error(f"Error while running isql interface, exited with non-zero exit-code {e.returncode}\n"
                      f"Message from the program: {e.stderr.decode('ascii').strip()}")
         return False
     except FileNotFoundError as file:
-        logger.error(f"Cannot find file {file}")
+        logger.critical(f"Cannot find file {file}")
         return False
 
 
@@ -1229,13 +1229,14 @@ def CleanUpWorkOrder(work_order_filename: str, force=False, files=('file', 'rdf_
 
     except KeyError as key:
         print(f"Key missing {key}")
+        logger.critical(f"Missing key in work order: '{key}'")
         return False
     except TypeError as e:
         if e == "'NoneType' object is not subscriptable":  # feels brittle
             msg = "Could not properly load work order file"
             fnc = "CleanUpWorkOrder"
             print(msg)
-            logger.error(f"{fnc} > {msg}")
+            logger.critical(f"{fnc} > {msg}")
         return False
 
 
@@ -1287,13 +1288,14 @@ def HardResetWorkOrder(work_order_file: str, **kwargs):
         return True
     except KeyError as key:
         print(f"Key missing {key}")
+        logger.critical(f"Missing key in work order: '{key}'")
         return False
     except TypeError as e:
         if e == "'NoneType' object is not subscriptable":  # feels brittle
             msg = "Could not properly load work order file"
             fnc = "HardResetWorkOrder"
             print(msg)
-            logger.error(f"{fnc} > {msg}")
+            logger.critical(f"{fnc} > {msg}")
         else:
             print(f"Generic TypeError: {e}")
         return False
@@ -1366,12 +1368,15 @@ def SoftResetWorkOrder(work_order_file: str, **kwargs):
             msg = "Could not properly load work order file"
             fnc = "SoftResetWorkOrder"
             print(msg)
-            logger.error(f"{fnc} > {msg}")
+            logger.critical(f"{fnc} > {msg}")
         else:
+            logger.error(f"SoftResetWorkOrder: Generic TypeError occured {e}")
             print(f"Generic TypeError: {e}")
         return False
     except Exception as e:
-        print(e)
+        logger.critical(f"unexpected, uncaught exception happend, {e.__class__.__name__}: '{e}'")
+        print(e)  # this text lies, technically it was of course caught, otherwise there would be no log of it
+        return
 
 
 def PurgeWorkOrder(work_order_file: str, **kwargs):
@@ -1394,5 +1399,5 @@ def PurgeWorkOrder(work_order_file: str, **kwargs):
             msg = "Could not properly load work order file"
             fnc = "PureWorkOrder"
             print(msg)
-            logger.error(f"{fnc} > {msg}")
+            logger.critical(f"{fnc} > {msg}")
         return False

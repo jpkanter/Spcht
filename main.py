@@ -40,7 +40,7 @@ except ModuleNotFoundError:
         return text  # throws args away returns non colored text
 from SpchtDescriptorFormat import Spcht
 
-__VERSION__ = "0.6"
+__VERSION__ = "0.7"
 
 PARA = {}
 TESTFOLDER = "./testdata/"

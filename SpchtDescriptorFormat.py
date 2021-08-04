@@ -122,7 +122,7 @@ class Spcht:
                 self._m21_dict = SpchtUtility.marc2list(self._raw_dict.get(marc21))
             except AttributeError as e:
                 self.debug_print("AttributeError:", colored(e, "red"))
-                logger.error(f"Marc21 could not be loaded due an AttributeError: {e}")
+                logger.warning(f"Marc21 could not be loaded due an AttributeError: {e}")
                 self._m21_dict = None
             except ValueError as e:  # something is up
                 self.debug_print("ValueException:", colored(e, "red"))
@@ -365,6 +365,10 @@ class Spcht:
                 self.debug_print("spcht_ref", colored(e, "red"))
                 # raise ValueError(f"ValueError while working through Reference Nodes: '{e}'")
                 return False
+        status, msg = SpchtUtility.regex_validation(new_node)
+        if not status:
+            self.debug_print(f"Regex validation failed, message: {msg}")
+            return False
         descriptor['nodes'] = new_node  # replaces the old node with the new, enriched ones
         self._DESCRI = descriptor
         self.descriptor_file = filename
