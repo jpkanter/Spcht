@@ -20,9 +20,11 @@
 # along with Solr2Triplestore Tool.  If not, see <http://www.gnu.org/licenses/>.
 #
 # @license GPL-3.0-only <https://www.gnu.org/licenses/gpl-3.0.en.html>
-
+import json
 import unittest
 
+import SpchtUtility
+from SpchtDescriptorFormat import Spcht
 from SpchtUtility import list_wrapper, insert_list_into_str, is_dictkey, list_has_elements, all_variants, match_positions, fill_var
 
 
@@ -213,6 +215,16 @@ class TestFunc(unittest.TestCase):
         input = ""
         expected = ""
         self.assertEqual(expected, fill_var(exist, input))
+
+    def test_extract_dictmarc(self):
+        with open("thetestset.json", "r") as json_file:
+            thetestset = json.load(json_file)
+        fake_node = { "source": "marc", "field": "951:a"}
+        expected = ["MV", "XA-DE", "XA-PL"]
+        empty_spcht = Spcht()
+        empty_spcht._m21_dict = SpchtUtility.marc2list(thetestset[0])
+        with self.subTest("Extract dictmarc list: dictionary"):
+            self.assertEqual(expected, empty_spcht.extract_dictmarc_value(fake_node))
 
 
 if __name__ == '__main__':

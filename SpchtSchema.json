@@ -51,7 +51,7 @@
                 "type": {
                     "description": "Designates if the final triple has a triple as object or a literal",
                     "type": "string",
-                    "enum": ["triple", "literal"]
+                    "enum": ["uri", "literal"]
                 },
                 "alternatives": {
                     "description": "If 'field' cannot be found alternatives is used as direct standin",
@@ -176,7 +176,7 @@
                 "type": {
                     "description": "Designates if the final triple has a triple as object or a literal",
                     "type": "string",
-                    "enum": ["triple", "literal"]
+                    "enum": ["uri", "literal"]
                 },
                 "alternatives": {
                     "description": "If 'field' cannot be found alternatives is used as direct standin",

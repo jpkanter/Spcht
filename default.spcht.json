@@ -173,7 +173,7 @@
             "field": "format_finc",
             "required": "optional",
             "comment": "TODO",
-            "type": "triple",
+            "type": "uri",
             "mapping_settings": {
                 "$default": "http://purl.org/ontology/bibo/Document",
                 "$ref": "./translation_maps/documents.json"
@@ -186,7 +186,7 @@
             "field": "format_finc",
             "required": "optional",
             "comment": "TODO",
-            "type": "triple",
+            "type": "uri",
             "mapping": {
                 "Audio": "http://rdaregistry.info/termList/RDAMediaType/1001",
                 "Microform": "http://rdaregistry.info/termList/RDAMediaType/1002",
@@ -199,7 +199,7 @@
             "predicate": "http://purl.org/dc/terms/language",
             "required": "optional",
             "field": "language",
-            "type": "triple",
+            "type": "uri",
             "mapping_settings": { "$ref": "./translation_maps/languages_long.json" }
         },
         {
@@ -212,7 +212,7 @@
             "if_condition": "equal",
             "if_value": "DE-15",
             "if_field": "institution",
-            "type": "triple"
+            "type": "uri"
         },
         {
             "name": "Verfügbarkeitswachtel, neues System",
@@ -225,7 +225,7 @@
             "field": "institution",
             "insert_into": "https://data.ub.uni-leipzig.de/item/wachtl/{}:ppn:{}",
             "insert_add_fields": ["id"],
-            "type": "triple"
+            "type": "uri"
         },
         {
             "name": "Marc21 Insert Into Test String",
@@ -244,7 +244,7 @@
             "predicate": "http://purl.org/dc/terms/contributor",
             "field": "names_id_str_mv",
             "required": "optional",
-            "type": "triple",
+            "type": "uri",
             "prepend": "http://d-nb.info/gnd/",
             "match": "(\\(DE-588\\))[0-9]*",
             "cut": "(\\(DE-588\\))"
@@ -282,7 +282,7 @@
             "predicate": "http://purl.org/dc/terms/isPartOf",
             "required": "optional",
             "prepend": "https://data.finc.info/resources/",
-            "type": "triple",
+            "type": "uri",
             "field": "hierarchy_top_id"
         }
     ]

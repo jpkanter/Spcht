@@ -168,14 +168,15 @@ class Spcht:
                 facet = self._recursion_node(node)
             except Exception as e:
                 facet = None
+                logger.debug(f"_recursion_node throws Exception {e.__class__.__name__}: '{e}'")
             # ! Data Output Modelling Try 2
-            if node.get('type', "literal") == "triple":
+            if node.get('type', "literal") == "uri":
                 node_status = 1
             else:
                 node_status = 0
             # * mandatory checks
             # there are two ways i could have done this, either this or having the checks split up in every case
-            if facet is None:
+            if not facet:
                 if node['required'] == "mandatory":
                     logger.info(f"NodeName '{node.get('name', '?')}' required field {node['field']} but its not present")
                     raise SpchtErrors.MandatoryError(f"Field {node['field']} is a mandatory field but not present")
@@ -464,98 +465,58 @@ class Spcht:
         else:
             self.debug_print(colored(sub_dict.get('name', ""), "cyan"), end=" ")
 
-        if sub_dict['source'] == "marc":
-            if self._m21_dict is None:
-                self.debug_print(colored("No Marc", "yellow"), end="|")
-                pass
-            if "if_condition" in sub_dict:  # condition cancels out the entire node, triggers callback
-                if not self._handle_if(sub_dict):
-                    return self._call_fallback(sub_dict)  # ! i created call_fallback just for this
-
-            m21_value = self.extract_dictmarc_value(sub_dict)
-            if not m21_value:
-                self.debug_print(colored(f"Marc around but not field {sub_dict['field']}", "yellow"), end=" > ")
-                return self._call_fallback(sub_dict)
-
-            self.debug_print(colored("Marc21", "yellow"), end="-> ")  # the first step
-            # ? Whats the most important step a man can take? --- Always the next one
-
-            if not m21_value:  # r"^[0-9]{1,3}:\w*$"
-                self.debug_print(colored(f"✗ field found but subfield not present in marc21 dict", "magenta"), end=" > ")
-                return self._call_fallback(sub_dict)
-
-            """
-            Explanation:
-            I am rereading this and its quite confusing on the first glance, so here some prose. This assumes three modes,
-            either returned value gets replaced by the joined_field function that works like a translation, or it inserts
-            something, if it doesnt do  that it does the normal stuff where it adds some parts, divides some and does 
-            all the other pre&post processing things. Those 3 modi are exclusive. If any value gets filtered by the 
-            if function above we never get here, as of now only one valid value in a list of value is enough to get here
-            02.02.2021
-            """
-            if 'joined_field' in sub_dict:  # original boilerplate from dict
-                joined_value = self._joined_map(sub_dict)
-                if joined_value:  # ? why i am even checking for that? Fallbacks, that's why, if this fails we end on the bottom of this function
-                    self.debug_print(colored("✓ joined_field", "green"))
-                    return joined_value  # * does not need the node return iron as it does that in itself
-                self.debug_print(colored(f"✗ joined mapping could not be fullfilled", "magenta"), end=" > ")
-            elif 'insert_into' in sub_dict:
-                inserted_ones = self._inserter_string(sub_dict)
-                if inserted_ones is not None:
-                    self.debug_print(colored("✓ insert_into", "green"))
-                    return Spcht._node_return_iron(sub_dict['predicate'], inserted_ones)
-                    # ! this handling of the marc format is probably too simply
-            else:
-                temp_value = Spcht._node_preprocessing(m21_value, sub_dict)
-                if not temp_value:  # not sure how i feel about the explicit check of len<0
-                    self.debug_print(colored(f"✗ value preprocessing returned no matches", "magenta"), end=" > ")
-                    return self._call_fallback(sub_dict)
-
-                self.debug_print(colored(f"✓ field", "green"))
-                temp_value = self._node_mapping(temp_value, sub_dict.get('mapping'), sub_dict.get('mapping_settings'))
-                return Spcht._node_return_iron(sub_dict['predicate'], self._node_postprocessing(temp_value, sub_dict))
-
-            # TODO: gather more samples of awful marc and process it
-        elif sub_dict['source'] == "dict":
+        # * Replacement of old procedure with universal extraction
+        # * this funnels a 'main_value' through the procedure and utilises a host of exist nodes
+        if sub_dict['source'] == "dict":
             self.debug_print(colored("Source Dict", "yellow"), end="-> ")
+        elif sub_dict['source'] == "marc":
+            self.debug_print(colored("Source Marc", "yellow"), end="-> ")
+        else:
+            self.debug_print(colored(f"Source {sub_dict['source']}, this is new!", "mangenta"), end="-> ")
 
-            if "if_condition" in sub_dict:  # condition cancels out the entire node, triggers callback
+        if 'joined_value' in sub_dict:  # joined map procedure
+            self.debug_print(colored("✓ joined_field", "green"), end="-> ")
+            joined_result = self._joined_map(sub_dict)
+            # ? _joined_map does basically the same as before but cojoined with a predicate mappping, because of the
+            # ? additional checks i decided to 'externalize' that to make this part of the code more clean
+            if not joined_result:
+                self.debug_print(colored(f"✗ joined mapping could not be fullfilled", "magenta"), end="-> ")
+                return self._call_fallback(sub_dict)
+            return joined_result
+        else:
+            main_value = self.extract_dictmarc_value(sub_dict)
+            if not main_value:
+
+                if 'alternatives' in sub_dict:
+                    self.debug_print(colored("Alternatives", "yellow"), end="-> ")
+                    for other_field in sub_dict['alternatives']:
+                        main_value = self.extract_dictmarc_value(sub_dict, other_field)
+                        if main_value:
+                            self.debug_print(colored("✓ alternative field", "green"), end="-> ")
+                            break
+                    if not main_value:
+                        return self._call_fallback(sub_dict)  # ? EXIT 1
+                else:
+                    return self._call_fallback(sub_dict)  # ? EXIT 2
+            else:
+                self.debug_print(colored("✓ simple field", "green"), end="-> ")
+            main_value = self._node_preprocessing(main_value, sub_dict)
+            if not main_value:
+                self.debug_print(colored(f"✗ value preprocessing returned no matches", "magenta"), end="-> ")
+                return self._call_fallback(sub_dict)  # ? EXIT 3
+            if 'if_field' in sub_dict:
                 if not self._handle_if(sub_dict):
-                    return self._call_fallback(sub_dict)  # ! i created call_fallback just for this
-
-            # the existence of joined_field invalidates the rest if joined field does not exists in the raw_data
-            if "joined_field" in sub_dict:
-                # ? i really hope this works like intended, if there is joined_field, do nothing of the normal matching
-                joined_value = self._joined_map(sub_dict)
-                if joined_value:  # ? why i am even checking for that? Fallbacks, that's why
-                    self.debug_print(colored("✓ joined_field", "green"))
-                    return joined_value
-            # normal field matching
-            elif 'insert_into' in sub_dict:  # ? similar to joined field this is an alternate mode
-                inserted_ones = self._inserter_string(sub_dict)
-                if inserted_ones is not None:
-                    self.debug_print(colored("✓ insert_field", "green"))
-                    return Spcht._node_return_iron(sub_dict['predicate'], self._node_postprocessing(inserted_ones, sub_dict))
-                # ! dont forget post processing
-            elif sub_dict['field'] in self._raw_dict:  # main field name
-                temp_value = self._raw_dict[sub_dict['field']]  # the raw value
-                temp_value = Spcht._node_preprocessing(temp_value, sub_dict)  # filters out entries
-                if temp_value:
-                    temp_value = self._node_mapping(temp_value, sub_dict.get('mapping'), sub_dict.get('mapping_settings'))
-                    self.debug_print(colored("✓ simple field", "green"))
-                    return Spcht._node_return_iron(sub_dict['predicate'], self._node_postprocessing(temp_value, sub_dict))
-            # ? since i prime the sub_dict, what is even the point for checking the existence of the key, its always there
-            # alternatives matching, like field but as a list of alternatives
-            elif 'alternatives' in sub_dict and sub_dict['alternatives'] is not None:  # traverse list of alternative field names
-                self.debug_print(colored("Alternatives", "yellow"), end="-> ")
-                for entry in sub_dict['alternatives']:
-                    if entry in self._raw_dict:
-                        temp_value = Spcht._node_preprocessing(self._raw_dict[entry], sub_dict)
-                        if temp_value:
-                            temp_value = self._node_mapping(temp_value, sub_dict.get('mapping'), sub_dict.get('mapping_settings'))
-                            self.debug_print(colored("✓ alternative field", "green"))
-                            return Spcht._node_return_iron(sub_dict['predicate'], self._node_postprocessing(temp_value, sub_dict))
-        return self._call_fallback(sub_dict)
+                    return self._call_fallback(sub_dict)  # ? EXIT 4
+            main_value = self._node_postprocessing(main_value, sub_dict)  # post_processing should not delete values
+            # in the absolute worst case we have some aggressive cut and we end with a list of empty strings
+            if 'mapping' in sub_dict:
+                main_value = self._node_mapping(main_value, sub_dict['mapping'], sub_dict.get('mapping_settings', None))
+            if not main_value:
+                return self._call_fallback(sub_dict)  # ? EXIT 5
+            if 'insert_into' in sub_dict:
+                main_value = self._inserter_string(main_value, sub_dict)
+                self.debug_print(colored("✓ insert_into", "green"), end="-> ")
+            return self._node_return_iron(sub_dict['predicate'], main_value)
 
     def _call_fallback(self, sub_dict):
         if 'fallback' in sub_dict and sub_dict['fallback'] is not None:  # we only get here if everything else failed
@@ -590,7 +551,7 @@ class Spcht:
         # this is a simple routine to adjust the output from the nodeprocessing to a more uniform look so that its always
         # a list of tuples that is returned, instead of a tuple made of a string and a list.
         if not isinstance(predicate, str):
-            raise TypeError("Predicate has to be a string")  # ? has it thought?
+            raise TypeError("Predicate has to be a string")  # ? has it thought? Could be an URI Object..technically
         if isinstance(subject, (int, float)):
             subject = str(subject)  # i am feeling kinda bad here, but this should work right?
             # although i am not sure how a number or a float can be a valid URI
@@ -728,8 +689,7 @@ class Spcht:
                     new_mapping[str(key).lower()] = mapping[key]
                 mapping = new_mapping
 
-        if isinstance(value, (str, int, float)):
-            value = [value]  # listifies the value to work it in the next step
+        value = SpchtUtility.list_wrapper(value)
 
         if isinstance(value, list):  # ? repeated dictionary calls not good for performance?
             response_list = []
@@ -786,23 +746,48 @@ class Spcht:
         :return: a list of tuples
         :rtype: list
         """
-        field = self.extract_dictmarc_value(sub_dict, "field")  # this is just here cause i was tired of typing the full thing every time
-        joined_field = self.extract_dictmarc_value(sub_dict, "joined_field")
+        field = self.extract_dictmarc_value(sub_dict, "field")
+        # ? alternatives seems to very unlikely to ever work but maybe there is data in the future that has use for this
+        if not field:
+            if 'alternatives' in sub_dict:
+                self.debug_print(colored("Alternatives", "yellow"), end="-> ")
+                for other_field in sub_dict['alternatives']:
+                    field = self.extract_dictmarc_value(sub_dict, other_field)
+                    if field:
+                        self.debug_print(colored("✓ alternative field", "green"), end="-> ")
+                        break
+                if not field:
+                    return []  # ? EXIT 1
+            else:
+                return []  # ? EXIT 2
+        if 'if_field' in sub_dict:  # if filters entire nodes
+            if not self._handle_if(sub_dict):
+                return []   # ? EXIT 3
 
-        if not field or not joined_field:
-            msg = "field or joined_field could not be found in given data"
-            self.debug_print(colored(f"✗ {msg}", "magenta"), end=" > ")
-            raise SpchtErrors.DataError(msg)
+        joined_field = self.extract_dictmarc_value(sub_dict, sub_dict["joined_field"])
+
+        # ? About these checks and the commented raises:
+        # in the past joined field was the final stop gap, i later changed it to a way that is more natural with the
+        # rest of the other Spcht workings, as i was unsure if i keep it that way i kept a few more bytes around
+        # also, extract_dictmarc will always return a list, most of these checks here _should_ never trigger
+        if not joined_field:
+            msg = "joined_field could not be found in given data"
+            self.debug_print(colored(f"✗ no joined_field", "magenta"), end="-> ")
+            logger.debug(f"_joined_map: {msg}")
+            return []
+            # raise SpchtErrors.DataError(msg)
         if isinstance(field, list) and not isinstance(joined_field, list):
-            self.debug_print(colored("JoinedMap: list and non-list", "red"), end=" ")
+            self.debug_print(colored("JoinedMap: list and non-list", "red"), end="-> ")
             msg = "joined_field and field are not of the same, allowed, type."
             logger.warning(f"_joined_map {msg}")
-            raise SpchtErrors.DataError(msg)
+            return []
+            # raise SpchtErrors.DataError(msg)
         if not isinstance(field, (str, float, int, list)) or not isinstance(joined_field, (str, float, int, list)):
-            self.debug_print(colored("JoinedMap: non-value, non-list", "red"), end=" ")
+            self.debug_print(colored("JoinedMap: non-value, non-list", "red"), end="-> ")
             msg = "One or both of field and/or joined_field value are not of the allowed type, curious"
             logger.error(f"_joined_map {msg}")
-            raise SpchtErrors.DataError(msg)
+            return []
+            # raise SpchtErrors.DataError(msg)
         if isinstance(field, list) and isinstance(joined_field, list):
             # this is a weird one, the extracation procedure above should always result in a list, even with length 1,
             # but i know that i have to extend that function, so i might need to change that, therefore i already added
@@ -817,40 +802,42 @@ class Spcht:
                 self.debug_print(colored("JoinedMap: len difference", "red"), end=" ")
                 msg = f"Found different lengths for field and joinedfield ({len(field)} vs. {len(joined_field)})"
                 logger.debug(f"_joined map {msg}")
-                raise SpchtErrors.DataError(msg)
-        else:
+                return []
+                # raise SpchtErrors.DataError(msg)
+        else: # another of those occasions that shall not happen
             field = SpchtUtility.list_wrapper(field)
             joined_field = SpchtUtility.list_wrapper(joined_field)
         # if type(raw_dict[sub_dict['field']]) != type(raw_dict[sub_dict['joined_field']]): # technically possible
 
         result_list = []
-        for i in range(0, len(field)):  # iterating through the list every time is tedious
+        for i in range(len(field)):  # iterating through the list every time is tedious
             try:
                 if not isinstance(field[i], (str, int, float)) or not isinstance(joined_field[i], (str, int, float)):
                     logger.debug(f"_joined_map has in field '{sub_dict['field']}' a non-instance of str either in '{field[i]}' or '{joined_field[i]}'")
                     continue
                 sobject = Spcht._node_preprocessing(field[i], sub_dict)  # filters out entries
-                if sobject:
-                    sobject = self._node_mapping(sobject, sub_dict.get('mapping'), sub_dict.get('mapping_settings'))
-                    sobject = self._node_postprocessing(sobject, sub_dict)
-                    if len(sobject) == 1:
-                        sobject = sobject[0]
-                    else:
-                        logger.critical("_joined_map, for some uneexptected reasons, the output inside the joined_map loop had more than one value for the object, that should not happen, never. Investigate!")
-                        raise SpchtErrors.OperationalError("Cannot continue processing with undecisive data")
-                    # * predicate processing
-                    predicate = self._node_mapping(joined_field[i], sub_dict.get("joined_map"), {"$default": sub_dict['predicate']})
-                    if len(predicate) == 1:
-                        predicate = predicate[0]
+                if not sobject:
+                    continue
+                sobject = self._node_mapping(sobject, sub_dict.get('mapping'), sub_dict.get('mapping_settings'))
+                sobject = self._node_postprocessing(sobject, sub_dict)
+                if len(sobject) == 1:
+                    sobject = sobject[0]
+                else:
+                    logger.critical("_joined_map, for some unexptected reasons, the output inside the joined_map loop had more than one value for the object, that should not happen, never. Investigate!")
+                    raise SpchtErrors.OperationalError("Cannot continue processing with undecisive data")
+                # * predicate processing
+                predicate = self._node_mapping(joined_field[i], sub_dict.get("joined_map"), {"$default": sub_dict['predicate']})
+                if len(predicate) == 1:
+                    predicate = predicate[0]
 
-                    result_list.append((predicate, sobject))  # a tuple
+                result_list.append((predicate, sobject))  # a tuple
             except IndexError as e:
                 msg = f"joined map found an out of index error for field&joined_field, this means something is wrongly coded: {e}"
                 logger.error(msg)
                 raise SpchtErrors.OperationalError(msg)
         return result_list  # ? can be empty, [] therefore falsey (but not none so the process itself was successful
 
-    def _inserter_string(self, sub_dict: dict):
+    def _inserter_string(self, value, sub_dict: dict):
         """
             This inserts the value of field (and all additional fields defined in "insert_add_fields" into a string,
             when there are less placeholders than add strings those will be omitted, if there are less fields than
@@ -860,33 +847,17 @@ class Spcht:
         :return: a list of tuple or a singular tuple of (predicate, string)
         :rtype: tuple or list
         """
-        # * check whether the base field even exists:
-        value = self.extract_dictmarc_value(sub_dict)
-        if not value:
-            return []
-        # check what actually exists in this instance of raw_dict
-        inserters = []  # each entry is a list of strings that are the values stored in that value, some dict fields are
-        # more than one value, therefore everything gets squashed into a list
-        if sub_dict['source'] != "dict" and sub_dict['source'] != "marc":
-            print(f"Unknown source {sub_dict['source']}found, are you from the future relative to me?")
-            logger.warning(f"Spcht._inserter_string was called with an unknown source type '{sub_dict['source']}'")
-            return []
 
-        # inserted MAIN values gets the processing, this seems like an oversight, but there was never an use case where
-        # somewhen wanted to individually process every field
-        value = Spcht._node_preprocessing(value, sub_dict)
-        value = self._node_postprocessing(value, sub_dict)
-        # * pre & postprocessing listify by themselfs, at this point value IS a list, but might be empty
-        if not value:
-            return []  # if for example the value does not match the match filter
+        # check what actually exists in this instance of raw_dict
+        inserters = [value]  # each entry is a list of strings that are the values stored in that value, some dict fields are
 
         if 'insert_add_fields' in sub_dict:  # ? the two times this gets called it actually checks beforehand, why do i bother?
             for each in sub_dict['insert_add_fields']:
-                # TODO: here is potential for an extension of possible of insert fields
+                # TODO: it should be possible to extend this for a mix of sources
                 pseudo_dict = {"source": sub_dict['source'], "field": each}
-                value = self.extract_dictmarc_value(pseudo_dict)
-                if value:
-                    inserters.append(SpchtUtility.list_wrapper(value))
+                additional_value = self.extract_dictmarc_value(pseudo_dict)
+                if additional_value:
+                    inserters.append(SpchtUtility.list_wrapper(additional_value))
                 else:
                     inserters.append([""])
         # all_variants iterates through the separate lists and creates a new list or rather matrix with all possible combinations
@@ -899,10 +870,7 @@ class Spcht:
             replaced_line = insert_list_into_str(each, sub_dict['insert_into'], r'\{\}', 2, True)
             if replaced_line is not None:
                 all_lines.append(replaced_line)
-        if len(all_lines) > 0:
-            return all_lines
-        else:
-            return None
+        return all_lines
 
     def _handle_if(self, sub_dict: dict):
         """
@@ -932,7 +900,7 @@ class Spcht:
         else:
             return False  # if your comparator is false nothing can be true
 
-        comparator_value = self.extract_dictmarc_value(sub_dict, "if_field")
+        comparator_value = self.extract_dictmarc_value(sub_dict, sub_dict["if_field"])
 
         if condition == "exi":
             if not comparator_value:
@@ -1030,7 +998,7 @@ class Spcht:
                 self._SAVEAS[sub_dict['saveas']] = []
             self._SAVEAS[sub_dict['saveas']].append(value)
 
-    def extract_dictmarc_value(self, sub_dict: dict, dict_field="field") -> list:
+    def extract_dictmarc_value(self, sub_dict: dict, dict_field=None) -> list:
         """
         In the corner case and context of this program there are (for now) two different kinds of 'raw_dict', the first
         is a flat dictionary containing a key:value relationship where the value might be a list, the second is the
@@ -1046,18 +1014,20 @@ class Spcht:
         :rtype: list
         """
         # 02.01.21 - Previously this also returned false, this behaviour was inconsistent
+        if not dict_field:
+            dict_field = sub_dict['field']
         if sub_dict['source'] == 'dict':
-            if not sub_dict[dict_field] in self._raw_dict:
+            if not dict_field in self._raw_dict:
                 return []
-            if not isinstance(self._raw_dict[sub_dict[dict_field]], list):
-                value = [self._raw_dict[sub_dict[dict_field]]]
+            if not isinstance(self._raw_dict[dict_field], list):
+                value = [self._raw_dict[dict_field]]
             else:
                 value = []
-                for each in self._raw_dict[sub_dict[dict_field]]:
+                for each in self._raw_dict[dict_field]:
                     value.append(each)
             return SpchtUtility.list_wrapper(value)
         elif sub_dict['source'] == "marc" and self._m21_dict:
-            field, subfield = SpchtUtility.slice_marc_shorthand(sub_dict[dict_field])
+            field, subfield = SpchtUtility.slice_marc_shorthand(dict_field)
             if field is None:
                 return []  # ! Exit 0 - No Match, exact reasons unknown
             if field not in self._m21_dict:
@@ -1087,7 +1057,8 @@ class Spcht:
 
                         return SpchtUtility.list_wrapper(value)
                     else:
-                        return SpchtUtility.list_wrapper(self._m21_dict[field][subfield])  # * Value Return  # a singular value
+                        return SpchtUtility.list_wrapper(
+                            self._m21_dict[field][subfield])  # * Value Return  # a singular value
                 else:
                     return []  # ! Exit 2 - Field around but not subfield
         else:

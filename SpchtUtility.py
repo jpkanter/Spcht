@@ -173,6 +173,7 @@ def insert_list_into_str(the_string_list: list, string_to_insert: str, regex_pat
     # ! for future reference: "random {} {} {}".format(*list) will do almost what this does
     # ? and the next problem that has a solution somewhere but i couldn't find the words to find it
     if not isinstance(the_string_list, list):
+        logger.debug(f"insert_list_into_str: Called without list, Parameters: string_list: '{the_string_list}', string_to_insert: '{string_to_insert}'")
         raise TypeError("list of strings must be an actual 'list'")
     positions = match_positions(regex_pattern, string_to_insert)
     if len(the_string_list) > len(positions):  # more inserts than slots
@@ -729,7 +730,7 @@ def check_format(descriptor, out=sys.stderr, base_path="", i18n=None):
         "basic_struct": "Elements of the basic structure ( [source, field, required, predicate] ) are missing",
         "basic_struct2": "An Element of the basic sub node structure is missing [source or field]",
         "ref_not_exist": "The file {} cannot be found (probably either rights or wrong path)",
-        "type_str": "the type key must contain a string value that is either 'triple' or anything else",
+        "type_str": "the type key must contain a string value that is either 'uri' or 'literal'",
         "regex": "The provided regex is not correct",
         "field_str": "The field entry has to be a string",
         "required_str": "The required entry has to be a string and contain either: 'mandatory' or 'optional",
