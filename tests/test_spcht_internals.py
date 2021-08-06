@@ -33,6 +33,7 @@ import SpchtUtility
 import logging
 import os
 logging.basicConfig(filename=os.devnull)  # hides logging that occurs when testing for exceptions
+#logging.basicConfig(level=logging.DEBUG)
 
 
 TEST_DATA = {
@@ -259,13 +260,13 @@ class TestSpchtInternal(unittest.TestCase):
         node['if_field'] = "flounder"
 
         with self.subTest("if_no_normal"):
-            self.assertTrue(self.crow._handle_if(node))
+            self.assertFalse(self.crow._handle_if(node))
         with self.subTest("if_no_uneqal"):
             node['if_condition'] = "!="
             self.assertTrue(self.crow._handle_if(node))
         with self.subTest("if_no_smaller than"):
             node['if_condition'] = "<"
-            self.assertFalse(self.crow._handle_if(node))
+            self.assertTrue(self.crow._handle_if(node))
 
     def test_if_exi(self):
         self.crow._raw_dict = copy.copy(TEST_DATA)
@@ -324,7 +325,7 @@ class TestSpchtInternal(unittest.TestCase):
         node['joined_field'] = "goldfish"
 
         expected = [('nullnullone', 'Yellow'), ('twonullnull', 'Blue'), ('nullthreenull', 'Red')]
-        self.assertEqual(self.crow._joined_map(node), expected)
+        self.assertEqual(expected, self.crow._joined_map(node))
 
     def test_joined_map_single(self):
         self.crow._raw_dict = copy.copy(TEST_DATA)
@@ -333,7 +334,7 @@ class TestSpchtInternal(unittest.TestCase):
         node['joined_field'] = "bronzefish"
 
         expected = [('nullnullone', 'Pink')]
-        self.assertEqual(self.crow._joined_map(node), expected)
+        self.assertEqual(expected, self.crow._joined_map(node))
 
     def test_joined_map_singlepred_to_multi_object(self):
         self.crow._raw_dict = copy.copy(TEST_DATA)
@@ -341,7 +342,7 @@ class TestSpchtInternal(unittest.TestCase):
         node['field'] = "silverfish"
         node['joined_field'] = "bronzefish"
         expected = [('nullnullone', 'Yellow'), ('nullnullone', 'Blue'), ('nullnullone', 'Red')]
-        self.assertEqual(self.crow._joined_map(node), expected)
+        self.assertEqual(expected, self.crow._joined_map(node))
 
 
 if __name__ == '__main__':

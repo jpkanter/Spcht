@@ -46,7 +46,7 @@ except ImportError:
     pass
 
 # ! import language stuff
-i18n = SpchtCheckerGui_i18n.Spcht_i18n("./SpchtCheckerGui/GuiLanguage.json")
+i18n = SpchtCheckerGui_i18n.Spcht_i18n("./GuiLanguage.json")
 
 
 def delta_time_human(**kwargs):
@@ -115,12 +115,12 @@ class SpchtChecker(QDialog):
         self.linetext_spcht_filepath = QLineEdit()
         self.linetext_spcht_filepath.setPlaceholderText(i18n['str_sdf_file_placeholder'])
         self.linetext_spcht_filepath.setReadOnly(True)
-        self.btn_create_spcht = QPushButton(i18n['btn_create_spcht'])
+        #self.btn_create_spcht = QPushButton(i18n['btn_create_spcht'])
         self.btn_load_spcht_file = QPushButton(i18n['btn_sdf_txt'])
         self.btn_load_spcht_retry = QPushButton(i18n['generic_retry'])
         self.btn_load_spcht_retry.setDisabled(True)
         top_file_bar.addWidget(self.linetext_spcht_filepath)
-        top_file_bar.addWidget(self.btn_create_spcht)
+        #top_file_bar.addWidget(self.btn_create_spcht)
         top_file_bar.addWidget(self.btn_load_spcht_file)
         top_file_bar.addWidget(self.btn_load_spcht_retry)
 
@@ -424,7 +424,7 @@ class SpchtChecker(QDialog):
     def toogleTriState(self, status=0):
         toggleTexts = ["Console", "View", "Tests", "Explorer"]
         if isinstance(status, bool):  # connect calls as false
-            if self.tristate == 3:
+            if self.tristate == 2:
                 self.tristate = 0
             else:
                 self.tristate += 1

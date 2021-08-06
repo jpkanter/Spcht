@@ -24,8 +24,6 @@ The data, JSON-formatted, looks like this:
 }
 ```
 
-![basic_data](./basic_data.png)
-
 To get a tree-like structure, or at least the core of it so called *nodes* are being generated.
 
 To generate any node from here, we are taking one part, the *ID* as unique part for our subject, combined with a defined graph `https://example.info/data_,` we get a full subject called `https://example.info/data_234232`, this forms the base root upon we can craft additional properties for this node.
@@ -57,8 +55,6 @@ A Spcht descriptor file contains roughly two parts, the initial **Head** that de
 }
 ```
 
-![Basic Spcht Code](./basic_spcht.png)
-
 This would do nothing, there might be a mapped *ID* per dataset, but as there is no actual data to create triples, there nothing will be created. To achieve the two triples we discussed earlier `nodes` needs to contain actual content:
 
 ```json
@@ -79,8 +75,6 @@ This would do nothing, there might be a mapped *ID* per dataset, but as there is
   }
 ]
 ```
-
-![basic_node](./basic_node.png)
 
 There is already a new  field that wasn't discussed yet, `prepend`. Its one of the trans formative parameters that can be included into any node. It appends its text before the actual value provided by the data-field, in this case, the static part of a link. Used on the *jsoned* output from a database that contains those the three fields `id`, `title` and `author_gnd` we would get two triples as discussed in the introduction.
 
@@ -121,8 +115,6 @@ The first example shows a simple node with an addition to the retrieved value fr
 }
 ```
 
-![transform_node](./transform_node.png)
-
 ### Insert_into
 
 The same effect can be achieved by using `insert_into`:
@@ -137,9 +129,7 @@ The same effect can be achieved by using `insert_into`:
 }
 ```
 
-![transform_insert](./transform_insert.png)
-
-The `{}` is a placeholder symbol, this is derived from the Python roots of the process. There can only be one placeholder symbol at the time as there is only one variable (the extracted value from the `title` field) that can be inserted. But `insert_into` is mightier than that! It is possible to pull an arbitrary amount of fields and insert those field-values in a placeholder text. Lets assume a use case where (a part) of our data looks like this:
+The `{}` is a placeholder symbol, this is derived from the Python roots of the process. There can only be one placeholder symbol at the time as there is only one variable (the extracted value from the `title` field) that can be inserted. But `insert_into` is mightier than that! It is possible to pull an arbitrary amount of fields and insert those field-values in a placeholder text. Let us assume a use case where (a part) of our data looks like this:
 
 ```json
 {
@@ -155,8 +145,6 @@ The `{}` is a placeholder symbol, this is derived from the Python roots of the p
 }
 ```
 
-![transform_data](./transform_data.png)
-
 For some reasons the title is split in two parts and we don't have a suitable data-field that contains the full title. *There is also additional data that will be used for further examples.*
 
 To combine our data we leverage the abilities of `insert_into` with the addition of the optional node-component `insert_add_fields` which defines additional fields that will be inserted into the placeholders:
@@ -171,8 +159,6 @@ To combine our data we leverage the abilities of `insert_into` with the addition
     "required": "optional"
 }
 ```
-
-![transform_complexinsert](./transform_complexinsert.png)
 
 The actual string to insert into is quite simple, it barely contains more than two placeholders and a colon with a space. The content of `insert_add_fields` is more interesting as the field name is written in square brackets `[]`. This defines an **array** in *JSON* (*known as list in Python*), the data-structure used in all Spcht-context. A *JSON*-list can contain any number of data and data-types (for example, the nodes itself reside in a list that contains so called *dictionaries*), the order of data in a list is preserved and duplicates can be present. If, for some reason, you required, to insert the same value twice in at different positions in a placeholder. In this notation the first placeholder will always contain the `field` value, the second placeholder the first position of `insert_add_fields`  will be the second placeholder, the second *add_fields* position will be the third placeholder and so on. Therefore, if you want to set the first placeholder to the content of the first `insert_add_fields` content, you have to swap fields with the one of `field`. There is one caveat here, other operations like `cut`, `replace`, `append`, `prepend` and `mapping` will actually work in concert with `insert_into` but **only** for the first value defined by `field`
 
@@ -441,9 +427,9 @@ This should access Marc Field `100`, Subfield `A`, according to [this](https://w
       "b": "Heisig, Bernhard",
       "k": [
          "Kunstgeschichte",
-         "K\u00fcnstler-Monografien",
-         "Alphabetische K\u00fcnstlerliste",
-         "K\u00fcnstler H",
+         "Künstler-Monografien",
+         "Alphabetische Künstlerliste",
+         "Künstler H",
          "Heisig, Bernhard"
       ],
       "0": [
@@ -473,11 +459,11 @@ We are seeing a lot of things that can be broken down to a few notable key items
 
 * Normal keys like `a` or `0`, those are the most simple thing
 * Indicator Keys like `i1` and `i2`, those are not actually marc but are an internal representation for marc indicators
-* `none` Keys, some fields do not have any sub-fields, the `none` key accesses those values that lay on the bare field
-* List of keyed sub-fields like the `951` on, if we access key `951:a` with Spcht we will get 3 values that are processed: `"MV", "XA-DE", "XA-PL"`
+* `none` Keys, some fields do not have any sub-fields, the `none` key accesses those values that lay on the bare field without subfield designation.
+* List of keyed sub-fields like the `951` on, if we access key `951:a` with Spcht, we will get 3 values that are processed: `"MV", "XA-DE", "XA-PL"`
 * List of values under a key, this will yield exactly the same as before but is differently notated, field `936:0` will result in `"(DE-627)1270642103", "(DE-625)rvk/96225:", "(DE-576)200642103"`
 
-
+For the most part one should not worry too much about how exactly Marc21 is handled internal, important is that a field:subfield combination will yield one or more values that is present on that field.
 
 ## Additional Spcht Fields
 

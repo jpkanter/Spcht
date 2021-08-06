@@ -222,10 +222,14 @@ class TestFunc(unittest.TestCase):
         fake_node = { "source": "marc", "field": "951:a"}
         expected = ["MV", "XA-DE", "XA-PL"]
         empty_spcht = Spcht()
-        empty_spcht._m21_dict = SpchtUtility.marc2list(thetestset[0])
+        empty_spcht._m21_dict = SpchtUtility.marc2list(thetestset[0]['fullrecord'])
         with self.subTest("Extract dictmarc list: dictionary"):
+            expected = ["MV", "XA-DE", "XA-PL"]
             self.assertEqual(expected, empty_spcht.extract_dictmarc_value(fake_node))
-
+        with self.subTest("Extract dictmarc dictionary: list"):
+            expected = ["(DE-627)1270642103", "(DE-625)rvk/96225:", "(DE-576)200642103"]
+            fake_node['field'] = "936:0"
+            self.assertEqual(expected, empty_spcht.extract_dictmarc_value(fake_node))
 
 if __name__ == '__main__':
     unittest.main()

@@ -14,22 +14,36 @@ The Codebase is strictly divided in the actual framework for spcht and an implem
 
 ## main.py
 
-The main part of the logic. It offers a handful of functions usable via a command line interface. Most settings that can be specified via a direct resource can also referenced in a configuration json file with the key `para`.
-
-### local_tools.py
-
-To cleanup the main functions a bit some auxiliary functions where placed here to keep the code more readable.
+This is an actual implementation of the so called *SpchtProcessing*. Its a command line tool which specific description can be accessed by calling `main.py --help`
 
 ## SpchtDiscriptorFormat.py
 
-Main class file for the spcht descriptor format. Further instructions and how to use it are in the [SPCHT.md](SPCHT.md) file
+Class file for the *SpchtProcessing*, contains all class-specific functions, an in-depth  [tutorial](./README/SpchtDescriptorDetails.md) is available. The exact format for the SpchtDescriptorFormat (SDF) is defined in a [JsonSchema](./SpchtSchema.json)
+
+### SpchtUtility.py
+
+A list of not class-specific and otherwise handy scripts around the *SpchtProcessing* complex
+
+### SpchtErrors.py
+
+A simple implementation of custom, Spcht-specific exception classes
+
+## WorkOrder.py
+
+A set of functions around the "WorkOrder" procedures, a compartmentalised logic that allows for a continuation of any given processing, also implements download from Apache Solr and the inserting into a triplestore. In Short, this does all the non-processing word.
+
+### local_tools.py
+
+Some auxiliary functions and procedures that "popped" into existence over the course of the project
 
 ## Requirements
 
-* python3-rdflib 
-* python3-elasticsearch
-* python3-dev
-* unixodbc-dev
+* `rdflib` >= 4.2.2
+* `requests` >= 2.23.0
+* `urrlib` >= 1.25.9
+* `jsonschma` >= 3.2.0
+* `pymarc` >= 4.0.0
+* `python-datautil` >= 2.8.1
 
 ## Development Notes
 

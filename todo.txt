@@ -2,7 +2,6 @@
     [x] Interpreter for mapping reference via mapping_setting
     [x] handling of $default entries in mapping_setting instead of mapping
     [x] make regex matching for mappings work
-     #  probably to be realized in spcht_node_mapping()
     [x] $inherit parameter actually inherting the value in $default
     [x] json error insights on load of file
     [x] possible performance bottlenecks
@@ -18,20 +17,20 @@
     [x] DICT multi replacement / Insert
     [ ] Escape pre and append texts
     [x] Reference Nodes - Check if full path or relative path is provided os.path.isabs(my_path)
-    [ ] Add output kinds
+    [x] Add output kinds
     [x] arbitary inser for pre&append texts, more than one entry
 * SPARQL
     [x] differenciate between graph and string that happens to be a link to somewhere
     [-] generation of valid sparql queries
-    [ ] shortening of queries with @prefix
+    [-] shortening of queries with @prefix
      #  tangential solved with rdfLIB
     [ ] SPAQRL Escaping
 * EXPORT
     [x] export data directly to a .ttl file
 * IMPORT
-    [-] you dont need to technically request *, just all the things you need, that might be less
+    [x] you dont need to technically request *, just all the things you need, that might be less
 * GENERAL
-    [-] command line interface
+    [x] command line interface
     [x] probably rewriting the entire SPCHT into a class
     [x] format checking is inconclusive, alternatives check not properly working
     [ ] check if a remote server is actually reacheable

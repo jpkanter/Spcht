@@ -746,7 +746,7 @@ class Spcht:
         :return: a list of tuples
         :rtype: list
         """
-        field = self.extract_dictmarc_value(sub_dict, "field")
+        field = self.extract_dictmarc_value(sub_dict, sub_dict["field"])
         # ? alternatives seems to very unlikely to ever work but maybe there is data in the future that has use for this
         if not field:
             if 'alternatives' in sub_dict:
@@ -757,11 +757,14 @@ class Spcht:
                         self.debug_print(colored("✓ alternative field", "green"), end="-> ")
                         break
                 if not field:
+                    logger.debug("_joined_map: EXIT 1")
                     return []  # ? EXIT 1
             else:
+                logger.debug("_joined_map: EXIT 2")
                 return []  # ? EXIT 2
         if 'if_field' in sub_dict:  # if filters entire nodes
             if not self._handle_if(sub_dict):
+                logger.debug("_joined_map: EXIT 3")
                 return []   # ? EXIT 3
 
         joined_field = self.extract_dictmarc_value(sub_dict, sub_dict["joined_field"])
@@ -774,18 +777,21 @@ class Spcht:
             msg = "joined_field could not be found in given data"
             self.debug_print(colored(f"✗ no joined_field", "magenta"), end="-> ")
             logger.debug(f"_joined_map: {msg}")
+            logger.debug("_joined_map: EXIT 4")
             return []
             # raise SpchtErrors.DataError(msg)
         if isinstance(field, list) and not isinstance(joined_field, list):
             self.debug_print(colored("JoinedMap: list and non-list", "red"), end="-> ")
             msg = "joined_field and field are not of the same, allowed, type."
             logger.warning(f"_joined_map {msg}")
+            logger.debug("_joined_map: EXIT 5")
             return []
             # raise SpchtErrors.DataError(msg)
         if not isinstance(field, (str, float, int, list)) or not isinstance(joined_field, (str, float, int, list)):
             self.debug_print(colored("JoinedMap: non-value, non-list", "red"), end="-> ")
             msg = "One or both of field and/or joined_field value are not of the allowed type, curious"
             logger.error(f"_joined_map {msg}")
+            logger.debug("_joined_map: EXIT 6")
             return []
             # raise SpchtErrors.DataError(msg)
         if isinstance(field, list) and isinstance(joined_field, list):
@@ -802,6 +808,7 @@ class Spcht:
                 self.debug_print(colored("JoinedMap: len difference", "red"), end=" ")
                 msg = f"Found different lengths for field and joinedfield ({len(field)} vs. {len(joined_field)})"
                 logger.debug(f"_joined map {msg}")
+                logger.debug("_joined_map: EXIT 7")
                 return []
                 # raise SpchtErrors.DataError(msg)
         else: # another of those occasions that shall not happen
@@ -835,6 +842,7 @@ class Spcht:
                 msg = f"joined map found an out of index error for field&joined_field, this means something is wrongly coded: {e}"
                 logger.error(msg)
                 raise SpchtErrors.OperationalError(msg)
+        logger.debug("_joined_map: EXIT 8-INFINITE")
         return result_list  # ? can be empty, [] therefore falsey (but not none so the process itself was successful
 
     def _inserter_string(self, value, sub_dict: dict):
@@ -1032,16 +1040,16 @@ class Spcht:
                 return []  # ! Exit 0 - No Match, exact reasons unknown
             if field not in self._m21_dict:
                 return []  # ! Exit 1 - Field not present
-            value = None
+            value = []
             if isinstance(self._m21_dict[field], list):
                 for each in self._m21_dict[field]:
                     if str(subfield) in each:
                         m21_subfield = each[str(subfield)]
                         if isinstance(m21_subfield, list):
                             for every in m21_subfield:
-                                value = SpchtUtility.fill_var(value, every)
+                                value.append(every)
                         else:
-                            value = SpchtUtility.fill_var(value, m21_subfield)
+                            value.append(m21_subfield)
                     else:
                         pass  # ? for now we are just ignoring that iteration
                 if value is None:
@@ -1051,14 +1059,13 @@ class Spcht:
                 if subfield in self._m21_dict[field]:
                     if isinstance(self._m21_dict[field][subfield], list):
                         for every in self._m21_dict[field][subfield]:
-                            value = SpchtUtility.fill_var(value, every)
+                            value.append(every)
                         if value is None:  # i honestly cannot think why this should every happen, probably a faulty preprocessor
                             return []  # ! Exit 2 - Field around but not subfield
 
-                        return SpchtUtility.list_wrapper(value)
+                        return value
                     else:
-                        return SpchtUtility.list_wrapper(
-                            self._m21_dict[field][subfield])  # * Value Return  # a singular value
+                        return [self._m21_dict[field][subfield]]
                 else:
                     return []  # ! Exit 2 - Field around but not subfield
         else:
