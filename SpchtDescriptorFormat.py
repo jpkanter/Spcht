@@ -85,10 +85,7 @@ class Spcht:
             return "SPCHT{_empty_}"
 
     def __bool__(self):
-        if self._DESCRI is not None:
-            return True
-        else:
-            return False
+        return self._DESCRI is not None
 
     def __iter__(self):
         return SpchtIterator(self)
@@ -560,11 +557,7 @@ class Spcht:
         if isinstance(subject, str):
             return [(predicate, subject)]  # list of one tuple
         if isinstance(subject, list):
-            new_list = []
-            for each in subject:
-                if each:
-                    new_list.append((predicate, each))
-            return new_list
+            return [(predicate, s) for s in subject if s]
         logger.error(f"While using the node_return_iron something failed while ironing '{str(subject)}'")
         raise TypeError("Could handle predicate, subject pair")
 
