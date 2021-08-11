@@ -41,12 +41,6 @@ except ModuleNotFoundError:
 import logging
 logger = logging.getLogger(__name__)
 
-try:
-    import rdflib
-except ImportError:
-    logger.warning("RDFLib import error in Spcht, limits function")
-
-
 class Spcht:
     def __init__(self, filename=None, schema_path="./SpchtSchema.json", debug=False, log_debug=False):
         self._DESCRI = None  # the finally loaded descriptor file with all references solved
@@ -132,9 +126,6 @@ class Spcht:
         else:
             raise SpchtErrors.UndefinedError("The choosen Source option doesnt exists")
             # ? what if there are just no marc data and we know that in advance?
-
-        if 'rdflib' in sys.modules and isinstance(subject, rdflib.URIRef):
-            graph = subject.toPython()
 
         # generates the subject URI, i presume we already checked the spcht for being correct
         # ? instead of making one hard coded go i could insert a special round of the general loop right?
