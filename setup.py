@@ -30,7 +30,7 @@ with open("README.md", "r") as readme:
     long_desc = readme.read()
     setup(
         name="solr2virtuoso-bridge",
-        version="0.7",
+        version="0.8",
         description="Utility package that provides the spcht library and a cli tool to convert flat data to linked data",
         author="JP Kanter",
         author_email="kanter@ub.uni-leipzig.de",
