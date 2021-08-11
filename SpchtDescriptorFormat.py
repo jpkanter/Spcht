@@ -914,7 +914,7 @@ class Spcht:
         if_value = if_possible_make_this_numerical(sub_dict['if_value'])
 
         if not comparator_value:
-            if condition == "=" or condition == ">" or condition == ">=":
+            if condition in ("=", ">", ">="):
                 self.debug_print(colored(f"✗ no if_field found", "blue"), end=" ")
                 return False
             else:  # redundant else
