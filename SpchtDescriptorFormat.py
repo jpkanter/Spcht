@@ -317,8 +317,7 @@ class Spcht:
     def clean_save_as(self):
         # i originally had this in the "getSaveAs" function, but maybe you have for some reasons the need to do this
         # manually or not at all. i dont know how expensive set to list is. We will find out, eventually
-        for key in self._SAVEAS:
-            self._SAVEAS[key] = list(set(self._SAVEAS[key]))
+        self._SAVEAS = {k: list(set(v)) for k, v in self._SAVEAS.items()}
 
     def load_descriptor_file(self, filename):
         """
