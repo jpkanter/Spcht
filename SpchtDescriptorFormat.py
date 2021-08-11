@@ -676,11 +676,8 @@ class Spcht:
             if '$regex' in settings and settings['$regex']:
                 regex = True
             if '$casesens' in settings and not settings['$casesens']:  # carries the risk of losing entries
-                new_mapping = {}
                 # case insensitivity is achieved by just converting every key to lowercase
-                for key in mapping:
-                    new_mapping[str(key).lower()] = mapping[key]
-                mapping = new_mapping
+                mapping = {str(k).lower(): v for k, v in mapping.items()}
 
         value = SpchtUtility.list_wrapper(value)
 
