@@ -35,8 +35,8 @@ i18n = SpchtCheckerGui_i18n.Spcht_i18n("./GuiLanguage.json")
 class SpchtMainWindow(object):
 
     def create_ui(self, MainWindow: QMainWindow):
-        FIXEDFONT = QFontDatabase.systemFont(QFontDatabase.FixedFont)
-        FIXEDFONT.setPointSize(10)
+        self.FIXEDFONT = QFontDatabase.systemFont(QFontDatabase.FixedFont)
+        self.FIXEDFONT.setPointSize(10)
         self.input_timer = QtCore.QTimer()
         self.input_timer.setSingleShot(True)
 
@@ -134,12 +134,12 @@ class SpchtMainWindow(object):
         # middle part - View 2
         self.console = QTextEdit()
         self.console.setReadOnly(True)
-        self.console.setFont(FIXEDFONT)
+        self.console.setFont(self.FIXEDFONT)
 
         # middle part - View 3
         self.txt_tabview = QTextEdit()
         self.txt_tabview.setReadOnly(True)
-        self.txt_tabview.setFont(FIXEDFONT)
+        self.txt_tabview.setFont(self.FIXEDFONT)
         self.tbl_tabview = QTableView()
         self.tbl_tabview.horizontalHeader().setStretchLastSection(True)
         self.tbl_tabview.horizontalHeader().setSectionsClickable(False)
@@ -179,6 +179,26 @@ class SpchtMainWindow(object):
         self.bottomStack.addWidget(self.processBar)
 
         # * explorer layout
+        self.create_explorer_layout()
+
+        # general layouting
+        self.MainPageLayout = QStackedWidget()
+        randomStackasWidget = QWidget()
+        randomStackasWidget.setLayout(center_layout)
+        self.MainPageLayout.addWidget(self.console)
+        self.MainPageLayout.addWidget(randomStackasWidget)
+        self.MainPageLayout.addWidget(tabView)
+
+        checker_layout.addLayout(top_file_bar, 0, 0)
+        checker_layout.addWidget(self.MainPageLayout, 1, 0)
+        checker_layout.addLayout(bottom_file_bar, 2, 0)
+        # main_layout.addLayout(bottombar, 3, 0)
+        checker_layout.addWidget(self.bottomStack, 3, 0)
+
+        self.central_widget.addWidget(checker_wrapper)
+        self.central_widget.addWidget(self.explorer)
+
+    def create_explorer_layout(self):
         self.explorer = QWidget()
         self.explore_main_vertical = QVBoxLayout(self.explorer)
 
@@ -187,15 +207,29 @@ class SpchtMainWindow(object):
 
         self.explorer_field_filter = QLineEdit()
         self.explorer_field_filter.setPlaceholderText(i18n['linetext_field_filter_placeholder'])
+        self.explorer_filter_behaviour = QCheckBox(i18n['check_blacklist_behaviour'])
+        self.explorer_filter_behaviour.setChecked(True)
+        self.explorer_field_filter.setText(
+            "spelling, barcode, rvk_path, rvk_path_str_mv, topic_facet, author_facet, institution, spellingShingle")
         # additional widgets here
 
         self.explorer_top_layout.addWidget(self.explorer_field_filter)
+        self.explorer_top_layout.addWidget(self.explorer_filter_behaviour)
         self.explore_main_vertical.addLayout(self.explorer_top_layout)
 
         # ? central row
         self.explorer_center_layout = QHBoxLayout()
 
-        self.explorer_toolbox = QToolBox(self.explorer)
+        self.explorer_toolbox = QToolBox()
+        self.explorer_toolbox.setMinimumWidth(800)
+        self.explorer_tree_spcht_view = QTreeView()
+        self.explorer_tree_spcht_view.setMaximumWidth(400)
+        self.populate_spcht_view()
+        self.explorer_spcht_result = QTextEdit()
+        self.explorer_spcht_result.setMaximumWidth(400)
+        ver_layout_19 = QVBoxLayout()
+        ver_layout_19.addWidget(self.explorer_tree_spcht_view)
+        ver_layout_19.addWidget(self.explorer_spcht_result)
 
         self.explorer_toolbox_page0 = QWidget()
         self.explorer_data_file_path = QLineEdit()
@@ -221,6 +255,8 @@ class SpchtMainWindow(object):
         self.explorer_toolbox.addItem(self.explorer_toolbox_page2, i18n['toolbox_page2'])
 
         self.explorer_center_layout.addWidget(self.explorer_toolbox)
+        #self.explorer_center_layout.addWidget(self.explorer_tree_spcht_view)
+        self.explorer_center_layout.addLayout(ver_layout_19)
         self.explore_main_vertical.addLayout(self.explorer_center_layout)
 
         # ? bottom row
@@ -234,7 +270,6 @@ class SpchtMainWindow(object):
         self.explorer_right_button = QPushButton(">")
         self.explorer_bottom_center_layout = QVBoxLayout()
         self.explorer_linetext_search = QLineEdit(parent=self.explorer)
-        self.explorer_field_filter.setText("id, ctrlnum")
         self.explorer_center_search_button = QPushButton(i18n['find'])
         self.explorer_bottom_center_layout.addWidget(self.explorer_linetext_search)
         self.explorer_bottom_center_layout.addWidget(self.explorer_center_search_button)
@@ -257,22 +292,28 @@ class SpchtMainWindow(object):
 
         self.explore_main_vertical.addLayout(self.explorer_bottom_layout)
 
-        # general layouting
-        self.MainPageLayout = QStackedWidget()
-        randomStackasWidget = QWidget()
-        randomStackasWidget.setLayout(center_layout)
-        self.MainPageLayout.addWidget(self.console)
-        self.MainPageLayout.addWidget(randomStackasWidget)
-        self.MainPageLayout.addWidget(tabView)
+    def populate_spcht_view(self):
+        self.spcht_tree_model = QStandardItemModel()
+        key_list = ["field", "alternatives", "required", "predicate", "source", "match", "if_field", "if_value",
+                    "if_condition", "append", "prepend", "cut", "replace", "insert_into", "insert_add_field", "mapping",
+                    "mapping_settings", "joined_map", "joined_filed", "comment"]
+        self.spcht_tree_model.setHorizontalHeaderLabels([i18n['generic_property'], i18n['generic_value']])
+        top_node = QStandardItem("Name")
+        top_node.setCheckable(True)
+        top_node.setCheckState(QtCore.Qt.Checked)
+        top_node.setEditable(False)
+        self.spcht_tree_model.setItem(0, 0, top_node)
+        for idx, each in enumerate(key_list):
+            prop = QStandardItem(each)
+            prop.setEditable(False)
+            value = QStandardItem("")
+            top_node.setChild(idx, 0, prop)
+            top_node.setChild(idx, 1, )
 
-        checker_layout.addLayout(top_file_bar, 0, 0)
-        checker_layout.addWidget(self.MainPageLayout, 1, 0)
-        checker_layout.addLayout(bottom_file_bar, 2, 0)
-        # main_layout.addLayout(bottombar, 3, 0)
-        checker_layout.addWidget(self.bottomStack, 3, 0)
-
-        self.central_widget.addWidget(checker_wrapper)
-        self.central_widget.addWidget(self.explorer)
+        test = QStandardItem("Test")
+        self.explorer_tree_spcht_view.setModel(self.spcht_tree_model)
+        idx = self.spcht_tree_model.index(0, 0)
+        self.explorer_tree_spcht_view.expand(idx)
 
     @staticmethod
     def set_max_size(width=0, height=0, *args):

@@ -33,8 +33,12 @@
     "en": "This does not only retry to load the Testdata but instead reloads the Spcht File and THEN reloads the testdata as part of its routine"
   },
   "linetext_field_filter_placeholder": {
-    "en": "Filtertext, Format: field1 | field2 | field3",
-    "de": "Filtertext, Formatvorlage: \"Feld1 | Feld2 | Feld3 \""
+    "en": "Filtertext, Format: field1, field2, field3",
+    "de": "Filtertext, Formatvorlage: \"Feld1, Feld2, Feld3 \""
+  },
+  "check_blacklist_behaviour": {
+    "en": "blacklist",
+    "de": "Blacklist"
   },
   "generic_retry": {
     "en": "retry",

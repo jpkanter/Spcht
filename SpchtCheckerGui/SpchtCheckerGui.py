@@ -110,6 +110,13 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         self.data_cache = None
 
         # * Event Binds
+        self.setup_event_binds()
+
+        # various
+        self.console.insertPlainText(time_log(f"Init done, program started"))
+        self.console.insertPlainText(f"Working Directory: {os.getcwd()}")
+
+    def setup_event_binds(self):
         self.btn_load_spcht_file.clicked.connect(self.btn_spcht_load_dialogue)
         self.btn_load_spcht_retry.clicked.connect(self.btn_spcht_load_retry)
         self.btn_tristate.clicked.connect(self.toogleTriState)
@@ -121,13 +128,12 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         self.toogleTriState(0)
         self.explorer_data_load_button.clicked.connect(self.act_data_load_dialogue)
         self.explorer_field_filter.textChanged[str].connect(self.fct_start_delayed_field_change)
-        self.input_timer.timeout.connect(self.fct_exec_delayed_field_change())
-        self.explorer_field_filter.returnPressed.connect(self.fct_start_delayed_field_change)
-        self.explorer_center_search_button.clicked.connect(self.fct_start_delayed_field_change)
+        self.input_timer.timeout.connect(self.fct_exec_delayed_field_change)
+        self.explorer_field_filter.returnPressed.connect(self.fct_exec_delayed_field_change)
+        self.explorer_filter_behaviour.stateChanged.connect(self.fct_exec_delayed_field_change)
 
-        # various
-        self.console.insertPlainText(time_log(f"Init done, program started"))
-        self.console.insertPlainText(f"Working Directory: {os.getcwd()}")
+        #self.explorer_tree_spcht_view.selectionModel().selectionChanged.connect(self.fct_explorer_spcht_change)
+        self.spcht_tree_model.itemChanged.connect(self.fct_explorer_spcht_change)
 
     def btn_spcht_load_retry(self):
         self.load_spcht(self.linetext_spcht_filepath.displayText())
@@ -403,6 +409,31 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
             self.btn_load_spcht_file.setDisabled(False)
             self.bottomStack.setCurrentIndex(0)
 
+    def fct_explorer_spcht_change(self):
+        index = self.spcht_tree_model.index(0, 0)
+        element = self.spcht_tree_model.itemFromIndex(index)
+        logging.debug(str(self.spcht_tree_model.data(index)))
+        spcht = {}
+        for row in range(element.rowCount()):
+            if element.child(row, 1).text().strip():
+                spcht[element.child(row, 0).text()] = element.child(row, 1).text().strip()
+        self.explorer_spcht_result.insertPlainText(json.dumps(spcht, indent=2) )
+        self.explorer_spcht_result.setFont(self.FIXEDFONT)
+        if self.data_cache:
+            vogl = Spcht()
+            vogl._raw_dict = self.data_cache[0]
+            try:
+                self.explorer_spcht_result.clear()
+                result = vogl._recursion_node(spcht)
+                if result:
+                    logging.debug(result)
+                    for each in result:
+                        self.explorer_spcht_result.insertPlainText(str(each))
+            except Exception as e:
+                error = e.__class__.__name__
+                error += f"\n{e}"
+                self.explorer_spcht_result.insertPlainText(error)
+
     def fct_start_delayed_field_change(self):
         if self.data_cache:
             self.input_timer.start(2000)
@@ -420,11 +451,14 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
             for key in line:
                 if key != "fullrecord":  # ! TODO: do not make fullrecord static text
                     all_keys.add(key)
-        fixed_keys = dict.fromkeys(all_keys, None)
         if filtering:
             fields = [x.strip() for x in filtering.split(",")]
-            print(fields)
-            fixed_keys = [y for y in fields if y in fixed_keys]
+            if self.explorer_filter_behaviour.isChecked():
+                all_keys = [y for y in all_keys if y not in fields]
+            else:
+                all_keys = [y for y in fields if y in all_keys]
+        fixed_keys = dict.fromkeys(sorted(all_keys, key=lambda x: x.lower()), None)
+        logging.debug(f"_fill_explorer: fixed_keys: {fixed_keys}")
 
         data_model = QStandardItemModel()
         data_model.setHorizontalHeaderLabels([x for x in fixed_keys.keys()])
@@ -435,12 +469,16 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
                 text = ""
                 if a_key in line:
                     if isinstance(line[a_key], list):
+                        schreib = ""
                         text = QStandardItem(f"[]{line[a_key][0]}")
                         for each in line[a_key]:
+                            schreib += f"{each}\n"
                             text.appendRow(QStandardItem(each))
+                        text = schreib
                     else:
                         text = str(line[a_key])
                 data_model.setItem(vertical, horizontal, QStandardItem(text))
+                data_model.setData(data_model.index(vertical, horizontal), QtCore.Qt.AlignTop, QtCore.Qt.TextAlignmentRole)
         self.explorer_dictionary_treeview.setModel(data_model)
 
 

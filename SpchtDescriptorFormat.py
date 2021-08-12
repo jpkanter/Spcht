@@ -472,7 +472,7 @@ class Spcht:
         elif sub_dict['source'] == "marc":
             self.debug_print(colored("Source Marc", "yellow"), end="-> ")
         else:
-            self.debug_print(colored(f"Source {sub_dict['source']}, this is new!", "mangenta"), end="-> ")
+            self.debug_print(colored(f"Source {sub_dict['source']}, this is new!", "magenta"), end="-> ")
 
         if 'joined_value' in sub_dict:  # joined map procedure
             self.debug_print(colored("✓ joined_field", "green"), end="-> ")
