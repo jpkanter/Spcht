@@ -134,7 +134,7 @@ class Spcht:
             # ? what if there are just no marc data and we know that in advance?
 
         if 'rdflib' in sys.modules and isinstance(subject, rdflib.URIRef):
-            graph = subject.toPython()
+            subject = subject.toPython()
 
         # generates the subject URI, i presume we already checked the spcht for being correct
         # ? instead of making one hard coded go i could insert a special round of the general loop right?
