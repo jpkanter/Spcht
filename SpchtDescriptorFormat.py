@@ -26,6 +26,7 @@ import json
 import os
 import re
 import sys
+import uuid
 from pathlib import Path
 
 import SpchtUtility
@@ -485,6 +486,8 @@ class Spcht:
             return joined_result
         else:
             main_value = self.extract_dictmarc_value(sub_dict)
+            if 'static_field' in sub_dict:
+                main_value = sub_dict['static_field']
             if not main_value:
 
                 if 'alternatives' in sub_dict:
@@ -516,6 +519,9 @@ class Spcht:
             if 'insert_into' in sub_dict:
                 main_value = self._inserter_string(main_value, sub_dict)
                 self.debug_print(colored("✓ insert_into", "green"), end="-> ")
+            if 'append_uuid_object_fields' in sub_dict:
+                uuid = self.uuid_generator(sub_dict['source'], *sub_dict['append_uuid_object_fields'])
+                main_value = [x + uuid for x in main_value]
             return self._node_return_iron(sub_dict['predicate'], main_value)
 
     def _call_fallback(self, sub_dict):
@@ -800,16 +806,15 @@ class Spcht:
             # this check to keep the input compatibility
             if len(joined_field) == 1 and len(field) != len(joined_field):
                 # ? this is a rather small 'hack' to get the n=1 effect without having a lot of complicated things
-                temp_list = [joined_field[0]]
-                joined_field = temp_list
-            if len(field) != len(joined_field):
+                joined_field = [joined_field[0] for _ in enumerate(field)]
+            elif len(field) != len(joined_field):
                 self.debug_print(colored("JoinedMap: len difference", "red"), end=" ")
                 msg = f"Found different lengths for field and joinedfield ({len(field)} vs. {len(joined_field)})"
                 logger.debug(f"_joined map {msg}")
                 logger.debug("_joined_map: EXIT 7")
                 return []
                 # raise SpchtErrors.DataError(msg)
-        else: # another of those occasions that shall not happen
+        else:  # another of those occasions that shall not happen
             field = SpchtUtility.list_wrapper(field)
             joined_field = SpchtUtility.list_wrapper(joined_field)
         # if type(raw_dict[sub_dict['field']]) != type(raw_dict[sub_dict['joined_field']]): # technically possible
@@ -1003,6 +1008,18 @@ class Spcht:
             if self._SAVEAS.get(sub_dict['saveas'], None) is None:
                 self._SAVEAS[sub_dict['saveas']] = []
             self._SAVEAS[sub_dict['saveas']].append(value)
+
+    def uuid_generator(self, source, *fields):
+        names_combined = ""
+        for each in fields:
+            a_field = self.extract_dictmarc_value({"source": source}, each)
+            if a_field:
+                names_combined += str(a_field)
+            else:
+                logger.debug(f"UUID_Gen: Field {each} does not exist in given data")
+                raise SpchtErrors.DataError("Given field yields no value")
+        return str(uuid.uuid5(uuid.NAMESPACE_URL, names_combined))
+
 
     def extract_dictmarc_value(self, sub_dict: dict, dict_field=None) -> list:
         """

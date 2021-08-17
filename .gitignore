@@ -111,3 +111,4 @@ processing
 /testdata/
 /config.json
 /ub-solr.spcht.json
+/folio_secrets.py

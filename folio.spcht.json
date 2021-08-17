@@ -1,0 +1,38 @@
+{
+  "id_field": "inst_code",
+  "id_source": "dict",
+  "id_subject_prefix": "https://data.finc.info/organisations/",
+  "nodes": [
+    {
+      "field": "inst_code",
+      "predicate": "http://schema.org/department",
+      "insert_into": "https://data.finc.info/organisations/{}/department/zw{}",
+      "insert_add_fields": ["lib_code"],
+      "type": "triple",
+      "required": "optional",
+      "sub_nodes": [
+        {
+          "predicate": "http://schema.org/geo",
+          "field": "inst_code",
+          "static_field": "https://data.finc.info/geo/",
+          "required": "optional",
+          "append_object_uuid_from_fields": ["geo/logitude", "geo/latitude"],
+          "sub_nodes": [
+            {
+              "field": "geo/latitude",
+              "predicate": "http://schema.org/latitude",
+              "required": "optional",
+              "type": "literal"
+            },
+            {
+              "field": "geo/longitude",
+              "predicate": "http://schema.org/longitude",
+              "required": "optional",
+              "type": "literal"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

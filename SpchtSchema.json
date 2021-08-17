@@ -1,7 +1,7 @@
 {
     "$schema": "https://json-schema.org/draft/2019-09/schema",
     "id": "https://raw.githubusercontent.com/ubleipzig/lod_spcht/Main/SpchtSchema.json",
-    "title": "Spcht Descriptor Format",
+    "title": "Spcht Descriptor Format 0.8",
     "description": "",
     "type": "object",
     "required": ["id_field", "id_source", "nodes"],
@@ -17,6 +17,10 @@
         "id_fallback": {
             "description": "alternative part of the variable subject",
             "$ref": "#/$defs/main_node"
+        },
+        "id_subject_prefix": {
+            "description": "first part of the subject the id-value gets added to",
+            "type": "string"
         },
         "nodes": {
             "description": "Main description of the spcht",
@@ -143,6 +147,26 @@
                 "name": {
                     "description": "Name for a node, is not used for any processing",
                     "type": "string"
+                },
+                "sub_nodes": {
+                    "description": "a list of nodes that uses the value of its parent as subject",
+                    "$ref": "#/$defs/sub_node"
+                },
+                "append_uuid_predicate_fields": {
+                    "description": "Generates an UUID based on the given list of fields, all must be around, adds to the end of the predicate value",
+                    "type": "array",
+                    "items": { "type":  "string" },
+                    "additionalItems": false
+                },
+                "append_uuid_object_fields": {
+                    "description": "Generates an UUID based on the given list of fields, all must be around, adds to the end of the object value",
+                    "type": "array",
+                    "items": { "type":  "string" },
+                    "additionalItems": false
+                },
+                "static_field": {
+                    "description": "Replaces any field value with the text of this value",
+                    "type": "string"
                 }
             },
             "patternProperties": {
@@ -267,6 +291,26 @@
                 },
                 "name": {
                     "description": "Name for a node, is not used for any processing",
+                    "type": "string"
+                },
+                "sub_nodes": {
+                    "description": "a list of nodes that uses the value of its parent as subject",
+                    "$ref": "#/$defs/sub_node"
+                },
+                "append_uuid_predicate_fields": {
+                    "description": "Generates an UUID based on the given list of fields, all must be around, adds to the end of the predicate value",
+                    "type": "array",
+                    "items": { "type":  "string" },
+                    "additionalItems": false
+                },
+                "append_uuid_object_fields": {
+                    "description": "Generates an UUID based on the given list of fields, all must be around, adds to the end of the object value",
+                    "type": "array",
+                    "items": { "type":  "string" },
+                    "additionalItems": false
+                },
+                "static_field": {
+                    "description": "Replaces any field value with the text of this value",
                     "type": "string"
                 }
             },

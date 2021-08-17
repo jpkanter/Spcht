@@ -344,6 +344,35 @@ class TestSpchtInternal(unittest.TestCase):
         expected = [('nullnullone', 'Yellow'), ('nullnullone', 'Blue'), ('nullnullone', 'Red')]
         self.assertEqual(expected, self.crow._joined_map(node))
 
+    def test_static_value(self):
+        self.crow._raw_dict = copy.copy(TEST_DATA)
+        static = "static_text"
+        node = {
+            "field": "salmon",
+            "source": "dict",
+            "required": "optional",
+            "predicate": "nonsense",
+            "static_field": static
+        }
+        expected = [('nonsense', static)]
+        with self.subTest("existing field"):
+            self.assertEqual(expected, self.crow._recursion_node(node))
+        with self.subTest("not-existing field"):
+            node['field'] = "whargabl"
+            self.assertEqual(expected, self.crow._recursion_node(node))
+
+    def test_append_uid(self):
+        self.crow._raw_dict = copy.copy(TEST_DATA)
+        node = {
+            "field": "salmon",
+            "source": "dict",
+            "required": "optional",
+            "predicate": "nonsense",
+            "static_field": "https://test.whargable/",
+            "append_uuid_object_fields": ["salmon", "perch", "trout"]
+        }
+        expected = [('nonsense', 'https://test.whargable/d1421fa2-332d-5288-8877-f2a49d478130')]
+        self.assertEqual(expected, self.crow._recursion_node(node))
 
 if __name__ == '__main__':
     unittest.main()
