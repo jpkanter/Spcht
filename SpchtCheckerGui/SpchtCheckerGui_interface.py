@@ -308,7 +308,7 @@ class SpchtMainWindow(object):
             prop.setEditable(False)
             value = QStandardItem("")
             top_node.setChild(idx, 0, prop)
-            top_node.setChild(idx, 1, )
+            top_node.setChild(idx, 1, value)
 
         test = QStandardItem("Test")
         self.explorer_tree_spcht_view.setModel(self.spcht_tree_model)

@@ -150,7 +150,9 @@
                 },
                 "sub_nodes": {
                     "description": "a list of nodes that uses the value of its parent as subject",
-                    "$ref": "#/$defs/sub_node"
+                    "type": "array",
+                    "additionalItems": false,
+                    "items": {"$ref": "#/$defs/sub_node"}
                 },
                 "append_uuid_predicate_fields": {
                     "description": "Generates an UUID based on the given list of fields, all must be around, adds to the end of the predicate value",
@@ -293,9 +295,11 @@
                     "description": "Name for a node, is not used for any processing",
                     "type": "string"
                 },
-                "sub_nodes": {
+                 "sub_nodes": {
                     "description": "a list of nodes that uses the value of its parent as subject",
-                    "$ref": "#/$defs/sub_node"
+                    "type": "array",
+                    "additionalItems": false,
+                    "items": {"$ref": "#/$defs/sub_node"}
                 },
                 "append_uuid_predicate_fields": {
                     "description": "Generates an UUID based on the given list of fields, all must be around, adds to the end of the predicate value",

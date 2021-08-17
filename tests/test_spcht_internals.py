@@ -374,6 +374,40 @@ class TestSpchtInternal(unittest.TestCase):
         expected = [('nonsense', 'https://test.whargable/d1421fa2-332d-5288-8877-f2a49d478130')]
         self.assertEqual(expected, self.crow._recursion_node(node))
 
+    def test_sub_nodes(self):
+        self.crow._raw_dict = copy.copy(TEST_DATA)
+        node = {
+            "field": "salmon",
+            "prepend": "https://test.whargable/res/",
+            "source": "dict",
+            "required": "optional",
+            "predicate": "whargable:subres",
+            "type": "triple",
+            "sub_node": [
+                {
+                    "field": "perch",
+                    "source": "dict",
+                    "required": "optional",
+                    "type": "triple",
+                    "predicate": "whargable:fish"
+                },
+                {
+                    "field": "foulfish",
+                    "source": "dict",
+                    "required": "optional",
+                    "type": "triple",
+                    "predicate": "whargable:canine"
+                }
+            ]
+        }
+        expected = [('https://test.whargable/res/5', 'whargable:fish', '12', 1),
+                    ('https://test.whargable/res/5', 'whargable:fish', '9', 1),
+                    ('https://test.whargable/res/5', 'whargable:canine', 'Yellow', 1),
+                    ('https://test.whargable/res/5', 'whargable:canine', 'Purple', 1),
+                    ('whargable:subres', 'https://test.whargable/res/5')]
+        self.assertEqual(expected, self.crow._recursion_node(node))
+
+
 if __name__ == '__main__':
     unittest.main()
 

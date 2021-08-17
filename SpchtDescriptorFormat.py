@@ -164,9 +164,13 @@ class Spcht:
 
         triple_list = []
         for node in self._DESCRI['nodes']:
+            self_sufficient_triples = None # additional informations for sub nodes
             # ! MAIN CALL TO PROCESS DATA
             try:
                 facet = self._recursion_node(node)
+                if isinstance(facet, list):  # should nowadays be almost always
+                    self_sufficient_triples = [x for x in facet if len(x) == 4]
+                    facet = [x for x in facet if len(x) == 2]
             except Exception as e:
                 facet = None
                 logger.debug(f"_recursion_node throws Exception {e.__class__.__name__}: '{e}'")
@@ -224,6 +228,8 @@ class Spcht:
                         triple_list.append(((subject + ressource), each[0], each[1], node_status))
                     # here was a check for empty elements, but we already know that not all are empty
                     # this should NEVER return an empty list cause the mandatory check above checks for that
+            if self_sufficient_triples:
+                triple_list += self_sufficient_triples
         self._m21_dict = None
         self._raw_dict = None
         return triple_list  # * can be empty []
@@ -466,6 +472,8 @@ class Spcht:
         else:
             self.debug_print(colored(sub_dict.get('name', ""), "cyan"), end=" ")
 
+        full_triples = []
+
         # * Replacement of old procedure with universal extraction
         # * this funnels a 'main_value' through the procedure and utilises a host of exist nodes
         if sub_dict['source'] == "dict":
@@ -522,7 +530,11 @@ class Spcht:
             if 'append_uuid_object_fields' in sub_dict:
                 uuid = self.uuid_generator(sub_dict['source'], *sub_dict['append_uuid_object_fields'])
                 main_value = [x + uuid for x in main_value]
-            return self._node_return_iron(sub_dict['predicate'], main_value)
+            # ! sub node handling
+            if 'sub_node' in sub_dict:  # TODO: make this work for joined_map
+                full_triples += self._handle_sub_node(sub_dict['sub_node'], main_value)
+
+            return full_triples + self._node_return_iron(sub_dict['predicate'], main_value)
 
     def _call_fallback(self, sub_dict):
         if 'fallback' in sub_dict and sub_dict['fallback'] is not None:  # we only get here if everything else failed
@@ -1000,6 +1012,37 @@ class Spcht:
                 failure_list.append(each)
         self.debug_print(colored(f" {sub_dict['if_field']} was not {condition} {if_value} but {failure_list} instead", "magenta"), end="-> ")
         return False
+
+    def _handle_sub_node(self, sub_nodes, parent_value):
+        """
+        Sub Nodes are entire new triples that have a different subject than the original created triple, as that
+        the use the value of the parent node as subject , therefore the parent node should be a valid URI, otherwise
+        the operation will fail. The most basic, working operation will always return at least two triples in the end:
+
+        * a triple describing the sub_node relation to the main subject
+        * a triple describing the new property with the main value as subject
+
+        This creats a tree-like relationship and not independent nodes
+        :param dict sub_nodes:
+        :param list parent_value:
+        :return: a list of tuples containing 4 values describing an entire triple where the last number is "isTriple=True/False"
+        :rtype: list
+        """
+        return_quadros = []
+        if len(parent_value) != 1:
+            raise SpchtErrors.ParsingError("Use of sub node required parent values to be singular")
+        sub_subject = parent_value[0]
+        for single_node in sub_nodes:
+            sub_values = self._recursion_node(single_node)
+            self_sufficient_triples = [x for x in sub_values if len(x) == 4]
+            sub_values = [x for x in sub_values if len(x) == 2]
+            if self_sufficient_triples:
+                return_quadros += self_sufficient_triples
+            if 'type' in single_node and single_node['type'] == "uri":
+                return_quadros += [(sub_subject, x[0], x[1], 1) for x in sub_values]
+            else:
+                return_quadros += [(sub_subject, x[0], x[1], 0) for x in sub_values]
+        return return_quadros
 
     def _add_to_save_as(self, value, sub_dict):
         # this was originally 3 lines of boilerplate inside postprocessing, i am not really sure if i shouldn't have
