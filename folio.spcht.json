@@ -19,7 +19,7 @@
           "required": "optional",
           "source": "dict",
           "type": "uri",
-          "append_uuid_object_fields": ["geo/logitude", "geo/latitude"],
+          "append_uuid_object_fields": ["geo/longitude", "geo/latitude"],
           "sub_nodes": [
             {
               "field": "geo/latitude",

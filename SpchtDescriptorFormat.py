@@ -120,7 +120,8 @@ class Spcht:
         self._m21_dict = None  # setting a default here
         if marc21_source.lower() == "dict":
             try:
-                self._m21_dict = SpchtUtility.marc2list(self._raw_dict.get(marc21))
+                if marc21 in raw_dict:
+                    self._m21_dict = SpchtUtility.marc2list(self._raw_dict.get(marc21))
             except AttributeError as e:
                 self.debug_print("AttributeError:", colored(e, "red"))
                 logger.warning(f"Marc21 could not be loaded due an AttributeError: {e}")
@@ -136,6 +137,7 @@ class Spcht:
         else:
             raise SpchtErrors.UndefinedError("The choosen Source option doesnt exists")
             # ? what if there are just no marc data and we know that in advance?
+            # * i leave this cause, well, its 2021 and of course this exact thing happened, yeah?
 
         if 'rdflib' in sys.modules and isinstance(subject, rdflib.URIRef):
             graph = subject.toPython()
@@ -530,9 +532,11 @@ class Spcht:
             if 'append_uuid_object_fields' in sub_dict:
                 uuid = self.uuid_generator(sub_dict['source'], *sub_dict['append_uuid_object_fields'])
                 main_value = [x + uuid for x in main_value]
+            self.debug_print(colored("✓ Main Value", "cyan"))
             # ! sub node handling
-            if 'sub_node' in sub_dict:  # TODO: make this work for joined_map
-                full_triples += self._handle_sub_node(sub_dict['sub_node'], main_value)
+            if 'sub_nodes' in sub_dict:  # TODO: make this work for joined_map
+                self.debug_print(colored("Sub Nodes detected:", "blue"), f"{len(sub_dict['sub_nodes'])} entry instance(s)")
+                full_triples += self._handle_sub_node(sub_dict['sub_nodes'], main_value)
 
             return full_triples + self._node_return_iron(sub_dict['predicate'], main_value)
 
@@ -540,7 +544,7 @@ class Spcht:
         if 'fallback' in sub_dict and sub_dict['fallback'] is not None:  # we only get here if everything else failed
             # * this is it, the dreaded recursion, this might happen a lot of times, depending on how motivated the
             # * librarian was who wrote the descriptor format
-            self.debug_print(colored("Fallback triggered", "yellow"), end="-> ")
+            self.debug_print(colored("Fallback triggered", "magenta"), end="-> ")
             recursion_node = copy.deepcopy(sub_dict['fallback'])
             if 'predicate' not in recursion_node:
                 recursion_node['predicate'] = sub_dict['predicate']  # so in theory you can define new graphs for fallbacks
@@ -1032,16 +1036,22 @@ class Spcht:
         if len(parent_value) != 1:
             raise SpchtErrors.ParsingError("Use of sub node required parent values to be singular")
         sub_subject = parent_value[0]
-        for single_node in sub_nodes:
-            sub_values = self._recursion_node(single_node)
-            self_sufficient_triples = [x for x in sub_values if len(x) == 4]
-            sub_values = [x for x in sub_values if len(x) == 2]
-            if self_sufficient_triples:
-                return_quadros += self_sufficient_triples
-            if 'type' in single_node and single_node['type'] == "uri":
-                return_quadros += [(sub_subject, x[0], x[1], 1) for x in sub_values]
-            else:
-                return_quadros += [(sub_subject, x[0], x[1], 0) for x in sub_values]
+        cycles = len(sub_nodes)
+        for i, single_node in enumerate(sub_nodes):
+            try:
+                # self.debug_print(colored(f"Cycling node {i}/{cycles} - {single_node.get('name', 'unnamed')}"))
+                sub_values = self._recursion_node(single_node)
+                self_sufficient_triples = [x for x in sub_values if len(x) == 4]
+                sub_values = [x for x in sub_values if len(x) == 2]
+                if self_sufficient_triples:
+                    return_quadros += self_sufficient_triples
+                if 'type' in single_node and single_node['type'] == "uri":
+                    return_quadros += [(sub_subject, x[0], x[1], 1) for x in sub_values]
+                else:
+                    return_quadros += [(sub_subject, x[0], x[1], 0) for x in sub_values]
+            except Exception as e:
+                logger.warning(f"SubNode throws Exception {e.__class__.__name__}: '{e}'")
+                print(colored("✗Processing of sub_node failed.", "red"))
         return return_quadros
 
     def _add_to_save_as(self, value, sub_dict):
@@ -1060,9 +1070,8 @@ class Spcht:
                 names_combined += str(a_field)
             else:
                 logger.debug(f"UUID_Gen: Field {each} does not exist in given data")
-                raise SpchtErrors.DataError("Given field yields no value")
+                raise SpchtErrors.DataError("UUID-Gen - Given field yields no value")
         return str(uuid.uuid5(uuid.NAMESPACE_URL, names_combined))
-
 
     def extract_dictmarc_value(self, sub_dict: dict, dict_field=None) -> list:
         """
@@ -1145,12 +1154,13 @@ class Spcht:
         the_list.extend(self.default_fields)
         if self._DESCRI['id_source'] == "dict":
             the_list.append(self._DESCRI['id_field'])
-        temp_list = Spcht.get_node_fields_recursion(self._DESCRI['id_fallback'])
-        if temp_list is not None and len(temp_list) > 0:
-            the_list += temp_list
+        if 'id_fallback' in self._DESCRI:
+            temp_list = Spcht.get_node_fields_recursion(self._DESCRI['id_fallback'])
+            if temp_list:
+                the_list += temp_list
         for node in self._DESCRI['nodes']:
             temp_list = Spcht.get_node_fields_recursion(node)
-            if temp_list is not None and len(temp_list) > 0:
+            if temp_list:
                 the_list += temp_list
         return sorted(set(the_list))
 
@@ -1169,7 +1179,7 @@ class Spcht:
         the_other_list = []
         for node in self._DESCRI['nodes']:
             temp_list = Spcht.get_node_predicates_recursion(node)
-            if temp_list is not None and len(temp_list) > 0:
+            if temp_list:
                 the_other_list += temp_list
         # list set for deduplication, crude method but best i have for the moment
         return sorted(set(the_other_list))  # unlike the field equivalent this might return an empty list
@@ -1194,7 +1204,7 @@ class Spcht:
                 part_list.append(value)  # probably some duplicates here
         if 'fallback' in sub_dict:
             temp_list = Spcht.get_node_fields_recursion(sub_dict['fallback'])
-            if temp_list is not None and len(temp_list) > 0:
+            if temp_list:
                 part_list += temp_list
         return part_list
 
@@ -1224,8 +1234,13 @@ class Spcht:
                 part_list.append(sub_dict['if_field'])
         if 'fallback' in sub_dict:
             temp_list = Spcht.get_node_fields_recursion(sub_dict['fallback'])
-            if temp_list is not None and len(temp_list) > 0:
+            if temp_list:
                 part_list += temp_list
+        if 'sub_node' in sub_dict:
+            for child_node in sub_dict['sub_node']:
+                temp_list = Spcht.get_node_fields_recursion(child_node)
+                if temp_list:
+                    part_list += temp_list
         return part_list
 
     @property

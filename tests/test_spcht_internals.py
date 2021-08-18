@@ -382,20 +382,20 @@ class TestSpchtInternal(unittest.TestCase):
             "source": "dict",
             "required": "optional",
             "predicate": "whargable:subres",
-            "type": "triple",
-            "sub_node": [
+            "type": "uri",
+            "sub_nodes": [
                 {
                     "field": "perch",
                     "source": "dict",
                     "required": "optional",
-                    "type": "triple",
+                    "type": "uri",
                     "predicate": "whargable:fish"
                 },
                 {
                     "field": "foulfish",
                     "source": "dict",
                     "required": "optional",
-                    "type": "triple",
+                    "type": "uri",
                     "predicate": "whargable:canine"
                 }
             ]
@@ -406,7 +406,7 @@ class TestSpchtInternal(unittest.TestCase):
                     ('https://test.whargable/res/5', 'whargable:canine', 'Purple', 1),
                     ('whargable:subres', 'https://test.whargable/res/5')]
         self.assertEqual(expected, self.crow._recursion_node(node))
-
+    # TODO: tests for get fields/predicates
 
 if __name__ == '__main__':
     unittest.main()
