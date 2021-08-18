@@ -54,7 +54,7 @@ if __name__ == "__main__":
                     }
                     one_node.update(each['details'])
                     extracted_dicts.append(one_node)
-            with open("folio_extra.json", "w") as folio_extract:
+            with open("folio_extract.json", "w") as folio_extract:
                 json.dump(extracted_dicts, folio_extract, indent=2)
         else:
             print("Loading failed, cannot create what is needed")

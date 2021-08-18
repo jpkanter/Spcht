@@ -169,6 +169,10 @@
                 "static_field": {
                     "description": "Replaces any field value with the text of this value",
                     "type": "string"
+                },
+                "tag": {
+                    "description": "extended designator for linked data designation of literals like @en or xsd:string",
+                    "type": "string"
                 }
             },
             "patternProperties": {
@@ -315,6 +319,10 @@
                 },
                 "static_field": {
                     "description": "Replaces any field value with the text of this value",
+                    "type": "string"
+                },
+                "tag": {
+                    "description": "extended designator for linked data designation of literals like @en or xsd:string",
                     "type": "string"
                 }
             },

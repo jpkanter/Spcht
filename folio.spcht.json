@@ -15,7 +15,7 @@
         {
           "predicate": "http://schema.org/geo",
           "field": "inst_code",
-          "static_field": "https://data.finc.info/geo/",
+          "static_field": "https://data.finc.info/Geokoordinaten/",
           "required": "optional",
           "source": "dict",
           "type": "uri",
@@ -25,6 +25,7 @@
               "field": "geo/latitude",
               "predicate": "http://schema.org/latitude",
               "required": "optional",
+              "tag": "^^xsd:double",
               "source": "dict",
               "type": "literal"
             },
@@ -32,8 +33,78 @@
               "field": "geo/longitude",
               "predicate": "http://schema.org/longitude",
               "required": "optional",
+              "tag": "^^xsd:double",
               "source": "dict",
               "type": "literal"
+            },
+            {
+              "field": "lib_name",
+              "source": "dict",
+              "predicate": "http://www.w3.org/2000/01/rdf-schema#label",
+              "required": "optional",
+              "type": "literal",
+              "prepend": "Geoposition ",
+              "tag": "@de"
+            },
+            {
+              "field": "static",
+              "source": "dict",
+              "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+              "static_field": "http://www.w3.org/2002/07/owl#ObjectProperty",
+              "required": "optional"
+            }
+          ]
+        },
+        {
+          "field": "inst_code",
+          "source": "dict",
+          "static_field": "https://data.finc.info/postalAddress/",
+          "predicate": "https://schema.org/address",
+          "required": "optional",
+          "type": "uri",
+          "append_uuid_object_fields": ["address/streetAddress", "address/Locality"],
+          "sub_nodes": [
+            {
+              "field": "address/streetAddress",
+              "predicate": "https://schema.org/streetAddress",
+              "source": "dict",
+              "required": "optional"
+            },
+            {
+              "field": "address/postalCode",
+              "predicate": "https://schema.org/postalCode",
+              "source": "dict",
+              "required": "optional"
+            },
+            {
+              "field": "address/Locality",
+              "predicate": "http://schema.org/addressLocality",
+              "source": "dict",
+              "required": "optional",
+              "tag": "@de"
+            },
+            {
+              "field": "address/Country",
+              "predicate": "http://schema.org/addressCountry",
+              "source": "dict",
+              "required": "optional",
+              "tag": "@de"
+            },
+            {
+              "field": "lib_name",
+              "source": "dict",
+              "predicate": "http://www.w3.org/2000/01/rdf-schema#label",
+              "required": "optional",
+              "type": "literal",
+              "prepend": "Adresse ",
+              "tag": "@de"
+            },
+            {
+              "field": "static",
+              "source": "dict",
+              "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+              "static_field": "https://schema.org/PostalAddress",
+              "required": "optional"
             }
           ]
         }

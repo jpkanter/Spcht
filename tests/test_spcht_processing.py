@@ -69,7 +69,7 @@ def quadro_console_out(quadro_list: list):
         tmp = f"<{each[1]}>"
         this_line += f"{tmp:{len_map[each[0]]}}"
         if each[3] == 0:
-            this_line += f"{each[2]}"
+            this_line += f"\"{each[2]}\""
         else:
             this_line += f"<{each[2]}>"
         print(this_line)
