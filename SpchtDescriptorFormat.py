@@ -114,6 +114,7 @@ class Spcht:
         # most elemental check
         if not self:
             return False
+        #export_graph = rdflib.Graph()
         if raw_dict:
             self._raw_dict = raw_dict
         # Preparation of Data to make it more handy in the further processing
@@ -166,12 +167,14 @@ class Spcht:
 
         triple_list = []
         for node in self._DESCRI['nodes']:
-            self_sufficient_triples = None # additional informations for sub nodes
+            self_sufficient_triples = None  # additional informations for sub nodes
+            rdf_triples = None
             # ! MAIN CALL TO PROCESS DATA
             try:
                 facet = self._recursion_node(node)
                 if isinstance(facet, list):  # should nowadays be almost always
                     self_sufficient_triples = [x for x in facet if len(x) == 4]
+                    rdf_triples = [x for x in facet if len(x) == 3]
                     facet = [x for x in facet if len(x) == 2]
             except Exception as e:
                 facet = None
@@ -232,8 +235,11 @@ class Spcht:
                     # this should NEVER return an empty list cause the mandatory check above checks for that
             if self_sufficient_triples:
                 triple_list += self_sufficient_triples
+            if rdf_triples:
+                [export_graph.add((x[0], x[1], x[2])) for x in rdf_triples]
         self._m21_dict = None
         self._raw_dict = None
+        #print(export_graph.serialize(format="turtle").decode("utf-8"))
         return triple_list  # * can be empty []
     # TODO: Error logs for known error entries and total failures as statistic
 
@@ -533,6 +539,9 @@ class Spcht:
                 uuid = self.uuid_generator(sub_dict['source'], *sub_dict['append_uuid_object_fields'])
                 main_value = [x + uuid for x in main_value]
             self.debug_print(colored("✓ Main Value", "cyan"))
+            # ? temporary tag handling, should be replaced by proper data formats
+            if 'tag' in sub_dict:
+                main_value = [f"\"{x}\"{sub_dict['tag']}" for x in main_value]
             # ! sub node handling
             if 'sub_nodes' in sub_dict:  # TODO: make this work for joined_map
                 self.debug_print(colored("Sub Nodes detected:", "blue"), f"{len(sub_dict['sub_nodes'])} entry instance(s)")
@@ -1033,6 +1042,7 @@ class Spcht:
         :rtype: list
         """
         return_quadros = []
+        # return_rdf = []
         if len(parent_value) != 1:
             raise SpchtErrors.ParsingError("Use of sub node required parent values to be singular")
         sub_subject = parent_value[0]
@@ -1046,12 +1056,17 @@ class Spcht:
                 if self_sufficient_triples:
                     return_quadros += self_sufficient_triples
                 if 'type' in single_node and single_node['type'] == "uri":
+                    # return_rdf += [(rdflib.URIRef(sub_subject), rdflib.URIRef(x[0]), rdflib.URIRef(x[1])) for x in sub_values]
                     return_quadros += [(sub_subject, x[0], x[1], 1) for x in sub_values]
                 else:
+                    # if 'tag' in single_node:
+                    #   lang, datatype = SpchtUtility.extract_node_tag(single_node['tag'])
+                    #   return_rdf += [(rdflib.URIRef(sub_subject), rdflib.URIRef(x[0]), rdflib.Literal(x[1], lang=lang, datatype=datatype)) for x in sub_values]
                     return_quadros += [(sub_subject, x[0], x[1], 0) for x in sub_values]
             except Exception as e:
                 logger.warning(f"SubNode throws Exception {e.__class__.__name__}: '{e}'")
                 print(colored("✗Processing of sub_node failed.", "red"))
+        # return_quadros.append(return_rdf)
         return return_quadros
 
     def _add_to_save_as(self, value, sub_dict):

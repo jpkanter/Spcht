@@ -988,3 +988,14 @@ def check_format_node(node, error_desc, out, base_path, is_root=False):
             print(error_desc['fallback_dict'], file=out)
             return False
     return True
+
+
+def extract_node_tag(node_tag):
+    lang = None
+    datatype = None
+    if re.search(r"^@(.*)", node_tag):
+        lang = node_tag[1:]
+    if re.search(r"^\^\^(.*)", node_tag):
+        datatype = node_tag[2:]
+    return lang, datatype
+
