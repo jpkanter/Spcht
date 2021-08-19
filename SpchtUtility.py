@@ -20,10 +20,11 @@
 # along with Solr2Triplestore Tool.  If not, see <http://www.gnu.org/licenses/>.
 #
 # @license GPL-3.0-only <https://www.gnu.org/licenses/gpl-3.0.en.html>
+import itertools
 import json
 import os
-import sys
 import re
+import sys
 import pymarc
 from pymarc.exceptions import RecordLengthInvalid, RecordLeaderInvalid, BaseAddressNotFound, BaseAddressInvalid, \
     RecordDirectoryInvalid, NoFieldsFound
@@ -104,43 +105,7 @@ def all_variants(variant_matrix: list) -> list:
     :return: a list of lists of all combinations, throws various TypeErrors if something isnt alright
     :rtype: list
     """
-    many = []
-    for cur_idx in range(0, len(variant_matrix), 2):
-        if len(variant_matrix)-1 > cur_idx:  # there is at least one more position to come
-            if len(many) <= 0:  # this are elements 1 & 2
-                for each in variant_matrix[cur_idx]:
-                    for every in variant_matrix[cur_idx + 1]:
-                        many.append([each, every])
-            else:  # these are elements 3+ and 4+
-                much = []
-                for each in variant_matrix[cur_idx]:
-                    for every in variant_matrix[cur_idx + 1]:
-                        much.append([each, every])
-                temp_list = []
-                for every in many:
-                    for each in much:
-                        temp_line = every.copy()
-                        temp_line.append(each[0])
-                        temp_line.append(each[1])
-                        temp_list.append(temp_line)
-                        del temp_line  # this should do nothing
-                many = temp_list
-        else:  # this position is the last one
-            if len(many) <= 0:
-                for each in variant_matrix[cur_idx]:
-                    many.append([each])  # this is only one entry, a list of list is expected
-            else:  # there was already a previous rounds with two entries in a "tuple"
-                temp_list = []
-                for every in many:
-                    for each in variant_matrix[cur_idx]:
-                        temp_line = every.copy()
-                        temp_line.append(each)
-                        temp_list.append(temp_line)
-                        del temp_line
-                many = temp_list
-        if not len(variant_matrix) >= cur_idx + 1:  # there is no next block after this one
-            break  # does that really matter? we are doing strides of two anyway right?
-    return many
+    return list([list(v) for v in itertools.product(*variant_matrix)])
 
 
 def match_positions(regex_pattern, zeichenkette: str) -> list or None:

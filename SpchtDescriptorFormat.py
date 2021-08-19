@@ -86,10 +86,7 @@ class Spcht:
             return "SPCHT{_empty_}"
 
     def __bool__(self):
-        if self._DESCRI is not None:
-            return True
-        else:
-            return False
+        return self._DESCRI is not None
 
     def __iter__(self):
         return SpchtIterator(self)
@@ -141,7 +138,7 @@ class Spcht:
             # * i leave this cause, well, its 2021 and of course this exact thing happened, yeah?
 
         if 'rdflib' in sys.modules and isinstance(subject, rdflib.URIRef):
-            graph = subject.toPython()
+            subject = subject.toPython()
 
         # generates the subject URI, i presume we already checked the spcht for being correct
         # ? instead of making one hard coded go i could insert a special round of the general loop right?
@@ -335,8 +332,7 @@ class Spcht:
     def clean_save_as(self):
         # i originally had this in the "getSaveAs" function, but maybe you have for some reasons the need to do this
         # manually or not at all. i dont know how expensive set to list is. We will find out, eventually
-        for key in self._SAVEAS:
-            self._SAVEAS[key] = list(set(self._SAVEAS[key]))
+        self._SAVEAS = {k: list(set(v)) for k, v in self._SAVEAS.items()}
 
     def load_descriptor_file(self, filename):
         """
@@ -591,11 +587,7 @@ class Spcht:
         if isinstance(subject, str):
             return [(predicate, subject)]  # list of one tuple
         if isinstance(subject, list):
-            new_list = []
-            for each in subject:
-                if each:
-                    new_list.append((predicate, each))
-            return new_list
+            return [(predicate, s) for s in subject if s]
         logger.error(f"While using the node_return_iron something failed while ironing '{str(subject)}'")
         raise TypeError("Could handle predicate, subject pair")
 
@@ -714,11 +706,8 @@ class Spcht:
             if '$regex' in settings and settings['$regex']:
                 regex = True
             if '$casesens' in settings and not settings['$casesens']:  # carries the risk of losing entries
-                new_mapping = {}
                 # case insensitivity is achieved by just converting every key to lowercase
-                for key in mapping:
-                    new_mapping[str(key).lower()] = mapping[key]
-                mapping = new_mapping
+                mapping = {str(k).lower(): v for k, v in mapping.items()}
 
         value = SpchtUtility.list_wrapper(value)
 
@@ -949,7 +938,7 @@ class Spcht:
         if_value = if_possible_make_this_numerical(sub_dict['if_value'])
 
         if not comparator_value:
-            if condition == "=" or condition == ">" or condition == ">=":
+            if condition in ("=", ">", ">="):
                 self.debug_print(colored(f"✗ no if_field found", "blue"), end=" ")
                 return False
             else:  # redundant else
