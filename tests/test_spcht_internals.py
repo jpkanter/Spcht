@@ -239,6 +239,76 @@ class TestSpchtInternal(unittest.TestCase):
             node['canine_prepend'] = copy.copy(node['prepend'])
             self.assertEqual(expected, self.crow._node_postprocessing(value, node, 'canine_'))
 
+    def test_insert_fields(self):
+        self.crow._raw_dict = copy.copy(TEST_DATA)
+        node = {
+            "field": "salmon",
+            "source": "dict",
+            "insert_into": "#{}",
+            "predicate": "T.E.S.T"
+        }
+        with self.subTest("Insert_into - one field"):
+            expected = [('T.E.S.T', '#5')]
+            self.assertEqual(expected, self.crow._recursion_node(node))
+        with self.subTest("Insert_into - one field, many values"):
+            node['field'] = "sturgeon"
+            expected = [('T.E.S.T', '#4'), ('T.E.S.T', '#9'), ('T.E.S.T', '#12')]
+            self.assertEqual(expected, self.crow._recursion_node(node))
+
+    def test_insert_fields_multi(self):
+        self.crow._raw_dict = copy.copy(TEST_DATA)
+        node = {
+            "field": "salmon",
+            "source": "dict",
+            "insert_into": "#{}~{}",
+            "predicate": "T.E.S.T",
+            "insert_add_fields": [{"field": "tench"}]
+        }
+        with self.subTest("Insert_into_ two variables, two values"):
+            expected = [('T.E.S.T', '#5~12')]
+            self.assertEqual(expected, self.crow._recursion_node(node))
+        with self.subTest("Insert_into_ two variables, more values"):
+            expected = [('T.E.S.T', '#4~12'), ('T.E.S.T', '#9~12'), ('T.E.S.T', '#12~12')]
+            node['field'] = "sturgeon"
+            self.assertEqual(expected, self.crow._recursion_node(node))
+        with self.subTest("Insert_into two variables, double many values"):
+            node['insert_add_fields'][0]['field'] = "foulfish"
+            expected = [('T.E.S.T', '#4~Yellow'), ('T.E.S.T', '#4~Purple'), ('T.E.S.T', '#9~Yellow'),
+                        ('T.E.S.T', '#9~Purple'), ('T.E.S.T', '#12~Yellow'), ('T.E.S.T', '#12~Purple')]
+            self.assertEqual(expected, self.crow._recursion_node(node))
+
+    def test_insert_fields_transformation(self):
+        self.crow._raw_dict = copy.copy(TEST_DATA)
+        node = {
+            "field": "salmon",
+            "source": "dict",
+            "insert_into": "#{}~{}",
+            "predicate": "T.E.S.T",
+        }
+        with self.subTest("Insert_into: append"):
+            node["insert_add_fields"] = [{"field": "tench", "append": "**"}]
+            expected = [('T.E.S.T', '#5~12**')]
+            self.assertEqual(expected, self.crow._recursion_node(node))
+        with self.subTest("Insert_into: prepend"):
+            node["insert_add_fields"] = [{"field": "tench", "prepend": "**"}]
+            expected = [('T.E.S.T', '#5~**12')]
+            self.assertEqual(expected, self.crow._recursion_node(node))
+        with self.subTest("Insert_into: cut"):
+            node["insert_add_fields"] = [{"field": "catfish", "cut": "(air)\\b"}]
+            expected = [('T.E.S.T', '#5~h'), ('T.E.S.T', '#5~l'), ('T.E.S.T', '#5~stairs'),
+                        ('T.E.S.T', '#5~f'), ('T.E.S.T', '#5~tear')]
+            self.assertEqual(expected, self.crow._recursion_node(node))
+        with self.subTest("Insert_into: cut&replace"):
+            node["insert_add_fields"] = [{"field": "catfish", "cut": "(air)\\b", "replace": "fire"}]
+            expected = [('T.E.S.T', '#5~fire'), ('T.E.S.T', '#5~hfire'), ('T.E.S.T', '#5~lfire'),
+                        ('T.E.S.T', '#5~stairs'), ('T.E.S.T', '#5~ffire'), ('T.E.S.T', '#5~tear')]
+            self.assertEqual(expected, self.crow._recursion_node(node))
+        with self.subTest("Insert_into: match"):
+            node["insert_add_fields"] = [{"field": "catfish", "match": "(air)\\b"}]
+            expected = [('T.E.S.T', '#5~air'), ('T.E.S.T', '#5~hair'), ('T.E.S.T', '#5~lair'), ('T.E.S.T', '#5~fair')]
+            self.assertEqual(expected, self.crow._recursion_node(node))
+        # TODO: different source test
+
     def test_if(self):
         self.crow._raw_dict = copy.copy(TEST_DATA)
 

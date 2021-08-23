@@ -119,7 +119,42 @@
                 "insert_add_fields": {
                     "description": "Additional values that can be inserted in additional 'insert_string' placeholder",
                     "type": "array",
-                    "additionalItems": { "type": "string" }
+                    "items": {
+                        "type": "object",
+                        "required": ["field"],
+                        "properties": {
+                            "field": {
+                                "description": "name of field that gets inserted into the placeholder string",
+                                "type": ["string", "number"]
+                            },
+                            "append": {
+                                "description": "appends the string to the end of the fields content",
+                                "type": ["string", "number"]
+                            },
+                            "prepend": {
+                                "description": "prepends the string to the end of the fields content",
+                                "type": ["string", "number"]
+                            },
+                            "cut": {
+                                "description": "Removes the matching part of this, must be Regex",
+                                "type": "string"
+                            },
+                            "replace": {
+                                "description": "If something was removed with 'cut' that position is replaced with this.",
+                                "type": ["string", "number"]
+                            },
+                            "match": {
+                                "description": "Filters out all values that are not fitting the given regex",
+                                "type": "string"
+                            },
+                            "source": {
+                                "description": "Defines an alternative source type for this particlar field",
+                                "type": "string"
+                            }
+                        },
+                        "additionalProperties": false
+                    },
+                    "additionalItems": false
                 },
                 "if_field": {
                     "description": "Data-field that is used in the left side of a comparison",
@@ -270,7 +305,42 @@
                 "insert_add_fields": {
                     "description": "Additional values that can be inserted in additional 'insert_string' placeholder",
                     "type": "array",
-                    "additionalItems": { "type": "string" }
+                    "items": {
+                        "type": "object",
+                        "required": ["field"],
+                        "properties": {
+                            "field": {
+                                "description": "name of field that gets inserted into the placeholder string",
+                                "type": ["string", "number"]
+                            },
+                            "append": {
+                                "description": "appends the string to the end of the fields content",
+                                "type": ["string", "number"]
+                            },
+                            "prepend": {
+                                "description": "prepends the string to the end of the fields content",
+                                "type": ["string", "number"]
+                            },
+                            "cut": {
+                                "description": "Removes the matching part of this, must be Regex",
+                                "type": "string"
+                            },
+                            "replace": {
+                                "description": "If something was removed with 'cut' that position is replaced with this.",
+                                "type": ["string", "number"]
+                            },
+                            "match": {
+                                "description": "Filters out all values that are not fitting the given regex",
+                                "type": "string"
+                            },
+                            "source": {
+                                "description": "Defines an alternative source type for this particlar field",
+                                "type": "string"
+                            }
+                        },
+                        "additionalProperties": false
+                    },
+                    "additionalItems": false
                 },
                 "if_field": {
                     "description": "Data-field that is used in the left side of a comparison",

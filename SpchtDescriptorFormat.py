@@ -878,9 +878,17 @@ class Spcht:
 
         if 'insert_add_fields' in sub_dict:  # ? the two times this gets called it actually checks beforehand, why do i bother?
             for each in sub_dict['insert_add_fields']:
-                # TODO: it should be possible to extend this for a mix of sources
-                pseudo_dict = {"source": sub_dict['source'], "field": each}
+                # ? it feels a bit wrong to do such 'tricks' in my own code
+                pseudo_dict = {"source": sub_dict['source'], "field": each['field']}
+                others = ['append', 'prepend', 'cut', 'replace', 'source', 'match']
+                for every in others:
+                    if every in each:
+                        pseudo_dict[every] = each[every]
                 additional_value = self.extract_dictmarc_value(pseudo_dict)
+                # using preprocessing to filter out certain values gives quite a lot of power to this kind of process
+                # if used right that is..i see a lot of error potential here
+                additional_value = self._node_preprocessing(additional_value, pseudo_dict)
+                additional_value = self._node_postprocessing(additional_value, pseudo_dict)
                 if additional_value:
                     inserters.append(SpchtUtility.list_wrapper(additional_value))
                 else:
@@ -1035,23 +1043,24 @@ class Spcht:
         if len(parent_value) != 1:
             raise SpchtErrors.ParsingError("Use of sub node required parent values to be singular")
         sub_subject = parent_value[0]
-        cycles = len(sub_nodes)
+        # cycles = len(sub_nodes)
         for i, single_node in enumerate(sub_nodes):
             try:
                 # self.debug_print(colored(f"Cycling node {i}/{cycles} - {single_node.get('name', 'unnamed')}"))
                 sub_values = self._recursion_node(single_node)
-                self_sufficient_triples = [x for x in sub_values if len(x) == 4]
-                sub_values = [x for x in sub_values if len(x) == 2]
-                if self_sufficient_triples:
-                    return_quadros += self_sufficient_triples
-                if 'type' in single_node and single_node['type'] == "uri":
-                    # return_rdf += [(rdflib.URIRef(sub_subject), rdflib.URIRef(x[0]), rdflib.URIRef(x[1])) for x in sub_values]
-                    return_quadros += [(sub_subject, x[0], x[1], 1) for x in sub_values]
-                else:
-                    # if 'tag' in single_node:
-                    #   lang, datatype = SpchtUtility.extract_node_tag(single_node['tag'])
-                    #   return_rdf += [(rdflib.URIRef(sub_subject), rdflib.URIRef(x[0]), rdflib.Literal(x[1], lang=lang, datatype=datatype)) for x in sub_values]
-                    return_quadros += [(sub_subject, x[0], x[1], 0) for x in sub_values]
+                if sub_values:
+                    self_sufficient_triples = [x for x in sub_values if len(x) == 4]
+                    sub_values = [x for x in sub_values if len(x) == 2]
+                    if self_sufficient_triples:
+                        return_quadros += self_sufficient_triples
+                    if 'type' in single_node and single_node['type'] == "uri":
+                        # return_rdf += [(rdflib.URIRef(sub_subject), rdflib.URIRef(x[0]), rdflib.URIRef(x[1])) for x in sub_values]
+                        return_quadros += [(sub_subject, x[0], x[1], 1) for x in sub_values]
+                    else:
+                        # if 'tag' in single_node:
+                        #   lang, datatype = SpchtUtility.extract_node_tag(single_node['tag'])
+                        #   return_rdf += [(rdflib.URIRef(sub_subject), rdflib.URIRef(x[0]), rdflib.Literal(x[1], lang=lang, datatype=datatype)) for x in sub_values]
+                        return_quadros += [(sub_subject, x[0], x[1], 0) for x in sub_values]
             except Exception as e:
                 logger.warning(f"SubNode throws Exception {e.__class__.__name__}: '{e}'")
                 print(colored("✗Processing of sub_node failed.", "red"))

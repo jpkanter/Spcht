@@ -113,3 +113,5 @@ processing
 /ub-solr.spcht.json
 /folio_secrets.py
 /folio_extra.json
+/folio_extract.json
+/folio_dump_opening.json

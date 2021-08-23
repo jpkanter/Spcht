@@ -224,7 +224,7 @@
             "required": "optional",
             "field": "institution",
             "insert_into": "https://data.ub.uni-leipzig.de/item/wachtl/{}:ppn:{}",
-            "insert_add_fields": ["id"],
+            "insert_add_fields": [{"field": "id"}],
             "type": "uri"
         },
         {
@@ -235,7 +235,7 @@
             "required": "optional",
             "field": "001:none",
             "insert_into": "Field 3 {} - 40a: {} and 40b = {}",
-            "insert_add_fields": ["40:a", "40:b"],
+            "insert_add_fields": [{"field": "40:a"}, {"field": "40:b"}],
             "type": "literal"
         },
         {

@@ -7,7 +7,7 @@
       "field": "inst_code",
       "predicate": "http://schema.org/department",
       "insert_into": "https://data.finc.info/organisations/{}/department/zw{}",
-      "insert_add_fields": ["lib_code"],
+      "insert_add_fields": [{"field": "lib_code"}],
       "type": "uri",
       "required": "optional",
       "source": "dict",
@@ -51,7 +51,8 @@
               "source": "dict",
               "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
               "static_field": "http://www.w3.org/2002/07/owl#ObjectProperty",
-              "required": "optional"
+              "required": "optional",
+              "type": "uri"
             }
           ]
         },
@@ -104,7 +105,8 @@
               "source": "dict",
               "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
               "static_field": "https://schema.org/PostalAddress",
-              "required": "optional"
+              "required": "optional",
+              "type": "uri"
             }
           ]
         }

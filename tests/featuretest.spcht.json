@@ -159,7 +159,13 @@
       "required": "optional",
       "field": "id",
       "insert_into": "This is <{}>, has topic: {} and Part-Author {}",
-      "insert_add_fields": ["topic_facet", "author_facet"]
+      "insert_add_fields": [
+        {
+          "field": "topic_facet"
+        },{
+          "field": "author_facet"
+        }
+      ]
     },
     {
       "name": "Complex Dict-String that is built from a string, even inserts",
@@ -168,7 +174,7 @@
       "required": "optional",
       "field": "id",
       "insert_into": "This is <{}>, has topic: {}",
-      "insert_add_fields": ["topic_facet"]
+      "insert_add_fields": [{"field": "topic_facet"}]
     },
     {
       "name": "Complex Marc-String that is built from a string, only one inserts",
@@ -185,7 +191,9 @@
       "required": "optional",
       "field": "250:a",
       "insert_into": "Here 250:a : {}, also 700:a: {} and 700:4: {}",
-      "insert_add_fields": ["700:a", "700:4"]
+      "insert_add_fields": [
+        { "field": "700:a"}, {"field": "700:4" }
+      ]
     },
     {
       "name": "Complex Marc-String that is built from a string, even number of inserts",
@@ -194,7 +202,7 @@
       "required": "optional",
       "field": "336:a",
       "insert_into": "Here 336:a : {}, also 264:c {}",
-      "insert_add_fields": ["264:c"]
+      "insert_add_fields": [ { "field": "264:c" } ]
     },
     {
       "name": "Simple Dict with prepend text",

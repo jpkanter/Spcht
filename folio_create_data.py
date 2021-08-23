@@ -46,11 +46,14 @@ if __name__ == "__main__":
                     one_node = {
                         "inst_code": inst['code'],
                         "inst_name": inst['name'],
+                        "inst_id": inst['id'],
                         "lib_code": lib['code'],
                         "lib_name": lib['name'],
+                        "lib_id": lib['id'],
                         "loc_name": each['name'],
                         "loc_code": each['code'],
-                        "loc_displayName": each['discoveryDisplayName']
+                        "loc_displayName": each['discoveryDisplayName'],
+                        "loc_main_service_id": each['primaryServicePoint']
                     }
                     one_node.update(each['details'])
                     extracted_dicts.append(one_node)
