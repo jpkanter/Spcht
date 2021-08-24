@@ -1086,7 +1086,7 @@ class Spcht:
                 raise SpchtErrors.DataError("UUID-Gen - Given field yields no value")
         return str(uuid.uuid5(uuid.NAMESPACE_URL, names_combined))
 
-    def extract_dictmarc_value(self, sub_dict: dict, dict_field=None) -> list:
+    def extract_dictmarc_value(self, sub_dict: dict, dict_field=None, dict_tree=None) -> list:
         """
         In the corner case and context of this program there are (for now) two different kinds of 'raw_dict', the first
         is a flat dictionary containing a key:value relationship where the value might be a list, the second is the
@@ -1105,7 +1105,7 @@ class Spcht:
         if not dict_field:
             dict_field = sub_dict['field']
         if sub_dict['source'] == 'dict':
-            if not dict_field in self._raw_dict:
+            if dict_field not in self._raw_dict:
                 return []
             if not isinstance(self._raw_dict[dict_field], list):
                 value = [self._raw_dict[dict_field]]
@@ -1114,6 +1114,25 @@ class Spcht:
                 for each in self._raw_dict[dict_field]:
                     value.append(each)
             return SpchtUtility.list_wrapper(value)
+        if sub_dict['source'] == 'tree':
+            if not dict_tree:  # a tree dictionary might be a sub plot of existing data, but can also reside on the root of a normal dict source
+                dict_tree = self._raw_dict
+            if not dict_field:
+                dict_field = sub_dict['field']
+            # re.search(r"(?:\w+)+(>)*", dict_field) # ? i decided against a pattern check, if it fails it fails
+            keys = dict_field.split(">")
+            if keys:
+                value = dict_tree
+                for key in keys:
+                    key = key.strip()
+                    if key in value:
+                        value = value[key]
+                    else:
+                        logger.debug(f"Cannot extract '{key}' cause it doesnt exist")
+                        return []
+                return value
+            return []
+            # re.split(r'(?<!\\)>', str) # ! compile spcht to have those splitters properly handled
         elif sub_dict['source'] == "marc" and self._m21_dict:
             field, subfield = SpchtUtility.slice_marc_shorthand(dict_field)
             if field is None:

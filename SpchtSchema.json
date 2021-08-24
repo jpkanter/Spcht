@@ -11,7 +11,8 @@
             "type": "string"
         },
         "id_source": {
-            "description": "Source of the variable subject part ('dict' or 'marc')",
+            "description": "Source of the variable subject part ('dict', 'marc' or 'tree')",
+            "enum": ["dict", "marc", "tree"],
             "type": "string"
         },
         "id_fallback": {
@@ -37,7 +38,7 @@
                 "source": {
                     "description": "Source of the field, either dict or marc",
                     "type": "string",
-                    "enum": ["dict", "marc"]
+                    "enum": ["dict", "marc", "tree"]
                 },
                 "field": {
                     "description": "Name of the data-field that gets converted to the object",
@@ -223,7 +224,7 @@
                 "source": {
                     "description": "Source of the field, either dict or marc",
                     "type": "string",
-                    "enum": ["dict", "marc"]
+                    "enum": ["dict", "marc", "tree"]
                 },
                 "field": {
                     "description": "Name of the data-field that gets converted to the object",

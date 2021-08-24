@@ -43,8 +43,8 @@ testing suit that test every function for itself. The featuretest.spcht.json is 
 every single datafield that is around which makes it useful to find faults in the programming but is not fit for 
 deeper diagnostics or if the data actually processed the right way."""
 
-TEST_DATA = "thetestset.json"
-#TEST_DATA = "./../folio_extra.json"
+#TEST_DATA = "thetestset.json"
+TEST_DATA = "./../folio_extract.json"
 try:
     os.remove("./test_processing.log")
 except FileNotFoundError:
@@ -82,8 +82,8 @@ def quadro_console_out(quadro_list: list):
 
 
 if __name__ == "__main__":
-    spcht_path = "featuretest.spcht.json"
-    #spcht_path = "./../folio.spcht.json"
+    #spcht_path = "featuretest.spcht.json"
+    spcht_path = "./../folio.spcht.json"
     NormalBird = Spcht(spcht_path, schema_path="./../SpchtSchema.json", debug=True, log_debug=False)
     my_data = load_from_json(TEST_DATA)
     if not my_data:

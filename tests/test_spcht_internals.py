@@ -478,6 +478,16 @@ class TestSpchtInternal(unittest.TestCase):
         self.assertEqual(expected, self.crow._recursion_node(node))
     # TODO: tests for get fields/predicates
 
+    def test_tree_extract(self):
+        logging.basicConfig(level=logging.DEBUG)
+        expected = ["one", "two", True]
+        self.crow._raw_dict = {"layer1": {"layer2": {"layer3": expected}}}
+        node = {
+            "source": "tree",
+            "field": "layer1 >layer2> layer3"
+        }
+        self.assertEqual(expected, self.crow.extract_dictmarc_value(node))
+
 if __name__ == '__main__':
     unittest.main()
 
