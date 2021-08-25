@@ -5,7 +5,7 @@
   "nodes": [
     {
       "field": "inst_code",
-      "predicate": "http://schema.org/department",
+      "predicate": "schema.org/department",
       "insert_into": "https://data.finc.info/organisations/{}/department/zw{}",
       "insert_add_fields": [{"field": "lib_code"}],
       "type": "uri",
@@ -13,7 +13,7 @@
       "source": "dict",
       "sub_nodes": [
         {
-          "predicate": "http://schema.org/geo",
+          "predicate": "schema.org/geo",
           "field": "inst_code",
           "static_field": "https://data.finc.info/Geokoordinaten/",
           "required": "optional",
@@ -23,7 +23,7 @@
           "sub_nodes": [
             {
               "field": "geo/latitude",
-              "predicate": "http://schema.org/latitude",
+              "predicate": "schema.org/latitude",
               "required": "optional",
               "tag": "^^xsd:double",
               "source": "dict",
@@ -31,7 +31,7 @@
             },
             {
               "field": "geo/longitude",
-              "predicate": "http://schema.org/longitude",
+              "predicate": "schema.org/longitude",
               "required": "optional",
               "tag": "^^xsd:double",
               "source": "dict",
@@ -60,33 +60,33 @@
           "field": "inst_code",
           "source": "dict",
           "static_field": "https://data.finc.info/postalAddress/",
-          "predicate": "https://schema.org/address",
+          "predicate": "schema.org/address",
           "required": "optional",
           "type": "uri",
           "append_uuid_object_fields": ["address/streetAddress", "address/Locality"],
           "sub_nodes": [
             {
               "field": "address/streetAddress",
-              "predicate": "https://schema.org/streetAddress",
+              "predicate": "schema.org/streetAddress",
               "source": "dict",
               "required": "optional"
             },
             {
               "field": "address/postalCode",
-              "predicate": "https://schema.org/postalCode",
+              "predicate": "schema.org/postalCode",
               "source": "dict",
               "required": "optional"
             },
             {
               "field": "address/Locality",
-              "predicate": "http://schema.org/addressLocality",
+              "predicate": "schema.org/addressLocality",
               "source": "dict",
               "required": "optional",
               "tag": "@de"
             },
             {
               "field": "address/Country",
-              "predicate": "http://schema.org/addressCountry",
+              "predicate": "schema.org/addressCountry",
               "source": "dict",
               "required": "optional",
               "tag": "@de"
@@ -104,9 +104,141 @@
               "field": "static",
               "source": "dict",
               "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
-              "static_field": "https://schema.org/PostalAddress",
+              "static_field": "schema.org/PostalAddress",
               "required": "optional",
               "type": "uri"
+            }
+          ]
+        },
+        {
+          "field": "openingHours",
+          "required": "optional",
+          "predicate": "doesnt matter for this",
+          "source": "dict",
+          "sub_data": [
+            {
+              "field": "openingDay>openingHour",
+              "source": "tree",
+              "predicate": "schema.org/openingHoursSpecification",
+              "required": "optional",
+              "if_field": "openingDay>allDay",
+              "if_condition": "eq",
+              "if_value": false,
+              "sub_data": [
+                {
+                  "field": "day",
+                  "required": "optional",
+                  "predicate": "schema.org/OpeningHoursSpecification",
+                  "source": "dict",
+                  "mapping": {
+                    "MONDAY": "Mo",
+                    "TUESDAY": "Tu",
+                    "WEDNESDAY": "We",
+                    "THURSDAY": "Th",
+                    "FRIDAY": "Fr",
+                    "SATURDAY": "Sa",
+                    "SUNDAY": "Su"
+                  },
+                  "insert_into": "{}_{}_{}",
+                  "insert_add_fields": [
+                    {
+                      "field": "startTime",
+                      "cut": "(:)",
+                      "append": "00"
+                    },
+                    {
+                      "field": "endTime",
+                      "cut": "(:)",
+                      "append": "00"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "source": "tree",
+              "field": "weekdays>day",
+              "if_field": "openingDay>allDay",
+              "if_condition": "eq",
+              "if_value": true,
+              "mapping": {
+                "MONDAY": "Mo",
+                "TUESDAY": "Tu",
+                "WEDNESDAY": "We",
+                "THURSDAY": "Th",
+                "FRIDAY": "Fr",
+                "SATURDAY": "Sa",
+                "SUNDAY": "Su"
+              },
+              "append": "_000000_240000",
+              "predicate": "schema.org/OpeningHoursSpecification",
+              "required": "optional",
+              "type": "uri","sub_nodes": [
+                {
+                  "source": "tree",
+                  "required": "optional",
+                  "field": "weekdays>day",
+                  "mapping": {
+                    "MONDAY": "Montag",
+                    "TUESDAY": "Dienstag",
+                    "WEDNESDAY": "Mittwoch",
+                    "THURSDAY": "Donnerstag",
+                    "FRIDAY": "Freitag",
+                    "SATURDAY": "Samstag",
+                    "SUNDAY": "Sonntag"
+                  },
+                  "append": "{}: Ganztägig",
+                  "predicate": "http://www.w3.org/2000/01/rdf-schema#label",
+                  "tag": "@de"
+                },
+                {
+                  "source": "tree",
+                  "required": "optional",
+                  "field": "weekdays>day",
+                  "mapping": {
+                    "MONDAY": "Monday",
+                    "TUESDAY": "Tuesday",
+                    "WEDNESDAY": "Wednesday",
+                    "THURSDAY": "Thursday",
+                    "FRIDAY": "Friday",
+                    "SATURDAY": "Saturday",
+                    "SUNDAY": "Sunday"
+                  },
+                  "append": "{}: all day",
+                  "predicate": "http://www.w3.org/2000/01/rdf-schema#label",
+                  "tag": "@en"
+                },
+                {
+                  "source": "dict",
+                  "field": "matterless",
+                  "required": "optional",
+                  "static_field": "00:00:00",
+                  "predicate": "schema.org/opens"
+                },
+                {
+                  "source": "dict",
+                  "field": "matterless",
+                  "required": "optional",
+                  "static_field": "23:59:59",
+                  "predicate": "schema.org/opens"
+                },
+                 {
+                  "source": "tree",
+                  "required": "optional",
+                  "field": "weekdays>day",
+                  "predicate": "schema.org/dayOfWeek",
+                  "mapping": {
+                    "MONDAY": "Monday",
+                    "TUESDAY": "Tuesday",
+                    "WEDNESDAY": "Wednesday",
+                    "THURSDAY": "Thursday",
+                    "FRIDAY": "Friday",
+                    "SATURDAY": "Saturday",
+                    "SUNDAY": "Sunday"
+                  }
+                }
+              ]
+
             }
           ]
         }

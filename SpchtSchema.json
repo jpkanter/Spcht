@@ -163,7 +163,7 @@
                 },
                 "if_value": {
                     "description": "Right side of the comparion that is compared against 'if_field'",
-                    "type": ["string", "number", "array"],
+                    "type": ["string", "number", "array", "boolean"],
                     "items": { "type": ["string", "number"] },
                     "additionalItems": false
                 },
@@ -209,6 +209,12 @@
                 "tag": {
                     "description": "extended designator for linked data designation of literals like @en or xsd:string",
                     "type": "string"
+                },
+                "sub_data": {
+                    "description": "a list of nodes that utilise the listified content of some of the data",
+                    "type": "array",
+                    "additionalItems": false,
+                    "items": {"$ref": "#/$defs/sub_node"}
                 }
             },
             "patternProperties": {
@@ -349,7 +355,7 @@
                 },
                 "if_value": {
                     "description": "Right side of the comparion that is compared against 'if_field'",
-                    "type": ["string", "number", "array"],
+                    "type": ["string", "number", "array", "boolean"],
                     "items": { "type": ["string", "number"] },
                     "additionalItems": false
                 },
@@ -395,6 +401,12 @@
                 "tag": {
                     "description": "extended designator for linked data designation of literals like @en or xsd:string",
                     "type": "string"
+                },
+                "sub_data": {
+                    "description": "a list of nodes that utilise the listified content of some of the data",
+                    "type": "array",
+                    "additionalItems": false,
+                    "items": {"$ref": "#/$defs/sub_node"}
                 }
             },
             "patternProperties": {
@@ -413,7 +425,7 @@
                 "source": {
                 "description": "Source of the variable subject part ('dict' or 'marc')",
                 "type": "string"
-            }
+                }
             }
         }
     }

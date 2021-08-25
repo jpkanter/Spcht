@@ -442,7 +442,7 @@ Each accepts an array of strings for its operation where each string is a field 
 
 ### Sub Node
 
-This key generates an entirely new set of triples. Instead of the former subject the value of the parent node will be used as subject part of the triple. Each Sub Node can contain additional sub nodes. Complex Example:
+This key generates an entirely new set of triples. Instead of the former subject the value of the parent node will be used as subject part of the triple. Each sub node can contain more sub nodes. Complex Example:
 
 ```json
 {
@@ -494,6 +494,8 @@ The topmost entry generates first a value with `insert_into` that serves as uniq
   * Department
     * /coordinates
       * [actual data]
+
+**Attention: each parent node should never return more than one value**
 
 ## Source: marc21
 

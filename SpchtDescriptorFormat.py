@@ -496,6 +496,21 @@ class Spcht:
                 self.debug_print(colored(f"✗ joined mapping could not be fullfilled", "magenta"), end="-> ")
                 return self._call_fallback(sub_dict)
             return joined_result
+        elif 'sub_data' in sub_dict:
+            self.debug_print(colored("✓ sub_data", "green"), end="-> ")
+            colibri = Spcht()  # TODO1: just create and save a separate Spcht for ever sub_data node and use them again
+            sub_data_list = self.extract_dictmarc_value(sub_dict)
+            self.debug_print(colored(f"length={len(sub_data_list)} Datapoints", "yellow"), end="...")
+            self.debug_print(colored(f"sub_data_nodes: {len(sub_dict['sub_data'])}", "grey"))
+            sub_data_tuples = []
+            for sub_data_set in sub_data_list:
+                colibri._raw_dict = sub_data_set
+                for a_node in sub_dict['sub_data']:
+                    processed_goods = colibri._recursion_node(a_node)
+                    sub_data_tuples.append(processed_goods)
+            del colibri
+            return sub_data_tuples
+            #sub_data_result = self._handle_sub_data()
         else:
             main_value = self.extract_dictmarc_value(sub_dict)
             if 'static_field' in sub_dict:
@@ -1067,6 +1082,9 @@ class Spcht:
         # return_quadros.append(return_rdf)
         return return_quadros
 
+    def _handle_sub_data(self):
+        pass
+
     def _add_to_save_as(self, value, sub_dict):
         # this was originally 3 lines of boilerplate inside postprocessing, i am not really sure if i shouldn't have
         # left it that way, i kinda dislike those mini functions, it divides the code
@@ -1104,21 +1122,18 @@ class Spcht:
         # 02.01.21 - Previously this also returned false, this behaviour was inconsistent
         if not dict_field:
             dict_field = sub_dict['field']
+        if not dict_tree:  # a tree dictionary might be a sub plot of existing data, but can also reside on the root of a normal dict source
+            dict_tree = self._raw_dict
+
         if sub_dict['source'] == 'dict':
             if dict_field not in self._raw_dict:
                 return []
             if not isinstance(self._raw_dict[dict_field], list):
                 value = [self._raw_dict[dict_field]]
             else:
-                value = []
-                for each in self._raw_dict[dict_field]:
-                    value.append(each)
-            return SpchtUtility.list_wrapper(value)
+                value = self._raw_dict[dict_field]
+            return value
         if sub_dict['source'] == 'tree':
-            if not dict_tree:  # a tree dictionary might be a sub plot of existing data, but can also reside on the root of a normal dict source
-                dict_tree = self._raw_dict
-            if not dict_field:
-                dict_field = sub_dict['field']
             # re.search(r"(?:\w+)+(>)*", dict_field) # ? i decided against a pattern check, if it fails it fails
             keys = dict_field.split(">")
             if keys:
@@ -1128,7 +1143,7 @@ class Spcht:
                     if key in value:
                         value = value[key]
                     else:
-                        logger.debug(f"Cannot extract '{key}' cause it doesnt exist")
+                        logger.debug(f"Cannot extract '{key}' in chain '{dict_field}' cause it doesnt exist")
                         return []
                 return value
             return []

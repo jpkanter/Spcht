@@ -22,7 +22,16 @@
 # @license GPL-3.0-only <https://www.gnu.org/licenses/gpl-3.0.en.html>
 
 import json
+from datetime import datetime
+import pytz
 import re
+import requests
+
+try:
+    import folio_secrets
+    SECRET = True
+except ModuleNotFoundError:
+    SECRET = False
 
 
 def grab(a_list, dict_attr, dict_value):
@@ -30,6 +39,60 @@ def grab(a_list, dict_attr, dict_value):
         if dict_attr in each and each[dict_attr] == dict_value:
             return each
     return None
+
+
+def additional_remote_data(location_id: str) -> dict:
+    global SECRET
+    if not SECRET:  # needs remote connection details to access anything, and internet, and access..
+        return {}
+    utc = pytz.UTC
+
+    folio_header = {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "X-Okapi-Tenant": folio_secrets.XOkapiTenant,
+        "X-Okapi-Token": folio_secrets.XOkapiToken
+    }
+    # ! first request
+    request_url = folio_secrets.folio_url + "/calendar/periods/" + location_id + "/period"
+    r = requests.get(request_url, headers=folio_header)
+    if r.status_code != 200:
+        print(f"'{request_url}' could not retrieve data, status {r.status_code}")
+        return {}
+    try:
+        step1_data = r.json()
+    except json.JSONDecodeError:
+        print("Returned Json could not be handled, mostly because it wasnt json, aborting")
+        return {}
+    # check if given opening hours block is valid today
+    step2_uuid = None
+    for period in step1_data['openingPeriods']:
+        start = datetime.fromisoformat(period['startDate'])
+        ende = datetime.fromisoformat(period['endDate'])
+        now = utc.localize(datetime.now())  # now is usually a naive datetime and folio dates are not
+        if start <= now <= ende:
+            step2_uuid = period['id']
+            break
+    if not step2_uuid:
+        print(f"No suiteable and valid opening hour found for '{location_id}'")
+        return {}
+    # ! second request
+    request_url = folio_secrets.folio_url + "/calendar/periods/" + location_id + "/period/" + step2_uuid
+    r = requests.get(request_url, headers=folio_header)
+    if r.status_code != 200:
+        print(f"'{location_id}' + '{step2_uuid}' could not retrieve data, status {r.status_code}")
+        return {}
+    try:
+        step2_data = r.json()
+        # refining data for future use, i dont like manipulating the data even more here
+        # adds the day identifier to each start&end time cause Spcht doesnt support backward lookups
+        for days in step2_data['openingDays']:
+            for hours in days['openingDay']['openingHour']:
+                hours['day'] = days['weekdays']['day']
+    except json.JSONDecodeError:
+        print("Second returned Json could not be handled, mostly because it wasnt json, aborting")
+        return {}
+    return step2_data['openingDays']
 
 
 if __name__ == "__main__":
@@ -55,8 +118,12 @@ if __name__ == "__main__":
                         "loc_displayName": each['discoveryDisplayName'],
                         "loc_main_service_id": each['primaryServicePoint']
                     }
+                    opening_hours = additional_remote_data(each['primaryServicePoint'])
+                    if opening_hours:
+                        one_node['openingHours'] = opening_hours
                     one_node.update(each['details'])
                     extracted_dicts.append(one_node)
+
             with open("folio_extract.json", "w") as folio_extract:
                 json.dump(extracted_dicts, folio_extract, indent=2)
         else:
