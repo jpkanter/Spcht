@@ -497,19 +497,26 @@ class Spcht:
                 return self._call_fallback(sub_dict)
             return joined_result
         elif 'sub_data' in sub_dict:
+            if 'if_field' in sub_dict:
+                if not self._handle_if(sub_dict):
+                    return self._call_fallback(sub_dict)  # ? EXIT 4 # might use if_condition globally
             self.debug_print(colored("✓ sub_data", "green"), end="-> ")
             colibri = Spcht()  # TODO1: just create and save a separate Spcht for ever sub_data node and use them again
             sub_data_list = self.extract_dictmarc_value(sub_dict)
-            self.debug_print(colored(f"length={len(sub_data_list)} Datapoints", "yellow"), end="...")
-            self.debug_print(colored(f"sub_data_nodes: {len(sub_dict['sub_data'])}", "grey"))
-            sub_data_tuples = []
-            for sub_data_set in sub_data_list:
-                colibri._raw_dict = sub_data_set
-                for a_node in sub_dict['sub_data']:
-                    processed_goods = colibri._recursion_node(a_node)
-                    sub_data_tuples.append(processed_goods)
-            del colibri
-            return sub_data_tuples
+            if sub_data_list:
+                self.debug_print(colored(f"length={len(sub_data_list)} Datapoints", "yellow"), end="...")
+                self.debug_print(colored(f"sub_data_nodes: {len(sub_dict['sub_data'])}", "grey"))
+                sub_data_tuples = []
+                for sub_data_set in sub_data_list:
+                    colibri._raw_dict = sub_data_set
+                    for a_node in sub_dict['sub_data']:
+                        processed_goods = colibri._recursion_node(a_node)
+                        if processed_goods:
+                            sub_data_tuples += processed_goods
+                self.debug_print(colored("✓ Sub Data successfully added", "green"), )
+                del colibri
+                return sub_data_tuples
+            self.debug_print(colored("✗ Sub Data not found", "magenta"), )
             #sub_data_result = self._handle_sub_data()
         else:
             main_value = self.extract_dictmarc_value(sub_dict)

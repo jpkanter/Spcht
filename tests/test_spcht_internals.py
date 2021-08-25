@@ -50,7 +50,25 @@ TEST_DATA = {
     "silverfish": ["Yellow", "Blue", "Red"],
     "foulfish": ["Yellow", "Purple"],
     "bronzefish": "001",
-    "copperfish": "Pink"
+    "copperfish": "Pink",
+    "uboot": [
+        {"uran": "u-235"},
+        {"uran": "u-238"}
+    ],
+    "spaceship": [
+        {
+            "ufo": [
+                {"earth": "round"},
+                {"mars": "square"}
+            ]
+        },
+        {
+            "ufo": [
+                {"earth": "imperial"},
+                {"mars": "mechanicum"}
+            ]
+        }
+    ]
 }
 
 IF_NODE = {
@@ -487,6 +505,61 @@ class TestSpchtInternal(unittest.TestCase):
             "field": "layer1 >layer2> layer3"
         }
         self.assertEqual(expected, self.crow.extract_dictmarc_value(node))
+
+    def test_sub_data(self):
+        self.crow._raw_dict = TEST_DATA
+        node = {
+            "field": "uboot",
+            "source": "dict",
+            "required": "optional",
+            "predicate": "whargable:ship",
+            "sub_data": [
+                {
+                    "field": "uran",
+                    "source": "dict",
+                    "predicate": "whargable:element",
+                    "required": "optional"
+                }
+            ]
+        }
+        expected = [('whargable:element', 'u-235'), ('whargable:element', 'u-238')]
+        self.assertEqual(expected, self.crow._recursion_node(node))
+
+    def test_nested_sub_data(self):
+        self.crow._raw_dict = TEST_DATA
+        node = {
+            "field": "spaceship",
+            "source": "dict",
+            "required": "optional",
+            "predicate": "whargable:ftl",
+            "sub_data": [
+                {
+                    "field": "ufo",
+                    "source": "dict",
+                    "predicate": "whargable:ufo",
+                    "required": "optional",
+                    "sub_data": [
+                        {
+                            "field": "earth",
+                            "source": "dict",
+                            "predicate": "whargable:shape",
+                            "required": "optional",
+                        },
+                        {
+                            "field": "mars",
+                            "source": "dict",
+                            "predicate": "whargable:shape",
+                            "required": "optional",
+                        }
+                    ]
+                }
+            ]
+        }
+        expected = [('whargable:shape', 'round'),('whargable:shape', 'square'),
+                    ('whargable:shape', 'imperial'),('whargable:shape', 'mechanicum')
+                    ]
+        self.assertEqual(expected, self.crow._recursion_node(node))
+
 
 if __name__ == '__main__':
     unittest.main()
