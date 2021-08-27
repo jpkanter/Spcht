@@ -145,7 +145,7 @@
                     {
                       "field": "startTime",
                       "cut": "(:)",
-                      "append": "00"
+                      "append": "00",
                     },
                     {
                       "field": "endTime",
@@ -160,14 +160,16 @@
                       "source": "dict",
                       "required": "optional",
                       "predicate": "schema.org/opens",
-                      "append": ":00"
+                      "append": ":00",
+                      "tag": "^^xsd:time"
                     },
                     {
                       "field": "endTime",
                       "source": "dict",
                       "required": "optional",
                       "predicate": "schema.org/closes",
-                      "append": ":00"
+                      "append": ":00",
+                      "tag": "^^xsd:time"
                     },
                     {
                       "source": "dict",

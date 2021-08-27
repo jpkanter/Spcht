@@ -111,7 +111,6 @@ class Spcht:
         # most elemental check
         if not self:
             return False
-        #export_graph = rdflib.Graph()
         if raw_dict:
             self._raw_dict = raw_dict
         # Preparation of Data to make it more handy in the further processing
@@ -154,7 +153,7 @@ class Spcht:
         # ? what happens if there is more than one resource?
         ressource = self._recursion_node(sub_dict)
         if isinstance(ressource, list) and len(ressource) == 1:
-            ressource = ressource[0][1]
+            ressource = ressource[0].sobject.content
             self.debug_print("Ressource", colored(ressource, "green", attrs=["bold"]))
         else:
             self.debug_print("ERROR", colored(ressource, "green"))
@@ -162,78 +161,29 @@ class Spcht:
         if ressource is None:
             raise ValueError("Ressource ID could not be found, aborting this entry")
 
+        main_subject = SpchtThird(subject+ressource, uri=True)
         triple_list = []
         for node in self._DESCRI['nodes']:
             self_sufficient_triples = None  # additional informations for sub nodes
             rdf_triples = None
             # ! MAIN CALL TO PROCESS DATA
             try:
-                facet = self._recursion_node(node)
-                if isinstance(facet, list):  # should nowadays be almost always
-                    self_sufficient_triples = [x for x in facet if len(x) == 4]
-                    rdf_triples = [x for x in facet if len(x) == 3]
-                    facet = [x for x in facet if len(x) == 2]
+                triples = self._recursion_node(node)
             except Exception as e:
-                facet = None
+                triples = None
                 logger.debug(f"_recursion_node throws Exception {e.__class__.__name__}: '{e}'")
-            # ! Data Output Modelling Try 2
-            if node.get('type', "literal") == "uri":
-                node_status = 1
-            else:
-                node_status = 0
             # * mandatory checks
             # there are two ways i could have done this, either this or having the checks split up in every case
-            if not facet:
+            if not triples:
                 if node['required'] == "mandatory":
                     logger.info(f"NodeName '{node.get('name', '?')}' required field {node['field']} but its not present")
                     raise SpchtErrors.MandatoryError(f"Field {node['field']} is a mandatory field but not present")
-            else:
-                if isinstance(facet, tuple):
-                    if facet[1] is None:  # all those string checks
-                        if node['required'] == "mandatory":
-                            self.debug_print(colored(f"{node.get('name')} is an empty, mandatory string"), "red")
-                            raise SpchtErrors.MandatoryError(f"Field {node['field']} is a mandatory field but not present")
-                        else:
-                            continue  # we did everything but found nothing, this happens
-                elif isinstance(facet, list):
-                    at_least_something = False  # i could have juxtaposition this to save a "not"
-                    for each in facet:
-                        if each[1] is not None:
-                            at_least_something = True
-                            break
-                    if not at_least_something:
-                        if node['required'] == "mandatory":
-                            self.debug_print(colored(f"{node.get('name')} is an empty, mandatory list"), "red")
-                            raise SpchtErrors.MandatoryError(f"Field {node['field']} is a mandatory field but not present")
-                            # there are checks before this, so this should, theoretically, not happen
-                        else:
-                            continue
-                else:  # whatever it is, its weird if this ever happens
-                    if node['required'] == "mandatory":
-                        return False
-                    else:
-                        print(facet, colored("I cannot handle that for the moment", "magenta"), file=self.std_err)
-                        raise SpchtErrors.Unexpected("Unexpected return from recursive processor, this shouldnt happen")
-
-            # * data output - singular form
-            if isinstance(facet, tuple):
-                triple_list.append(((subject + ressource), facet[0], facet[1], node_status))
-                # tuple form of 4
-                # [0] the identifier
-                # [1] the subject name
-                # [2] the value or graph
-                # [3] meta info whether its a graph or a literal
-            # * data output - list form
-            elif isinstance(facet, list):  # list of tuples form
-                for each in facet:  # this is a new thing, me naming the variable "each", i dont know why
-                    if each[1] is not None:
-                        triple_list.append(((subject + ressource), each[0], each[1], node_status))
-                    # here was a check for empty elements, but we already know that not all are empty
-                    # this should NEVER return an empty list cause the mandatory check above checks for that
-            if self_sufficient_triples:
-                triple_list += self_sufficient_triples
-            if rdf_triples:
-                [export_graph.add((x[0], x[1], x[2])) for x in rdf_triples]
+                continue
+            # ? check inner structure
+            for dreier in triples:
+                if not dreier.subject:
+                    dreier.subject = main_subject
+            triple_list += triples
         self._m21_dict = None
         self._raw_dict = None
         #print(export_graph.serialize(format="turtle").decode("utf-8"))
@@ -459,7 +409,7 @@ class Spcht:
         if a node contains a fallback
         :param dict sub_dict: the sub node that describes the behaviour
         :return: a (predicate, object) tuple or a list of such tuples [(predicate, object), ...] as provided by node_return_iron
-        :rtype: tuple
+        :rtype: list of SpchtTriple
         """
         # i do not like the general use of recursion, but for traversing trees this seems the best solution
         # there is actually not so much overhead in python, its more one of those stupid feelings, i googled some
@@ -502,17 +452,18 @@ class Spcht:
                     return self._call_fallback(sub_dict)  # ? EXIT 4 # might use if_condition globally
             self.debug_print(colored("✓ sub_data", "green"), end="-> ")
             colibri = Spcht()  # TODO1: just create and save a separate Spcht for ever sub_data node and use them again
-            sub_data_list = self.extract_dictmarc_value(sub_dict)
+            sub_data_list = self.extract_dictmarc_value(sub_dict, raw=True)
             if sub_data_list:
                 self.debug_print(colored(f"length={len(sub_data_list)} Datapoints", "yellow"), end="...")
                 self.debug_print(colored(f"sub_data_nodes: {len(sub_dict['sub_data'])}", "grey"))
                 sub_data_tuples = []
                 for sub_data_set in sub_data_list:
-                    colibri._raw_dict = sub_data_set
-                    for a_node in sub_dict['sub_data']:
-                        processed_goods = colibri._recursion_node(a_node)
-                        if processed_goods:
-                            sub_data_tuples += processed_goods
+                    if isinstance(sub_data_set, dict):
+                        colibri._raw_dict = sub_data_set
+                        for a_node in sub_dict['sub_data']:
+                            processed_goods = colibri._recursion_node(a_node)
+                            if processed_goods:
+                                sub_data_tuples += processed_goods
                 self.debug_print(colored("✓ Sub Data successfully added", "green"), )
                 del colibri
                 return sub_data_tuples
@@ -555,11 +506,20 @@ class Spcht:
                 self.debug_print(colored("✓ insert_into", "green"), end="-> ")
             if 'append_uuid_object_fields' in sub_dict:
                 uuid = self.uuid_generator(sub_dict['source'], *sub_dict['append_uuid_object_fields'])
-                main_value = [x + uuid for x in main_value]
+                main_value = [SpchtThird(str(x.content) + uuid) for x in main_value]
             self.debug_print(colored("✓ Main Value", "cyan"))
             # ? temporary tag handling, should be replaced by proper data formats
             if 'tag' in sub_dict:
-                main_value = [f"\"{x}\"{sub_dict['tag']}" for x in main_value]
+                for third in main_value:
+                    third.import_tag(sub_dict['tag'])
+                # ? alternative:
+                # not sure if this is better or worse
+                # main_value = [SpchtThird(x.content, tag=sub_dict['tag']) for x in main_value]
+                # ? legacy code:
+                # main_value = [f"\"{x}\"{sub_dict['tag']}" for x in main_value]
+            if 'type' in sub_dict and str(sub_dict['type']).lower() == "uri":
+                for third in main_value:
+                    third.uri = True
             # ! sub node handling
             if 'sub_nodes' in sub_dict:  # TODO: make this work for joined_map
                 self.debug_print(colored("Sub Nodes detected:", "blue"), f"{len(sub_dict['sub_nodes'])} entry instance(s)")
@@ -581,7 +541,7 @@ class Spcht:
             return None  # usually i return false in these situations, but none seems appropriate
 
     @staticmethod
-    def _node_return_iron(predicate: str, subject: list or str) -> list:
+    def _node_return_iron(predicate: str, sobjects: list):
         """
         Used in processing of content as last step before signing off to the processing functions
         equalizes the output, desired is a format where there is a list of tuples, after the basic steps we normally
@@ -594,27 +554,23 @@ class Spcht:
 
         :param predicate: the mapped predicate for this node
         :param subject: a single mapped string or a list of such
-        :rtype: list
+        :rtype: list of SpchtTriple
         :return: a list of tuples where the first entry is the graph and the second the mapped subject, might be empty
         """
         # this is a simple routine to adjust the output from the nodeprocessing to a more uniform look so that its always
         # a list of tuples that is returned, instead of a tuple made of a string and a list.
         if not isinstance(predicate, str):
             raise TypeError("Predicate has to be a string")  # ? has it thought? Could be an URI Object..technically
-        if isinstance(subject, (int, float)):
-            subject = str(subject)  # i am feeling kinda bad here, but this should work right?
-            # although i am not sure how a number or a float can be a valid URI
-        if not subject:
+        if not sobjects:
             return []
-        if isinstance(subject, str):
-            return [(predicate, subject)]  # list of one tuple
-        if isinstance(subject, list):
-            return [(predicate, s) for s in subject if s]
-        logger.error(f"While using the node_return_iron something failed while ironing '{str(subject)}'")
+        if isinstance(sobjects, list):
+            return [SpchtTriple(None, SpchtThird(predicate, uri=True), sobject) for sobject in sobjects]
+            #return [(predicate, s) for s in subject if s]
+        logger.error(f"While using the node_return_iron something failed while ironing '{str(sobjects)}'")
         raise TypeError("Could handle predicate, subject pair")
 
     @staticmethod
-    def _node_preprocessing(value: str or list, sub_dict: dict, key_prefix="") -> list:
+    def _node_preprocessing(value:  list, sub_dict: dict, key_prefix=""):
         """
         Filtering the given value or list of values with the node-parameter 'match' or '{prefix}match', it will then
         return a list with all strings that match, will convert numbers to strings, the entire string will be returned
@@ -625,27 +581,19 @@ class Spcht:
         This method is static instead of beeing inside SpchtUtility cause it shares close and specific functionality with
         the SpchtDescriptor Core function
 
-        :param str or list value: value of the found field/subfield, can be a list
+        :param list value: list of SpchtThirds
         :param dict sub_dict: sub dictionary containing a match key, if not nothing happens
-        :return: if not a single match was found, always a list of values, even its just one
+        :return: list of SpchtThird
         :raise TypeError: for value != (list, str, float, int), and value=list but list elements not str,float,int
         """
         # if there is a match-filter, this filters out the entry or all entries not matching
         if f'{key_prefix}match' not in sub_dict:
-            return SpchtUtility.list_wrapper(value)  # the nothing happens clause
-        if isinstance(value, (float, int, str)):
-            finding = re.search(sub_dict[f'{key_prefix}match'], str(value))
-            if finding is not None:
-                return [finding.string]
-            else:
-                return []
-        elif isinstance(value, list):
+            return value  # the nothing happens clause
+        if isinstance(value, list):
             list_of_returns = []
+            # ? deleted check here, SpchtThird makes sure only basic types are there
             for item in value:
-                if not isinstance(item, (float, int, str)):
-                    logger.error(f"SPCHT.node_preprocessing - unable to handle data type {type(item)} in list")
-                    raise TypeError(f"SPCHT.node_preprocessing - Found a {type(value)} in a given list.")
-                finding = re.search(sub_dict[f'{key_prefix}match'], str(item))
+                finding = re.search(sub_dict[f'{key_prefix}match'], str(item.content))
                 if finding:
                     list_of_returns.append(item)  # ? extend ?
             return list_of_returns
@@ -654,7 +602,7 @@ class Spcht:
             raise TypeError(f"SPCHT.node_preprocessing - Found a {type(value)}")
             # return value
 
-    def _node_postprocessing(self, value: str or list, sub_dict: dict, key_prefix="") -> list:
+    def _node_postprocessing(self, value: list, sub_dict: dict, key_prefix=""):
         """
         Changes a string after it was already taken for inclusion as a node, this changes the string in two ways:
 
@@ -664,40 +612,32 @@ class Spcht:
         if none of the parameters is defined it will just return the input value without any transformations. In that
         case a non-list might be returned, if any operation took place, the data will always be in a list
 
-        :param str or list value: the content of the field that got mapped till now
+        :param list value: list of SpchtThird
         :param dict sub_dict: the subdictionary of the node containing the 'cut', 'prepend', 'append' and 'replace' key
         :return: returns the same number of provided entries as input, always a list
-        :rtype: list
+        :rtype: list of SpchtThird
         """
         # after having found a value for a given key and done the appropriate mapping the value gets transformed
         # once more to change it to the provided pattern
 
         # as i have manipulated the preprocessing there should be no non-strings anymore
         # (Jul/21) there should also be no more strings as everything is a list by now (except in a test case i wrote)
-        if isinstance(value, str):
-            if f'{key_prefix}cut' in sub_dict:
-                value = re.sub(sub_dict.get(f'{key_prefix}cut', ""), sub_dict.get(f'{key_prefix}replace', ""), value)
-                if key_prefix != "":  # ? in theory this can be used on any value, but 'save' should only save the main one
-                    self._add_to_save_as(value, sub_dict)
-            else:
-                if key_prefix != "":
-                    self._add_to_save_as(value, sub_dict)
-            return [sub_dict.get(f'{key_prefix}prepend', "") + value + sub_dict.get(f'{key_prefix}append', "")]
-        elif isinstance(value, list):
+        if isinstance(value, list):
             list_of_returns = []
             for item in value:
                 if f'{key_prefix}cut' not in sub_dict:
-                    rest_str = sub_dict.get(f'{key_prefix}prepend', "") + str(item) + sub_dict.get(f'{key_prefix}append', "")
+                    rest_str = sub_dict.get(f'{key_prefix}prepend', "") + str(item.content) + sub_dict.get(f'{key_prefix}append', "")
                     if key_prefix != "":
-                        self._add_to_save_as(item, sub_dict)
+                        self._add_to_save_as(item.content, sub_dict)
                 else:
-                    pure_filter = re.sub(sub_dict.get(f'{key_prefix}cut', ""), sub_dict.get(f'{key_prefix}replace', ""), str(item))
+                    pure_filter = re.sub(sub_dict.get(f'{key_prefix}cut', ""), sub_dict.get(f'{key_prefix}replace', ""), str(item.content))
                     rest_str = sub_dict.get(f'{key_prefix}prepend', "") + pure_filter + sub_dict.get(f'{key_prefix}append', "")
                     if key_prefix != "":
                         self._add_to_save_as(pure_filter, sub_dict)
-                list_of_returns.append(rest_str)
+                list_of_returns.append(SpchtThird(rest_str))
             return list_of_returns  # [] is falsey, replaces old "return None" clause
         else:  # fallback if its anything else i dont intended to handle with this
+            logger.info("Postprocessing got a non-list value and forwarded it, that should happen")
             return value
 
     def _node_mapping(self, value, mapping, settings=None):
@@ -710,7 +650,7 @@ class Spcht:
         :param dict mapping: a dictionary of key:value pairs provided to replace parameter value one by one
         :param dict settings: a set list of settings that were defined in the node
         :return: returns the same number of values as input, might replace all non_matches with the default value. It CAN return None if something funky is going on with the settings and mapping
-        :rtype: str or list or None
+        :rtype: list of SpchtThird
         """
         the_default = None
         inherit = False
@@ -731,14 +671,12 @@ class Spcht:
                 # case insensitivity is achieved by just converting every key to lowercase
                 mapping = {str(k).lower(): v for k, v in mapping.items()}
 
-        value = SpchtUtility.list_wrapper(value)
-
         if isinstance(value, list):  # ? repeated dictionary calls not good for performance?
             response_list = []
             if not regex:
                 for item in value:
-                    if item in mapping:
-                        response_list.append(mapping[item])
+                    if item.content in mapping:
+                        response_list.append(SpchtThird(mapping[item.content]))
                     else:
                         if inherit:
                             response_list.append(item)
@@ -746,14 +684,14 @@ class Spcht:
                 patterns = {}
                 for each in mapping:
                     patterns[re.compile(each)] = each
-                for entry in value:
+                for item in value:
                     matching = None
-                    if any((match := regex.search(entry)) for regex in patterns):
+                    if any((match := regex.search(item.content)) for regex in patterns):
                         matching = mapping[patterns[match.re]]
                     if matching:
-                        response_list.append(matching)
+                        response_list.append(SpchtThird(matching))
                     elif inherit:
-                        response_list.append(entry)
+                        response_list.append(item)
 
             if len(response_list) > 0:
                 return response_list
@@ -761,14 +699,14 @@ class Spcht:
                 if the_default:
                     # ? i wonder when this even triggers? when giving an empty list? in any other case default is there
                     # * caveat here, if there is a list of unknown things there will be only one default
-                    response_list.append(the_default)  # there is no inheritance here, i mean, what should be inherited? void?
+                    response_list.append(SpchtThird(the_default))  # there is no inheritance here, i mean, what should be inherited? void?
                 return response_list
                 # ? i was contemplating whether it should return value or None. None is the better one i think
                 # ? cause if we no default is defined we probably have a reason for that right?
                 # ! stupid past me, it should throw an exception
         else:
-            logger.error("_node_mapping: got a non-list, non-string as value.")
-            print(f"field contains a non-list, non-string: {type(value)}", file=self.std_err)
+            logger.error("_node_mapping: got a non-list as value.")
+            print(f"field contains a non-list: {type(value)}", file=self.std_err)
 
     def _joined_map(self, sub_dict: dict) -> list:
         """
@@ -786,7 +724,7 @@ class Spcht:
         :param dict sub_dict: the node dictionary containing the data to process this step, namely: graph_field, graph_map
         :type sub_dict:
         :return: a list of tuples
-        :rtype: list
+        :rtype: list of SpchtTriple
         """
         field = self.extract_dictmarc_value(sub_dict, sub_dict["field"])
         # ? alternatives seems to very unlikely to ever work but maybe there is data in the future that has use for this
@@ -822,27 +760,13 @@ class Spcht:
             logger.debug("_joined_map: EXIT 4")
             return []
             # raise SpchtErrors.DataError(msg)
-        if isinstance(field, list) and not isinstance(joined_field, list):
-            self.debug_print(colored("JoinedMap: list and non-list", "red"), end="-> ")
-            msg = "joined_field and field are not of the same, allowed, type."
-            logger.warning(f"_joined_map {msg}")
-            logger.debug("_joined_map: EXIT 5")
-            return []
-            # raise SpchtErrors.DataError(msg)
-        if not isinstance(field, (str, float, int, list)) or not isinstance(joined_field, (str, float, int, list)):
-            self.debug_print(colored("JoinedMap: non-value, non-list", "red"), end="-> ")
-            msg = "One or both of field and/or joined_field value are not of the allowed type, curious"
-            logger.error(f"_joined_map {msg}")
-            logger.debug("_joined_map: EXIT 6")
-            return []
-            # raise SpchtErrors.DataError(msg)
         if isinstance(field, list) and isinstance(joined_field, list):
             # this is a weird one, the extracation procedure above should always result in a list, even with length 1,
             # but i know that i have to extend that function, so i might need to change that, therefore i already added
             # this check to keep the input compatibility
             if len(joined_field) == 1 and len(field) != len(joined_field):
                 # ? this is a rather small 'hack' to get the n=1 effect without having a lot of complicated things
-                joined_field = [joined_field[0] for _ in enumerate(field)]
+                joined_field = [copy.copy(joined_field[0]) for _ in enumerate(field)]
             elif len(field) != len(joined_field):
                 self.debug_print(colored("JoinedMap: len difference", "red"), end=" ")
                 msg = f"Found different lengths for field and joinedfield ({len(field)} vs. {len(joined_field)})"
@@ -851,16 +775,15 @@ class Spcht:
                 return []
                 # raise SpchtErrors.DataError(msg)
         else:  # another of those occasions that shall not happen
-            field = SpchtUtility.list_wrapper(field)
-            joined_field = SpchtUtility.list_wrapper(joined_field)
+            msg = "joined map found non-lists after extractions, that shouldnt happen"
+            logger.warning(msg)
+            logger.debug(f"field: {type(field)}, joined_field: {type(joined_field)}")
+            raise TypeError(msg)
         # if type(raw_dict[sub_dict['field']]) != type(raw_dict[sub_dict['joined_field']]): # technically possible
 
         result_list = []
         for i, item in enumerate(field):  # iterating through the list every time is tedious
             try:
-                if not isinstance(field[i], (str, int, float)) or not isinstance(joined_field[i], (str, int, float)):
-                    logger.debug(f"_joined_map has in field '{sub_dict['field']}' a non-instance of str either in '{field[i]}' or '{joined_field[i]}'")
-                    continue
                 sobject = Spcht._node_preprocessing(field[i], sub_dict)  # filters out entries
                 if not sobject:
                     continue
@@ -868,6 +791,10 @@ class Spcht:
                 sobject = self._node_postprocessing(sobject, sub_dict)
                 if len(sobject) == 1:
                     sobject = sobject[0]
+                    if 'type' in sub_dict and str(sub_dict['type']).lower() == "uri":
+                        sobject.uri = True
+                    if 'tag' in sub_dict:
+                        sobject.import_tag(sub_dict['tag'])
                 else:
                     logger.critical("_joined_map, for some unexptected reasons, the output inside the joined_map loop had more than one value for the object, that should not happen, never. Investigate!")
                     raise SpchtErrors.OperationalError("Cannot continue processing with undecisive data")
@@ -875,8 +802,9 @@ class Spcht:
                 predicate = self._node_mapping(joined_field[i], sub_dict.get("joined_map"), {"$default": sub_dict['predicate']})
                 if len(predicate) == 1:
                     predicate = predicate[0]
+                    predicate.uri = True
 
-                result_list.append((predicate, sobject))  # a tuple
+                result_list.append(SpchtTriple(None, predicate, sobject))  # a tuple
             except IndexError as e:
                 msg = f"joined map found an out of index error for field&joined_field, this means something is wrongly coded: {e}"
                 logger.error(msg)
@@ -892,11 +820,11 @@ class Spcht:
             wont fire at all if not at least field doesnt exits
         :param dict sub_dict: the subdictionary of the node containing all the nodes insert_into and insert_add_fields
         :return: a list of tuple or a singular tuple of (predicate, string)
-        :rtype: tuple or list
+        :rtype: list of SpchtThird
         """
 
         # check what actually exists in this instance of raw_dict
-        inserters = [value]  # each entry is a list of strings that are the values stored in that value, some dict fields are
+        inserters = [[third.content for third in value]]  # each entry is a list of strings that are the values stored in that value, some dict fields are
 
         if 'insert_add_fields' in sub_dict:  # ? the two times this gets called it actually checks beforehand, why do i bother?
             for each in sub_dict['insert_add_fields']:
@@ -912,7 +840,7 @@ class Spcht:
                 additional_value = self._node_preprocessing(additional_value, pseudo_dict)
                 additional_value = self._node_postprocessing(additional_value, pseudo_dict)
                 if additional_value:
-                    inserters.append(SpchtUtility.list_wrapper(additional_value))
+                    inserters.append([third.content for third in additional_value])  # appending the list of values to the other list
                 else:
                     inserters.append([""])
         # all_variants iterates through the separate lists and creates a new list or rather matrix with all possible combinations
@@ -924,7 +852,7 @@ class Spcht:
         for each in all_texts:
             replaced_line = insert_list_into_str(each, sub_dict['insert_into'], r'\{\}', 2, True)
             if replaced_line is not None:
-                all_lines.append(replaced_line)
+                all_lines.append(SpchtThird(replaced_line))
         return all_lines
 
     def _handle_if(self, sub_dict: dict):
@@ -986,7 +914,7 @@ class Spcht:
         failure_list = []
         if isinstance(if_value, list):
             for each in comparator_value:
-                each = if_possible_make_this_numerical(each)
+                each = if_possible_make_this_numerical(each.content)
                 for value in if_value:
                     if condition == "==":
                         if each == value:
@@ -1008,7 +936,7 @@ class Spcht:
                 return True
         else:
             for each in comparator_value:
-                each = if_possible_make_this_numerical(each)
+                each = if_possible_make_this_numerical(each.content)
                 # ? if we attempt to do this, we just normally get a type error, so why bother?
                 numerical = [">", ">=", "<", "<="]
                 if not isinstance(if_value, (int, float, complex)) and condition in numerical:
@@ -1058,35 +986,24 @@ class Spcht:
         :param dict sub_nodes:
         :param list parent_value:
         :return: a list of tuples containing 4 values describing an entire triple where the last number is "isTriple=True/False"
-        :rtype: list
+        :rtype: list of SpchtTriple
         """
         return_quadros = []
-        # return_rdf = []
         if len(parent_value) != 1:
             raise SpchtErrors.ParsingError("Use of sub node required parent values to be singular")
-        sub_subject = parent_value[0]
-        # cycles = len(sub_nodes)
+        sub_subject = SpchtThird(parent_value[0], uri=True)
         for i, single_node in enumerate(sub_nodes):
             try:
                 # self.debug_print(colored(f"Cycling node {i}/{cycles} - {single_node.get('name', 'unnamed')}"))
                 sub_values = self._recursion_node(single_node)
                 if sub_values:
-                    self_sufficient_triples = [x for x in sub_values if len(x) == 4]
-                    sub_values = [x for x in sub_values if len(x) == 2]
-                    if self_sufficient_triples:
-                        return_quadros += self_sufficient_triples
-                    if 'type' in single_node and single_node['type'] == "uri":
-                        # return_rdf += [(rdflib.URIRef(sub_subject), rdflib.URIRef(x[0]), rdflib.URIRef(x[1])) for x in sub_values]
-                        return_quadros += [(sub_subject, x[0], x[1], 1) for x in sub_values]
-                    else:
-                        # if 'tag' in single_node:
-                        #   lang, datatype = SpchtUtility.extract_node_tag(single_node['tag'])
-                        #   return_rdf += [(rdflib.URIRef(sub_subject), rdflib.URIRef(x[0]), rdflib.Literal(x[1], lang=lang, datatype=datatype)) for x in sub_values]
-                        return_quadros += [(sub_subject, x[0], x[1], 0) for x in sub_values]
+                    return_quadros += [x for x in sub_values if x]  # if SpchtTriple is complete
+                    sub_values = [x for x in sub_values if not x]
+                    for triple in sub_values:
+                        triple.subject = copy.copy(sub_subject)
             except Exception as e:
                 logger.warning(f"SubNode throws Exception {e.__class__.__name__}: '{e}'")
                 print(colored("✗Processing of sub_node failed.", "red"))
-        # return_quadros.append(return_rdf)
         return return_quadros
 
     def _handle_sub_data(self):
@@ -1111,7 +1028,7 @@ class Spcht:
                 raise SpchtErrors.DataError("UUID-Gen - Given field yields no value")
         return str(uuid.uuid5(uuid.NAMESPACE_URL, names_combined))
 
-    def extract_dictmarc_value(self, sub_dict: dict, dict_field=None, dict_tree=None) -> list:
+    def extract_dictmarc_value(self, sub_dict: dict, dict_field=None, dict_tree=None, raw=False) -> list:
         """
         In the corner case and context of this program there are (for now) two different kinds of 'raw_dict', the first
         is a flat dictionary containing a key:value relationship where the value might be a list, the second is the
@@ -1123,8 +1040,9 @@ class Spcht:
         a spcht node and uses it to extract the neeed data and returns it. If there is no field it will return None instead
         :param dict sub_dict: a spcht node describing the data source
         :param str dict_field: name of the field in sub_dict, usually this is just 'field'
+        :param dict dict_tree: total alternative set of data that is not the class data
         :return: A list of values, might be empty
-        :rtype: list
+        :rtype: list of SpchtThird
         """
         # 02.01.21 - Previously this also returned false, this behaviour was inconsistent
         if not dict_field:
@@ -1132,15 +1050,12 @@ class Spcht:
         if not dict_tree:  # a tree dictionary might be a sub plot of existing data, but can also reside on the root of a normal dict source
             dict_tree = self._raw_dict
 
+        final_value = None
         if sub_dict['source'] == 'dict':
             if dict_field not in self._raw_dict:
                 return []
-            if not isinstance(self._raw_dict[dict_field], list):
-                value = [self._raw_dict[dict_field]]
-            else:
-                value = self._raw_dict[dict_field]
-            return value
-        if sub_dict['source'] == 'tree':
+            final_value = self._raw_dict[dict_field]
+        elif sub_dict['source'] == 'tree':
             # re.search(r"(?:\w+)+(>)*", dict_field) # ? i decided against a pattern check, if it fails it fails
             keys = dict_field.split(">")
             if keys:
@@ -1151,9 +1066,9 @@ class Spcht:
                         value = value[key]
                     else:
                         logger.debug(f"Cannot extract '{key}' in chain '{dict_field}' cause it doesnt exist")
-                        return []
-                return value
-            return []
+                        break
+                if value:
+                    final_value = value
             # re.split(r'(?<!\\)>', str) # ! compile spcht to have those splitters properly handled
         elif sub_dict['source'] == "marc" and self._m21_dict:
             field, subfield = SpchtUtility.slice_marc_shorthand(dict_field)
@@ -1173,22 +1088,26 @@ class Spcht:
                             value.append(m21_subfield)
                     else:
                         pass  # ? for now we are just ignoring that iteration
-                if value is None:
-                    return []  # ! Exit 2 - Field around but not subfield
-                return SpchtUtility.list_wrapper(value)
+                if value:
+                    final_value = value
             else:
                 if subfield in self._m21_dict[field]:
                     if isinstance(self._m21_dict[field][subfield], list):
                         for every in self._m21_dict[field][subfield]:
                             value.append(every)
-                        if value is None:  # i honestly cannot think why this should every happen, probably a faulty preprocessor
-                            return []  # ! Exit 2 - Field around but not subfield
-
-                        return value
+                        final_value = value
                     else:
-                        return [self._m21_dict[field][subfield]]
+                        final_value = self._m21_dict[field][subfield]
+        # ! final wrapping of values
+        if final_value:
+            if not raw:
+                if not isinstance(final_value, list):
+                    value = [SpchtThird(final_value)]
                 else:
-                    return []  # ! Exit 2 - Field around but not subfield
+                    value = [SpchtThird(x) for x in final_value]
+            else:
+                value = SpchtUtility.list_wrapper(final_value)
+            return value
         else:
             return []
 
@@ -1371,6 +1290,211 @@ class SpchtIterator:
             self._index += 1
             return result
         raise StopIteration
+
+
+class SpchtThird:
+    """
+    A third of a triple, can be an URI or an literal
+    """
+    def __init__(self, content, uri=False, tag=None):
+        self.content = content
+        self.language = None
+        self.annotation = None
+        self.uri = uri
+        if tag:
+            self.import_tag(tag)
+
+    def __repr__(self):
+        if self.uri:
+            return "<" + str(self.content) + ">"
+        else:
+            sparql_like = "\"" + str(self.content) + "\""
+            if self.annotation:
+                sparql_like += "^^" + self.annotation
+            if self.language:
+                sparql_like += "@" + self.language
+            return sparql_like
+
+    def __str__(self):
+        return str(self.content)
+
+    def __len__(self):
+        return len(self.content)
+
+    def __bool__(self):
+        return bool(self.content)
+
+    def import_tag(self, tag):
+        if tag and len(tag) > 1:
+            if tag[0]+tag[1] == "^^":
+                self.annotation = tag[2:]
+            if tag[0] == "@":
+                self.language = tag[1:]
+
+    @property
+    def content(self):
+        return self._content
+
+    @content.setter
+    def content(self, content: str or int or float or bool):
+        if isinstance(content, (str, int, float, bool)):
+            self._content = content
+        else:
+            raise TypeError("content must be str")
+
+    @property
+    def language(self):
+        return self._language
+
+    @language.setter
+    def language(self, language: str or None):
+        if not language:
+            self._language = None
+        else:
+            if self.annotation is None:
+                self._language = language
+            else:
+                raise ValueError("cannot set annotation and language")
+
+    @property
+    def uri(self):
+        return self._uri
+
+    @uri.setter
+    def uri(self, uri: bool):
+        # TODO: check of current content can be an uri
+        if isinstance(uri, bool):
+            self._uri = uri
+        else:
+            raise TypeError("Uri designator must be boolean")
+
+    @property
+    def annotation(self):
+        return self._annotation
+
+    @annotation.setter
+    def annotation(self, annotation: str or None):
+        if annotation is None or not annotation:
+            self._annotation = None
+        elif isinstance(annotation, str):
+            if self.language is None:
+                self._annotation = annotation
+            else:
+                raise ValueError("cannot set language and annotation")
+        else:
+            raise TypeError("annotation must be a string or None")
+
+
+class SpchtTriple:
+    def __init__(self, subject=None, predicate=None, sobject=None):
+        """
+        A simple triple for Spcht, mimics RDFLib implementation, this is a bit simpler cause i only need it as data
+        class.
+        :param SpchtThird or None subject:
+        :param SpchtThird or None predicate:
+        :param SpchtThird or None sobject:
+        """
+        self.subject = subject
+        self.predicate = predicate
+        self.sobject = sobject
+        self.complete = False
+        self.check_complete()
+
+    def __repr__(self):
+        returned_sparqllike = ""
+        if self.subject:
+            returned_sparqllike += self.subject.__repr__() + " "
+        else:
+            returned_sparqllike += "s? "
+        if self.predicate:
+            returned_sparqllike += self.predicate.__repr__() + " "
+        else:
+            returned_sparqllike += "p? "
+        if self.sobject:
+            returned_sparqllike += self.sobject.__repr__() + " "
+        else:
+            returned_sparqllike += "o? ."
+        return returned_sparqllike
+
+    def __str__(self):
+        return self.subject.content if self.subject else "None" + " " + self.predicate.content if self.predicate else "None" + " " + self.sobject.content if self.sobject else "None"
+
+    def __bool__(self):
+        # not so sure about this one, will give false if the triple isn't complete, but no telling if its empty
+        # or just 2/3 filled
+        return self.complete
+
+    def __getitem__(self, item):
+        if item == 0 or str(item).lower() == "subject":
+            return self.subject
+        elif item == 1 or str(item).lower() == "predicate":
+            return self.predicate
+        elif item == 2 or str(item).lower() == "object":
+            return self.sobject
+        else:
+            raise KeyError("SpchtTriple only has only 3 items")
+
+    def check_complete(self):
+        if self.subject and self.sobject and self.predicate:
+            self.complete = True
+            return True
+        self.complete = False
+        return False
+
+    @property
+    def subject(self):
+        return self._subject
+
+    @subject.setter
+    def subject(self, subject: SpchtThird):
+        if isinstance(subject, SpchtThird):
+            if subject.uri:
+                self._subject = copy.copy(subject)
+                self.check_complete()
+            else:
+                raise TypeError("subject must be an uri")
+        elif subject is None or not subject:
+            self._subject = None
+            self.complete = False
+        else:
+            raise TypeError("subject must be of SpchtThird")
+
+    @property
+    def predicate(self):
+        return self._predicate
+
+    @predicate.setter
+    def predicate(self, predicate: SpchtThird):
+        if isinstance(predicate, SpchtThird):
+            if predicate.uri:
+                self._predicate = copy.copy(predicate)
+                self.check_complete()
+            else:
+                raise TypeError("predicate must be an uri")
+        elif predicate is None or not predicate:
+            self._predicate = None
+            self.complete = False
+        else:
+            raise TypeError("predicate must be of SpchtThird")
+
+    @property
+    def sobject(self):
+        return self._sobject
+
+    @sobject.setter
+    def sobject(self, sobject: SpchtThird):
+        if isinstance(sobject, SpchtThird):
+            self._sobject = copy.copy(sobject)
+            self.check_complete()
+        elif sobject is None or not sobject:
+            self._sobject = None
+            self.complete = False
+        else:
+            try:
+                temp = SpchtThird(sobject)  # tries to convert whatever we got to an object
+                self._sobject = temp
+            except TypeError:
+                raise TypeError("sobject must be of SpchtThird")
 
 
 class SpchtNode:
@@ -1834,3 +1958,4 @@ class SpchtNodeIterator:
             self._index += 1
             return result
         raise StopIteration
+

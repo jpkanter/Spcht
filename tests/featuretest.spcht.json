@@ -387,6 +387,8 @@
       "name": "Simple marc with a subfield and if-condition on existence",
       "source": "marc",
       "predicate": "https://_39_simple.marc.subfield.with.if.existence/",
+      "append": "https://data.finc.info/organisation/",
+      "type": "uri",
       "required": "optional",
       "field": "852:a",
       "if_condition": "exi",
