@@ -27,7 +27,7 @@ tests internal functions of the spcht descriptor format
 
 import unittest
 import copy
-from SpchtDescriptorFormat import Spcht
+from SpchtDescriptorFormat import Spcht, SpchtThird, SpchtTriple
 import SpchtUtility
 
 import logging
@@ -103,13 +103,13 @@ class TestSpchtInternal(unittest.TestCase):
             "match": "^(SE-251)"
         }
         with self.subTest("preprocessing_match"):
-            value = "SE-251"
-            self.assertEqual([value], Spcht._node_preprocessing(value, node))
+            value = [SpchtThird("SE-251")]
+            self.assertEqual(value, Spcht._node_preprocessing(value, node))
         with self.subTest("preprocessing_match_additional"):
-            value = "SE-251moretext"
-            self.assertEqual([value], Spcht._node_preprocessing(value, node))
+            value = [SpchtThird("SE-251moretext")]
+            self.assertEqual(value, Spcht._node_preprocessing(value, node))
         with self.subTest("preprocessing_empty_match"):
-            value = "preSE-251"
+            value = [SpchtThird("preSE-251")]
             self.assertEqual([], Spcht._node_preprocessing(value, node))
         with self.subTest("preprocessing_typerror"):
             value = Spcht()
@@ -117,8 +117,8 @@ class TestSpchtInternal(unittest.TestCase):
                 Spcht._node_preprocessing(value, node)
         with self.subTest("preprocessing_prefix"):
             node['there_match'] = "(PT-120)"
-            value = "aaaPT-120bbb"
-            self.assertEqual([value], Spcht._node_preprocessing(value, node, "there_"))
+            value = [SpchtThird("aaaPT-120bbb")]
+            self.assertEqual(value, Spcht._node_preprocessing(value, node, "there_"))
 
     def test_preprocessing_multi(self):
         node = {
@@ -140,10 +140,10 @@ class TestSpchtInternal(unittest.TestCase):
         node = {
                 12: "dutzend"
             }
-        value = TEST_DATA['tench']
+        value = [SpchtThird(TEST_DATA['tench'])]
 
         with self.subTest("mapping: normal"):
-            expected = ["dutzend"]
+            expected = [SpchtThird("dutzend")]
             self.assertEqual(expected, self.crow._node_mapping(value, node))
         with self.subTest("mapping: empty"):
             expected = []
@@ -155,10 +155,11 @@ class TestSpchtInternal(unittest.TestCase):
                 9: "lives",
                 12: "dutzend"
             }
-        value = TEST_DATA['sturgeon']
+        self.crow._raw_dict = TEST_DATA
+        value = self.crow.extract_dictmarc_value({"field": "sturgeon", "source": "dict"})
 
         with self.subTest("mapping_multi: normal"):
-            expected = ["quartet", "lives", "dutzend"]
+            expected = [SpchtThird("quartet"), SpchtThird("lives"), SpchtThird("dutzend")]
             self.assertEqual(expected, self.crow._node_mapping(value, node))
         with self.subTest("mapping_multi: empty"):
             expected = []
@@ -170,31 +171,35 @@ class TestSpchtInternal(unittest.TestCase):
             "de": "small de",
             "De": "inbetween"
         }
-        value = TEST_DATA['cutthroat']
+        self.crow._raw_dict = TEST_DATA
+        value = self.crow.extract_dictmarc_value({"field": "cutthroat", "source": "dict"})
         with self.subTest("mapping_string: normal"):
-            expected = ["small de"]
+            expected = [SpchtThird("small de")]
             self.assertEqual(expected, self.crow._node_mapping(value, node))
         with self.subTest("mapping_string: case-insensitive"):
-            expected = ['inbetween']  # case case-insensitivity overwrites keys and 'inbetween' is the last
+            expected = [SpchtThird('inbetween')]  # case case-insensitivity overwrites keys and 'inbetween' is the last
             self.assertEqual(expected, self.crow._node_mapping(value, node, {'$casesens': False}))
 
     def test_mapping_regex(self):
         node = {
+            "field": "catfish",
+            "source": "dict",
             "^(water)": "air",
             "(air)$": "fire"
         }
-        value = TEST_DATA['catfish']
+        self.crow._raw_dict = copy.copy(TEST_DATA)
+        value = self.crow.extract_dictmarc_value(node)
         with self.subTest("mapping_regex: normal"):
-            expected = ['fire', 'fire', 'fire', 'fire']
+            expected = [SpchtThird('fire'), SpchtThird('fire'), SpchtThird('fire'), SpchtThird('fire')]
             # mapping replaces the entire thing and not just a part, this basically just checks how many instances were replaced
             self.assertEqual(expected, self.crow._node_mapping(value, node, {'$regex': True}))
         with self.subTest("mapping_regex: inherit"):
-            expected = ['fire', 'fire', 'fire', 'stairs', 'fire', 'tear']
+            expected = [SpchtThird('fire'), SpchtThird('fire'), SpchtThird('fire'), SpchtThird('stairs'), SpchtThird('fire'), SpchtThird('tear')]
             self.assertEqual(expected, self.crow._node_mapping(value, node, {'$regex': True, '$inherit': True}))
         with self.subTest("mapping_regex: default"):
             del node['(air)$']
             default = "this_is_defaul t"
-            expected = [default]
+            expected = [SpchtThird(default)]
             self.assertEqual(expected, self.crow._node_mapping(value, node, {'$regex': True, '$default': default}))
 
     def test_postprocessing_single_cut_replace(self):
@@ -202,8 +207,8 @@ class TestSpchtInternal(unittest.TestCase):
             "cut": "(air)\\b",
             "replace": "xXx"
         }
-        value = "ice water danger xfire air fire hairs flair"
-        expected = ["ice water danger xfire xXx fire hairs flxXx"]
+        value = [SpchtThird("ice water danger xfire air fire hairs flair")]
+        expected = [SpchtThird("ice water danger xfire xXx fire hairs flxXx")]
         self.assertEqual(expected, self.crow._node_postprocessing(value, node))
 
     def test_postprocessing_multi_cut_replace(self):
@@ -211,49 +216,57 @@ class TestSpchtInternal(unittest.TestCase):
             "cut": "(air)\\b",
             "replace": "xXx"
         }
-        value = ["air hair", "lair, air, fair", "stairs, fair and air"]
-        expected = ["xXx hxXx", "lxXx, xXx, fxXx", "stairs, fxXx and xXx"]
+        value = [SpchtThird("air hair"), SpchtThird("lair, air, fair"), SpchtThird("stairs, fair and air")]
+        expected = [SpchtThird("xXx hxXx"), SpchtThird("lxXx, xXx, fxXx"), SpchtThird("stairs, fxXx and xXx")]
         self.assertEqual(expected, self.crow._node_postprocessing(value, node))
 
     def test_postprocessing_append(self):
         node = {"append": " :IC-1211"}
         with self.subTest("Postprocessing: append -> one value"):
-            value = "some text"
-            expected = [value + node['append']]  # such things make you wonder why you are even testing for it
+            value = [SpchtThird("some text")]
+            expected = [SpchtThird("some text :IC-1211")]  # such things make you wonder why you are even testing for it
             self.assertEqual(expected, self.crow._node_postprocessing(value, node))
         with self.subTest("Postprocessing: append -> one value & prefix"):
-            value = "some text"
+            value = [SpchtThird("some text")]
             node['elephant_append'] = copy.copy(node['append'])
-            expected = [value + node['append']]  # such things make you wonder why you are even testing for it
+            expected = [SpchtThird("some text :IC-1211")]  # such things make you wonder why you are even testing for it
             self.assertEqual(expected, self.crow._node_postprocessing(value, node, "elephant_"))
         with self.subTest("Postprocessing: append -> multi value"):
-            value = ["one text", "two text", "twenty text"]
-            expected = [value[0]+node['append'], value[1]+node['append'], value[2]+node['append']]
+            value = [SpchtThird("one text"), SpchtThird("two text"), SpchtThird("twenty text")]
+            expected = [SpchtThird(value[0].content + node['append']),
+                        SpchtThird(value[1].content + node['append']),
+                        SpchtThird(value[2].content + node['append'])]
             self.assertEqual(expected, self.crow._node_postprocessing(value, node))
         with self.subTest("Postprocessing: append -> multi value & prefix"):
-            value = ["one text", "two text", "twenty text"]
+            value = [SpchtThird("one text"), SpchtThird("two text"), SpchtThird("twenty text")]
             node['dolphin_append'] = copy.copy(node['append'])
-            expected = [value[0]+node['append'], value[1]+node['append'], value[2]+node['append']]
+            expected = [SpchtThird(value[0].content + node['append']),
+                        SpchtThird(value[1].content + node['append']),
+                        SpchtThird(value[2].content + node['append'])]
             self.assertEqual(expected, self.crow._node_postprocessing(value, node, "dolphin_"))
 
     def test_postprocessing_prepend(self):
         node = {"prepend": "AS-400: "}
         with self.subTest("Postprocessing: prepend -> one value"):
-            value = "some text"
-            expected = [node['prepend'] + value]  # such things make you wonder why you are even testing for it
+            value = [SpchtThird("some text")]
+            expected = [SpchtThird(node['prepend'] + value[0].content)]  # such things make you wonder why you are even testing for it
             self.assertEqual(expected, self.crow._node_postprocessing(value, node))
         with self.subTest("Postprocessing: prepend -> one value & prefix"):
-            value = "some different text"
-            expected = [node['prepend'] + value]  # such things make you wonder why you are even testing for it
+            value = [SpchtThird("some different text")]
+            expected = [SpchtThird(node['prepend'] + value[0].content)]  # such things make you wonder why you are even testing for it
             node['macaw_prepend'] = copy.copy(node['prepend'])
             self.assertEqual(expected, self.crow._node_postprocessing(value, node, "macaw_"))
         with self.subTest("Postprocessing: prepend -> multi value"):
-            value = ["one text", "two text", "twenty text"]
-            expected = [node['prepend'] + value[0], node['prepend'] + value[1], node['prepend'] + value[2]]
+            value = [SpchtThird("one text"), SpchtThird("two text"), SpchtThird("twenty text")]
+            expected = [SpchtThird(node['prepend'] + value[0].content),
+                        SpchtThird(node['prepend'] + value[1].content),
+                        SpchtThird(node['prepend'] + value[2].content)]
             self.assertEqual(expected, self.crow._node_postprocessing(value, node))
         with self.subTest("Postprocessing: prepend -> multi value"):
-            value = ["one text.", "two text.", "twenty text."]
-            expected = [node['prepend'] + value[0], node['prepend'] + value[1], node['prepend'] + value[2]]
+            value = [SpchtThird("one text."), SpchtThird("two text."), SpchtThird("twenty text.")]
+            expected = [SpchtThird(node['prepend'] + value[0].content),
+                        SpchtThird(node['prepend'] + value[1].content),
+                        SpchtThird(node['prepend'] + value[2].content)]
             node['canine_prepend'] = copy.copy(node['prepend'])
             self.assertEqual(expected, self.crow._node_postprocessing(value, node, 'canine_'))
 
@@ -263,14 +276,17 @@ class TestSpchtInternal(unittest.TestCase):
             "field": "salmon",
             "source": "dict",
             "insert_into": "#{}",
-            "predicate": "T.E.S.T"
+            "predicate": "https://insert.test/"
         }
         with self.subTest("Insert_into - one field"):
-            expected = [('T.E.S.T', '#5')]
+            expected = [SpchtTriple(None, SpchtThird('https://insert.test/', uri=True), SpchtThird('#5'))]
             self.assertEqual(expected, self.crow._recursion_node(node))
         with self.subTest("Insert_into - one field, many values"):
             node['field'] = "sturgeon"
-            expected = [('T.E.S.T', '#4'), ('T.E.S.T', '#9'), ('T.E.S.T', '#12')]
+            expected = [SpchtTriple(None, SpchtThird('https://insert.test/', uri=True), SpchtThird('#4')),
+                        SpchtTriple(None, SpchtThird('https://insert.test/', uri=True), SpchtThird('#9')),
+                        SpchtTriple(None, SpchtThird('https://insert.test/', uri=True), SpchtThird('#12'))
+                        ]
             self.assertEqual(expected, self.crow._recursion_node(node))
 
     def test_insert_fields_multi(self):
@@ -279,20 +295,28 @@ class TestSpchtInternal(unittest.TestCase):
             "field": "salmon",
             "source": "dict",
             "insert_into": "#{}~{}",
-            "predicate": "T.E.S.T",
+            "predicate": "https://insert.test/",
             "insert_add_fields": [{"field": "tench"}]
         }
         with self.subTest("Insert_into_ two variables, two values"):
-            expected = [('T.E.S.T', '#5~12')]
+            expected = [SpchtTriple(None, SpchtThird('https://insert.test/', uri=True), SpchtThird('#5~12'))]
             self.assertEqual(expected, self.crow._recursion_node(node))
         with self.subTest("Insert_into_ two variables, more values"):
-            expected = [('T.E.S.T', '#4~12'), ('T.E.S.T', '#9~12'), ('T.E.S.T', '#12~12')]
+            expected = [SpchtTriple(None, SpchtThird('https://insert.test/', uri=True), SpchtThird('#4~12')),
+                        SpchtTriple(None, SpchtThird('https://insert.test/', uri=True), SpchtThird('#9~12')),
+                        SpchtTriple(None, SpchtThird('https://insert.test/', uri=True), SpchtThird('#12~12'))
+                        ]
             node['field'] = "sturgeon"
             self.assertEqual(expected, self.crow._recursion_node(node))
         with self.subTest("Insert_into two variables, double many values"):
             node['insert_add_fields'][0]['field'] = "foulfish"
-            expected = [('T.E.S.T', '#4~Yellow'), ('T.E.S.T', '#4~Purple'), ('T.E.S.T', '#9~Yellow'),
-                        ('T.E.S.T', '#9~Purple'), ('T.E.S.T', '#12~Yellow'), ('T.E.S.T', '#12~Purple')]
+            expected = [SpchtTriple(None, SpchtThird('https://insert.test/', uri=True), SpchtThird('#4~Yellow')),
+                        SpchtTriple(None, SpchtThird('https://insert.test/', uri=True), SpchtThird('#4~Purple')),
+                        SpchtTriple(None, SpchtThird('https://insert.test/', uri=True), SpchtThird('#9~Yellow')),
+                        SpchtTriple(None, SpchtThird('https://insert.test/', uri=True), SpchtThird('#9~Purple')),
+                        SpchtTriple(None, SpchtThird('https://insert.test/', uri=True), SpchtThird('#12~Yellow')),
+                        SpchtTriple(None, SpchtThird('https://insert.test/', uri=True), SpchtThird('#12~Purple'))
+                        ]
             self.assertEqual(expected, self.crow._recursion_node(node))
 
     def test_insert_fields_transformation(self):
@@ -301,29 +325,39 @@ class TestSpchtInternal(unittest.TestCase):
             "field": "salmon",
             "source": "dict",
             "insert_into": "#{}~{}",
-            "predicate": "T.E.S.T",
+            "predicate": "https://insert.test/",
         }
         with self.subTest("Insert_into: append"):
             node["insert_add_fields"] = [{"field": "tench", "append": "**"}]
-            expected = [('T.E.S.T', '#5~12**')]
+            expected = [SpchtTriple(None, SpchtThird('https://insert.test/', uri=True), SpchtThird('#5~12**'))]
             self.assertEqual(expected, self.crow._recursion_node(node))
         with self.subTest("Insert_into: prepend"):
             node["insert_add_fields"] = [{"field": "tench", "prepend": "**"}]
-            expected = [('T.E.S.T', '#5~**12')]
+            expected = [SpchtTriple(None, SpchtThird('https://insert.test/', uri=True), SpchtThird('#5~**12'))]
             self.assertEqual(expected, self.crow._recursion_node(node))
         with self.subTest("Insert_into: cut"):
             node["insert_add_fields"] = [{"field": "catfish", "cut": "(air)\\b"}]
-            expected = [('T.E.S.T', '#5~h'), ('T.E.S.T', '#5~l'), ('T.E.S.T', '#5~stairs'),
-                        ('T.E.S.T', '#5~f'), ('T.E.S.T', '#5~tear')]
+            expected = [SpchtTriple(None, SpchtThird('https://insert.test/', uri=True), SpchtThird('#5~h')),
+                        SpchtTriple(None, SpchtThird('https://insert.test/', uri=True), SpchtThird('#5~l')),
+                        SpchtTriple(None, SpchtThird('https://insert.test/', uri=True), SpchtThird('#5~stairs')),
+                        SpchtTriple(None, SpchtThird('https://insert.test/', uri=True), SpchtThird('#5~f')),
+                        SpchtTriple(None, SpchtThird('https://insert.test/', uri=True), SpchtThird('#5~tear'))]
             self.assertEqual(expected, self.crow._recursion_node(node))
         with self.subTest("Insert_into: cut&replace"):
             node["insert_add_fields"] = [{"field": "catfish", "cut": "(air)\\b", "replace": "fire"}]
-            expected = [('T.E.S.T', '#5~fire'), ('T.E.S.T', '#5~hfire'), ('T.E.S.T', '#5~lfire'),
-                        ('T.E.S.T', '#5~stairs'), ('T.E.S.T', '#5~ffire'), ('T.E.S.T', '#5~tear')]
+            expected = [SpchtTriple(None, SpchtThird('https://insert.test/', uri=True), SpchtThird('#5~fire')),
+                        SpchtTriple(None, SpchtThird('https://insert.test/', uri=True), SpchtThird('#5~hfire')),
+                        SpchtTriple(None, SpchtThird('https://insert.test/', uri=True), SpchtThird('#5~lfire')),
+                        SpchtTriple(None, SpchtThird('https://insert.test/', uri=True), SpchtThird('#5~stairs')),
+                        SpchtTriple(None, SpchtThird('https://insert.test/', uri=True), SpchtThird('#5~ffire')),
+                        SpchtTriple(None, SpchtThird('https://insert.test/', uri=True), SpchtThird('#5~tear'))]
             self.assertEqual(expected, self.crow._recursion_node(node))
         with self.subTest("Insert_into: match"):
             node["insert_add_fields"] = [{"field": "catfish", "match": "(air)\\b"}]
-            expected = [('T.E.S.T', '#5~air'), ('T.E.S.T', '#5~hair'), ('T.E.S.T', '#5~lair'), ('T.E.S.T', '#5~fair')]
+            expected = [SpchtTriple(None, SpchtThird('https://insert.test/', uri=True), SpchtThird('#5~air')),
+                        SpchtTriple(None, SpchtThird('https://insert.test/', uri=True), SpchtThird('#5~hair')),
+                        SpchtTriple(None, SpchtThird('https://insert.test/', uri=True), SpchtThird('#5~lair')),
+                        SpchtTriple(None, SpchtThird('https://insert.test/', uri=True), SpchtThird('#5~fair'))]
             self.assertEqual(expected, self.crow._recursion_node(node))
         # TODO: different source test
 
@@ -412,7 +446,10 @@ class TestSpchtInternal(unittest.TestCase):
         node['field'] = "silverfish"
         node['joined_field'] = "goldfish"
 
-        expected = [('nullnullone', 'Yellow'), ('twonullnull', 'Blue'), ('nullthreenull', 'Red')]
+        expected = [SpchtTriple(None, SpchtThird('nullnullone', uri=True), SpchtThird('Yellow')),
+                    SpchtTriple(None, SpchtThird('twonullnull', uri=True), SpchtThird('Blue')),
+                    SpchtTriple(None, SpchtThird('nullthreenull', uri=True), SpchtThird('Red'))
+                    ]
         self.assertEqual(expected, self.crow._joined_map(node))
 
     def test_joined_map_single(self):
@@ -421,7 +458,7 @@ class TestSpchtInternal(unittest.TestCase):
         node['field'] = "copperfish"
         node['joined_field'] = "bronzefish"
 
-        expected = [('nullnullone', 'Pink')]
+        expected = [SpchtTriple(None, SpchtThird('nullnullone', uri=True), SpchtThird('Pink'))]
         self.assertEqual(expected, self.crow._joined_map(node))
 
     def test_joined_map_singlepred_to_multi_object(self):
@@ -429,7 +466,10 @@ class TestSpchtInternal(unittest.TestCase):
         node = copy.copy(JOINED_NODE)
         node['field'] = "silverfish"
         node['joined_field'] = "bronzefish"
-        expected = [('nullnullone', 'Yellow'), ('nullnullone', 'Blue'), ('nullnullone', 'Red')]
+        expected = [SpchtTriple(None, SpchtThird('nullnullone', uri=True), SpchtThird('Yellow')),
+                    SpchtTriple(None, SpchtThird('nullnullone', uri=True), SpchtThird('Blue')),
+                    SpchtTriple(None, SpchtThird('nullnullone', uri=True), SpchtThird('Red'))
+                    ]
         self.assertEqual(expected, self.crow._joined_map(node))
 
     def test_static_value(self):
@@ -439,17 +479,17 @@ class TestSpchtInternal(unittest.TestCase):
             "field": "salmon",
             "source": "dict",
             "required": "optional",
-            "predicate": "nonsense",
+            "predicate": "https://insert.test/",
             "static_field": static
         }
-        expected = [('nonsense', static)]
+        expected = [SpchtTriple(None, SpchtThird('https://insert.test/', uri=True), SpchtThird(static))]
         with self.subTest("existing field"):
             self.assertEqual(expected, self.crow._recursion_node(node))
         with self.subTest("not-existing field"):
             node['field'] = "whargabl"
             self.assertEqual(expected, self.crow._recursion_node(node))
 
-    def test_append_uid(self):
+    def test_append_uuid(self):
         self.crow._raw_dict = copy.copy(TEST_DATA)
         node = {
             "field": "salmon",
@@ -459,7 +499,10 @@ class TestSpchtInternal(unittest.TestCase):
             "static_field": "https://test.whargable/",
             "append_uuid_object_fields": ["salmon", "perch", "trout"]
         }
-        expected = [('nonsense', 'https://test.whargable/d1421fa2-332d-5288-8877-f2a49d478130')]
+        expected = [SpchtTriple(None,
+                                SpchtThird('nonsense', uri=True),
+                                SpchtThird('https://test.whargable/7958fa30-fb37-5692-8715-ceb160f1323f'))
+                    ]
         self.assertEqual(expected, self.crow._recursion_node(node))
 
     def test_sub_nodes(self):
@@ -488,18 +531,20 @@ class TestSpchtInternal(unittest.TestCase):
                 }
             ]
         }
-        expected = [('https://test.whargable/res/5', 'whargable:fish', '12', 1),
-                    ('https://test.whargable/res/5', 'whargable:fish', '9', 1),
-                    ('https://test.whargable/res/5', 'whargable:canine', 'Yellow', 1),
-                    ('https://test.whargable/res/5', 'whargable:canine', 'Purple', 1),
-                    ('whargable:subres', 'https://test.whargable/res/5')]
+        expected = [SpchtTriple(SpchtThird('https://test.whargable/res/5', uri=True), SpchtThird('whargable:fish', uri=True), SpchtThird('12', uri=True)),
+                    SpchtTriple(SpchtThird('https://test.whargable/res/5', uri=True), SpchtThird('whargable:fish', uri=True), SpchtThird('9', uri=True)),
+                    SpchtTriple(SpchtThird('https://test.whargable/res/5', uri=True), SpchtThird('whargable:canine', uri=True), SpchtThird('Yellow', uri=True)),
+                    SpchtTriple(SpchtThird('https://test.whargable/res/5', uri=True), SpchtThird('whargable:canine', uri=True), SpchtThird('Purple', uri=True)),
+                    SpchtTriple(None, SpchtThird('whargable:subres', uri=True), SpchtThird('https://test.whargable/res/5', uri=True))
+                    ]
         self.assertEqual(expected, self.crow._recursion_node(node))
     # TODO: tests for get fields/predicates
 
     def test_tree_extract(self):
         logging.basicConfig(level=logging.DEBUG)
-        expected = ["one", "two", True]
-        self.crow._raw_dict = {"layer1": {"layer2": {"layer3": expected}}}
+        inputing = ["one", "two", True]
+        expected = [SpchtThird(inputing[0]), SpchtThird(inputing[1]), SpchtThird(inputing[2])]
+        self.crow._raw_dict = {"layer1": {"layer2": {"layer3": inputing}}}
         node = {
             "source": "tree",
             "field": "layer1 >layer2> layer3"
@@ -522,7 +567,8 @@ class TestSpchtInternal(unittest.TestCase):
                 }
             ]
         }
-        expected = [('whargable:element', 'u-235'), ('whargable:element', 'u-238')]
+        expected = [SpchtTriple(None, SpchtThird('whargable:element', uri=True), SpchtThird('u-235')),
+                    SpchtTriple(None, SpchtThird('whargable:element', uri=True), SpchtThird('u-238'))]
         self.assertEqual(expected, self.crow._recursion_node(node))
 
     def test_nested_sub_data(self):
@@ -555,8 +601,11 @@ class TestSpchtInternal(unittest.TestCase):
                 }
             ]
         }
-        expected = [('whargable:shape', 'round'),('whargable:shape', 'square'),
-                    ('whargable:shape', 'imperial'),('whargable:shape', 'mechanicum')
+        expected = [
+                    SpchtTriple(None, SpchtThird('whargable:shape', uri=True), SpchtThird('round')),
+                    SpchtTriple(None, SpchtThird('whargable:shape', uri=True), SpchtThird('square')),
+                    SpchtTriple(None, SpchtThird('whargable:shape', uri=True), SpchtThird('imperial')),
+                    SpchtTriple(None, SpchtThird('whargable:shape', uri=True), SpchtThird('mechanicum'))
                     ]
         self.assertEqual(expected, self.crow._recursion_node(node))
 

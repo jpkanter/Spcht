@@ -472,7 +472,7 @@ class Spcht:
         else:
             main_value = self.extract_dictmarc_value(sub_dict)
             if 'static_field' in sub_dict:
-                main_value = sub_dict['static_field']
+                main_value = [SpchtThird(sub_dict['static_field'])]
             if not main_value:
 
                 if 'alternatives' in sub_dict:
@@ -565,6 +565,8 @@ class Spcht:
             return []
         if isinstance(sobjects, list):
             return [SpchtTriple(None, SpchtThird(predicate, uri=True), sobject) for sobject in sobjects]
+        if isinstance(sobjects, SpchtThird):
+            return [SpchtTriple(None, SpchtThird(predicate, uri=True), SpchtThird(sobjects))]
             #return [(predicate, s) for s in subject if s]
         logger.error(f"While using the node_return_iron something failed while ironing '{str(sobjects)}'")
         raise TypeError("Could handle predicate, subject pair")
@@ -593,7 +595,14 @@ class Spcht:
             list_of_returns = []
             # ? deleted check here, SpchtThird makes sure only basic types are there
             for item in value:
-                finding = re.search(sub_dict[f'{key_prefix}match'], str(item.content))
+                if isinstance(item, SpchtThird):  # TODO: instance check performance test
+                    any_text = item.content
+                elif isinstance(item, (str, int, float, complex)):
+                    any_text = item
+                else:
+                    logger.error(f"SPCHT.node_preprocessing - unable to handle data type in list {type(item)}")
+                    raise TypeError(f"SPCHT.node_preprocessing - Found a {type(item)} in the value list")
+                finding = re.search(sub_dict[f'{key_prefix}match'], str(any_text))
                 if finding:
                     list_of_returns.append(item)  # ? extend ?
             return list_of_returns
@@ -646,7 +655,7 @@ class Spcht:
         value from a dictionary or the default if no match. Its possible to set the default to inheritance to pass
         the value through
 
-        :param str or list value: the found value in the source, can be also a list of values, usually strings
+        :param list of SpchtThird value: the found value in the source, can be also a list of values, usually strings
         :param dict mapping: a dictionary of key:value pairs provided to replace parameter value one by one
         :param dict settings: a set list of settings that were defined in the node
         :return: returns the same number of values as input, might replace all non_matches with the default value. It CAN return None if something funky is going on with the settings and mapping
@@ -784,7 +793,7 @@ class Spcht:
         result_list = []
         for i, item in enumerate(field):  # iterating through the list every time is tedious
             try:
-                sobject = Spcht._node_preprocessing(field[i], sub_dict)  # filters out entries
+                sobject = Spcht._node_preprocessing([field[i]], sub_dict)  # filters out entries
                 if not sobject:
                     continue
                 sobject = self._node_mapping(sobject, sub_dict.get('mapping'), sub_dict.get('mapping_settings'))
@@ -799,7 +808,7 @@ class Spcht:
                     logger.critical("_joined_map, for some unexptected reasons, the output inside the joined_map loop had more than one value for the object, that should not happen, never. Investigate!")
                     raise SpchtErrors.OperationalError("Cannot continue processing with undecisive data")
                 # * predicate processing
-                predicate = self._node_mapping(joined_field[i], sub_dict.get("joined_map"), {"$default": sub_dict['predicate']})
+                predicate = self._node_mapping([joined_field[i]], sub_dict.get("joined_map"), {"$default": sub_dict['predicate']})
                 if len(predicate) == 1:
                     predicate = predicate[0]
                     predicate.uri = True
@@ -973,7 +982,7 @@ class Spcht:
         self.debug_print(colored(f" {sub_dict['if_field']} was not {condition} {if_value} but {failure_list} instead", "magenta"), end="-> ")
         return False
 
-    def _handle_sub_node(self, sub_nodes, parent_value):
+    def _handle_sub_node(self, sub_nodes, parent_value: list):
         """
         Sub Nodes are entire new triples that have a different subject than the original created triple, as that
         the use the value of the parent node as subject , therefore the parent node should be a valid URI, otherwise
@@ -984,14 +993,14 @@ class Spcht:
 
         This creats a tree-like relationship and not independent nodes
         :param dict sub_nodes:
-        :param list parent_value:
+        :param list of SpchtThird parent_value:
         :return: a list of tuples containing 4 values describing an entire triple where the last number is "isTriple=True/False"
         :rtype: list of SpchtTriple
         """
         return_quadros = []
         if len(parent_value) != 1:
             raise SpchtErrors.ParsingError("Use of sub node required parent values to be singular")
-        sub_subject = SpchtThird(parent_value[0], uri=True)
+        sub_subject = SpchtThird(parent_value[0].content, uri=True)
         for i, single_node in enumerate(sub_nodes):
             try:
                 # self.debug_print(colored(f"Cycling node {i}/{cycles} - {single_node.get('name', 'unnamed')}"))
@@ -1001,6 +1010,7 @@ class Spcht:
                     sub_values = [x for x in sub_values if not x]
                     for triple in sub_values:
                         triple.subject = copy.copy(sub_subject)
+                    return_quadros += sub_values
             except Exception as e:
                 logger.warning(f"SubNode throws Exception {e.__class__.__name__}: '{e}'")
                 print(colored("✗Processing of sub_node failed.", "red"))
@@ -1020,7 +1030,7 @@ class Spcht:
     def uuid_generator(self, source, *fields):
         names_combined = ""
         for each in fields:
-            a_field = self.extract_dictmarc_value({"source": source}, each)
+            a_field = self.extract_dictmarc_value({"source": source}, dict_field=each)
             if a_field:
                 names_combined += str(a_field)
             else:
@@ -1296,10 +1306,12 @@ class SpchtThird:
     """
     A third of a triple, can be an URI or an literal
     """
-    def __init__(self, content, uri=False, tag=None):
+    def __init__(self, content, uri=False, tag=None, language=None, annotation=None):
+        self._language = None
+        self._annotation = None
         self.content = content
-        self.language = None
-        self.annotation = None
+        self.language = language
+        self.annotation = annotation
         self.uri = uri
         if tag:
             self.import_tag(tag)
@@ -1324,6 +1336,19 @@ class SpchtThird:
     def __bool__(self):
         return bool(self.content)
 
+    def __eq__(self, other):
+        if not isinstance(other, SpchtThird):
+            return False
+        if self.content != other.content:
+            return False
+        if self.uri != other.uri:
+            return False
+        if self.annotation != other.annotation:
+            return False
+        if self.language != other.language:
+            return False
+        return True
+
     def import_tag(self, tag):
         if tag and len(tag) > 1:
             if tag[0]+tag[1] == "^^":
@@ -1336,11 +1361,12 @@ class SpchtThird:
         return self._content
 
     @content.setter
-    def content(self, content: str or int or float or bool):
-        if isinstance(content, (str, int, float, bool)):
+    def content(self, content: str or int or float or bool or complex):
+        if isinstance(content, (str, int, float, bool, complex)):
             self._content = content
         else:
-            raise TypeError("content must be str")
+            print(type(content))
+            raise TypeError("content must be str (or int, float, bool)")
 
     @property
     def language(self):
@@ -1348,7 +1374,7 @@ class SpchtThird:
 
     @language.setter
     def language(self, language: str or None):
-        if not language:
+        if not language or language is None:
             self._language = None
         else:
             if self.annotation is None:
@@ -1394,6 +1420,9 @@ class SpchtTriple:
         :param SpchtThird or None predicate:
         :param SpchtThird or None sobject:
         """
+        self._sobject = None
+        self._subject = None
+        self._predicate = None
         self.subject = subject
         self.predicate = predicate
         self.sobject = sobject
@@ -1405,15 +1434,15 @@ class SpchtTriple:
         if self.subject:
             returned_sparqllike += self.subject.__repr__() + " "
         else:
-            returned_sparqllike += "s? "
+            returned_sparqllike += "?s "
         if self.predicate:
             returned_sparqllike += self.predicate.__repr__() + " "
         else:
-            returned_sparqllike += "p? "
+            returned_sparqllike += "?p "
         if self.sobject:
-            returned_sparqllike += self.sobject.__repr__() + " "
+            returned_sparqllike += self.sobject.__repr__() + " ."
         else:
-            returned_sparqllike += "o? ."
+            returned_sparqllike += "?o ."
         return returned_sparqllike
 
     def __str__(self):
@@ -1433,6 +1462,17 @@ class SpchtTriple:
             return self.sobject
         else:
             raise KeyError("SpchtTriple only has only 3 items")
+
+    def __eq__(self, other):
+        if not isinstance(other, SpchtTriple):
+            return False
+        if self.subject != other.subject:
+            return False
+        if self.predicate != other.predicate:
+            return False
+        if self.sobject != other.sobject:
+            return False
+        return True
 
     def check_complete(self):
         if self.subject and self.sobject and self.predicate:
