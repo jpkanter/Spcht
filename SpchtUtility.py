@@ -521,20 +521,15 @@ def process2RDF(quadro_list: list, export_format_type="turtle", export=True) -> 
         :rtype: str or rdflib.Graph
     """
     if NORDF:  # i am quite sure that this is not the way to do such  things
-        raise ImportError("No RDF Library avaible, cannot process Spcht.process2RDF")
+        logger.critical("process2RDF - failure to convert to RDF")
+        raise ImportError("No RDF Library avaible, cannot process SpchtUtility.process2RDF")
     graph = rdflib.Graph()
     for each in quadro_list:
         try:  # ! using an internal rdflib function is clearly dirty af
-            if rdflib.term._is_valid_uri(each[0]) and rdflib.term._is_valid_uri(each[1]):
-                if each[3] == 0:
-                    graph.add((rdflib.URIRef(each[0]), rdflib.URIRef(each[1]), rdflib.Literal(each[2])))
-                elif each[3] == 1 and rdflib.term._is_valid_uri(each[2]):
-                    graph.add((rdflib.URIRef(each[0]), rdflib.URIRef(each[1]), rdflib.URIRef(each[2])))
-                else:
-                    logger.error(
-                        f"URL Parsing for <{each[0]}> <{each[1]}> & ({each[2]}) failed due an URI check error")
+            if rdflib.term._is_valid_uri(each.subject.content) and rdflib.term._is_valid_uri(each.predicate.content):
+                graph.add((each.subject.convert2rdflib(), each.predicate.convert2rdflib(), each.sobject.convert2rdflib()))
         except Exception as error:
-            print(f"RDF Exception occured with {each[1]} - {error}", file=sys.stderr)
+            print(f"RDF Exception [{error.__class__.__name__}] occured with {each.predicate} - {error}", file=sys.stderr)
     try:
         if export:
             return graph.serialize(format=export_format_type).decode("utf-8")

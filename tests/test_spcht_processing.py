@@ -89,17 +89,6 @@ if __name__ == "__main__":
         lines.extend(NormalBird.process_data(every, "https://ressources.info/"))
 
     quadro_console_out(lines)
-    exit(0)
-    export = Graph()
-    [export.add((URIRef(x[0]), URIRef(x[1]), URIRef(x[2]))) for x in lines if x[3] == 1]
-    for each in lines:
-        if each[3] == 0:
-            if re.search(r"^\"(.*)\"(.*)$", each[2]):
-                literal = str(each[2])[1:]
-                parts = literal.split("\"")
-                lang, datatype = SpchtUtility.extract_node_tag(parts[1])
-                export.add((URIRef(each[0]), URIRef(each[1]), Literal(parts[0], lang=lang, datatype=datatype)))
-            else:
-                export.add((URIRef(each[0]), URIRef(each[1]), Literal(each[2])))
+    export = SpchtUtility.process2RDF(lines, export=False)
     with open("processing_turtle.ttl", "w") as turtle_file:
         turtle_file.write(export.serialize(format="turtle").decode("utf-8"))

@@ -24,6 +24,7 @@
 import unittest
 import copy
 from SpchtDescriptorFormat import SpchtThird, SpchtTriple
+import rdflib
 
 import logging
 import os
@@ -85,6 +86,14 @@ class TestSpchtThird(unittest.TestCase):
         shallan = SpchtThird("highstorm")
         self.assertEqual(kaladin, shallan)
         # i actually had to implement __eq__ for tests cause assert wont work otherwise
+
+    def test_2rdf(self):
+        with self.subTest("standard convert"):
+            self.assertEqual(rdflib.Literal("Penguin"), SpchtThird("Penguin").convert2rdflib())
+        with self.subTest("literal convert language"):
+            self.assertEqual(rdflib.Literal("Penguin", lang="se"), SpchtThird("Penguin", language="se").convert2rdflib())
+        with self.subTest("literla convert annotation"):
+            self.assertEqual(rdflib.Literal("Penguin", datatype="xsd:string"), SpchtThird("Penguin", tag="^^xsd:string").convert2rdflib())
 
 
 class TestSpchtTriple(unittest.TestCase):

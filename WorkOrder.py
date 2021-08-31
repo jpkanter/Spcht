@@ -1041,7 +1041,13 @@ def FulfillSparqlInsertOrder(work_order_file: str,
                     if obj is rdflib.term.URIRef:
                         triples += f"<{sub}> <{pred}> <{obj}> . \n"
                     else:
-                        triples += f"<{sub}> <{pred}> \"{obj}\" . \n"
+                        if obj.language:
+                            annotation = "@" + obj.language
+                        elif obj.datatype:
+                            annotation = "^^" + obj.datatype
+                        else:
+                            annotation = ""
+                        triples += f"<{sub}> <{pred}> \"{obj}\"{annotation} . \n"
                     # ! TODO: can optimize here, grouped queries
                     if rounds > SPARQL_CHUNK:
                         query = f"""WITH <{named_graph}> INSERT {{ {triples}}}"""

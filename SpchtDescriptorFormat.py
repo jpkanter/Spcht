@@ -1356,6 +1356,12 @@ class SpchtThird:
             if tag[0] == "@":
                 self.language = tag[1:]
 
+    def convert2rdflib(self):
+        if self.uri:
+            return rdflib.URIRef(self.content)
+        else:
+            return rdflib.Literal(self.content, lang=self.language, datatype=self.annotation)
+
     @property
     def content(self):
         return self._content
