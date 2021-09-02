@@ -1204,23 +1204,33 @@ class Spcht:
         :rtype: list
         """
         part_list = []
-        if sub_dict['source'] == "dict":
-            part_list.append(sub_dict['field'])
+        if sub_dict['source'] == "dict" or sub_dict['source'] == "tree":
+            if not 'static_field' in sub_dict:
+                part_list.append(sub_dict['field'])
             if 'alternatives' in sub_dict:
                 part_list += sub_dict['alternatives']
             if 'joined_field' in sub_dict:
                 part_list.append(sub_dict['joined_field'])
             if 'insert_add_fields' in sub_dict:
                 for each in sub_dict['insert_add_fields']:
-                    part_list.append(each)
+                    part_list.append(each['field'])
             if 'if_field' in sub_dict:
                 part_list.append(sub_dict['if_field'])
+            if 'append_uuid_object_fields' in sub_dict:
+                part_list += sub_dict['append_uuid_object_fields']
+            if 'append_uuid_predicate_fields' in sub_dict:
+                part_list += sub_dict['append_uuid_predicate_fields']
         if 'fallback' in sub_dict:
             temp_list = Spcht.get_node_fields_recursion(sub_dict['fallback'])
             if temp_list:
                 part_list += temp_list
         if 'sub_node' in sub_dict:
             for child_node in sub_dict['sub_node']:
+                temp_list = Spcht.get_node_fields_recursion(child_node)
+                if temp_list:
+                    part_list += temp_list
+        if 'sub_data' in sub_dict:
+            for child_node in sub_dict['sub_data']:
                 temp_list = Spcht.get_node_fields_recursion(child_node)
                 if temp_list:
                     part_list += temp_list
@@ -1317,18 +1327,21 @@ class SpchtThird:
             self.import_tag(tag)
 
     def __repr__(self):
+        if self.language:
+            language = "\"" + self.language + "\""
+        else:
+            language = "None"
+        if self.annotation:
+            annotation = "\"" + self.annotation + "\""
+        else:
+            annotation = "None"
+        return "SpchtThird(\"" + self.content + "\",uri=" + str(self.uri) + ",language=" + language + ",annotation=" + annotation + ")"
+
+    def __str__(self):
         if self.uri:
             return "<" + str(self.content) + ">"
         else:
-            sparql_like = "\"" + str(self.content) + "\""
-            if self.annotation:
-                sparql_like += "^^" + self.annotation
-            if self.language:
-                sparql_like += "@" + self.language
-            return sparql_like
-
-    def __str__(self):
-        return str(self.content)
+            return "\"" + str(self.content) + "\"" + self.export_tag()
 
     def __len__(self):
         return len(self.content)
@@ -1355,6 +1368,13 @@ class SpchtThird:
                 self.annotation = tag[2:]
             if tag[0] == "@":
                 self.language = tag[1:]
+
+    def export_tag(self):
+        if self.annotation:
+            return "^^" + self.annotation
+        if self.language:
+            return "@" + self.language
+        return ""
 
     def convert2rdflib(self):
         if self.uri:
@@ -1436,23 +1456,10 @@ class SpchtTriple:
         self.check_complete()
 
     def __repr__(self):
-        returned_sparqllike = ""
-        if self.subject:
-            returned_sparqllike += self.subject.__repr__() + " "
-        else:
-            returned_sparqllike += "?s "
-        if self.predicate:
-            returned_sparqllike += self.predicate.__repr__() + " "
-        else:
-            returned_sparqllike += "?p "
-        if self.sobject:
-            returned_sparqllike += self.sobject.__repr__() + " ."
-        else:
-            returned_sparqllike += "?o ."
-        return returned_sparqllike
+        return "SpchtTriple("+repr(self.subject)+", "+repr(self.predicate)+", "+repr(self.sobject)+")"
 
     def __str__(self):
-        return self.subject.content if self.subject else "None" + " " + self.predicate.content if self.predicate else "None" + " " + self.sobject.content if self.sobject else "None"
+        return "(" + str(self.subject) + ", " + str(self.predicate) + ", " + str(self.sobject) + ")"
 
     def __bool__(self):
         # not so sure about this one, will give false if the triple isn't complete, but no telling if its empty

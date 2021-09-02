@@ -145,7 +145,7 @@
                     {
                       "field": "startTime",
                       "cut": "(:)",
-                      "append": "00",
+                      "append": "00"
                     },
                     {
                       "field": "endTime",

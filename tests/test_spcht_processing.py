@@ -83,7 +83,6 @@ if __name__ == "__main__":
     if not my_data:
         print("Test failed while loading testdata")
         exit(1)
-    print("++")
     lines = []
     for every in my_data:
         lines.extend(NormalBird.process_data(every, "https://ressources.info/"))
