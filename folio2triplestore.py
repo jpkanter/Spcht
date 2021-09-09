@@ -33,8 +33,10 @@ import json
 import urllib3
 import hashlib
 import SpchtUtility
+import WorkOrder
 from datetime import datetime
 from SpchtDescriptorFormat import Spcht
+from local_tools import sparqlQuery
 
 import folio2triplestore_config as secret
 
@@ -117,12 +119,12 @@ def create_hash(data: dict, variant):
         return sha_1.hexdigest()
 
 
-def additional_remote_data(location_id: str) -> dict:
+def additional_remote_data(servicepoint_id: str) -> dict:
     global folio_header
     utc = pytz.UTC
 
     # ! first request
-    request_url = secret.url + "/calendar/periods/" + location_id + "/period"
+    request_url = secret.url + "/calendar/periods/" + servicepoint_id + "/period"
     r = requests.get(request_url, headers=folio_header)
     if r.status_code != 200:
         print(f"'{request_url}' could not retrieve data, status {r.status_code}")
@@ -142,13 +144,13 @@ def additional_remote_data(location_id: str) -> dict:
             step2_uuid = period['id']
             break
     if not step2_uuid:
-        print(f"No suiteable and valid opening hour found for '{location_id}'")
+        print(f"No suiteable and valid opening hour found for '{servicepoint_id}'")
         return {}
     # ! second request
-    request_url = secret.url + "/calendar/periods/" + location_id + "/period/" + step2_uuid
+    request_url = secret.url + "/calendar/periods/" + servicepoint_id + "/period/" + step2_uuid
     r = requests.get(request_url, headers=folio_header)
     if r.status_code != 200:
-        print(f"'{location_id}' + '{step2_uuid}' could not retrieve data, status {r.status_code}")
+        print(f"'{servicepoint_id}' + '{step2_uuid}' could not retrieve data, status {r.status_code}")
         return {}
     try:
         step2_data = r.json()
@@ -163,6 +165,44 @@ def additional_remote_data(location_id: str) -> dict:
     return step2_data['openingDays']
 
 
+def create_single_location(location: dict):
+    inst = part1_folio_workings(endpoints['institution'] + "/" + location['institutionId'])
+    lib = part1_folio_workings(endpoints['library'] + "/" + location['libraryId'])
+    data_hash = create_hash(location, "loc")
+    one_node = {
+        "inst_code": inst['code'],
+        "inst_name": inst['name'],
+        "inst_id": inst['id'],
+        "lib_code": lib['code'],
+        "lib_name": lib['name'],
+        "lib_id": lib['id'],
+        "loc_name": location['name'],
+        "loc_code": location['code'],
+        "loc_displayName": location['discoveryDisplayName'],
+        "loc_main_service_id": location['primaryServicePoint']
+    }
+    opening_hours = additional_remote_data(location['primaryServicePoint'])
+    if opening_hours:
+        one_node['openingHours'] = opening_hours
+        open_hash = create_hash(opening_hours, "opening")
+    else:
+        open_hash = ""
+    one_node.update(location['details'])
+    return one_node, data_hash, open_hash
+
+
+def check_location_changes(hashfile_contet: dict):
+    hashes = {'loc': {}, 'opening': {}, 'raw': {}}
+    for location, old_hash in hashfile_contet['loc'].items():
+        current_location = part1_folio_workings(endpoints['locations'] + "/" + location)
+        new_hash = create_hash(current_location, "loc")
+        if new_hash == old_hash:
+            continue
+        else:
+            data, data_hash, open_hash = create_single_location(current_location)
+    return False
+
+
 def check_opening_changes(hashfile_content: dict):
     verdict = []
     for servicepoint, old_hash in hashfile_content['opening'].items():
@@ -171,40 +211,133 @@ def check_opening_changes(hashfile_content: dict):
         if new_hash == old_hash:
             continue
         else:
-            verdict.append(find(hashfile_content['raw'], servicepoint))
+            old_and_new = copy.deepcopy(find(hashfile_content['raw'], servicepoint))
+            old_and_new['openingHours'] = opening
+            verdict.append(old_and_new)
     return verdict
+
+
+def location_update():
+    if os.path.exists(secret.hash_file):
+        try:
+            with open(secret.hash_file, "r") as hash_file:
+                data = json.load(hash_file)
+        except json.JSONDecodeError as e:
+            logging.warning("Hash File could not be decoded, json error: " + str(e))
+            exit(1)
+        except FileNotFoundError:
+            logging.warning("Hash File coult not be 'found' despite previous check. Suspicious")
+            exit(2)
+        changed = check_location_changes(data)
+        if not changed:
+            logging.info("Check completed without any found changes, hibernating...")
+            exit(0)
+
+
+def opening_update():
+    if os.path.exists(secret.hash_file):
+        try:
+            with open(secret.hash_file, "r") as hash_file:
+                data = json.load(hash_file)
+        except json.JSONDecodeError as e:
+            logging.warning("Hash File could not be decoded, json error: " + str(e))
+            exit(1)
+        except FileNotFoundError:
+            logging.warning("Hash File coult not be 'found' despite previous check. Suspicious")
+            exit(2)
+        changed = check_opening_changes(data)
+        if not changed:
+            logging.info("Check completed without any found changes, hibernating...")
+            exit(0)
+        # delete old entries, create anew
+        heron = Spcht(secret.anti_opening_spcht)
+        triples = []
+        for negative in changed:
+            triples += heron.process_data(negative, "https://matterless")
+        for obj in triples:
+            query = f"""DELETE 
+                        {{ GRAPH <{secret.named_graph}>
+                            {{ {obj.sobject} <https://schema.org/openingHoursSpecification> ?o }}
+                        }}
+                        WHERE {{ GRAPH <{secret.named_graph}>
+                            {{ {obj.sobject} <https://schema.org/openingHoursSpecification> ?o }}
+                            }};"""
+            status, discard = sparqlQuery(query,
+                                          secret.sparql_url,
+                                          auth=secret.triple_user,
+                                          pwd=secret.triple_password,
+                                          named_graph=secret.named_graph)
+        part3_spcht_workings(changed, secret.delta_opening_spcht)
+    else:
+        full_update()
+
+
+def part1_folio_workings(endpoint, key="an endpoint"):
+    try:
+        url = secret.url + endpoint + append
+        r = requests.get(url, headers=folio_header)
+        if r.status_code != 200:
+            logging.critical(f"Status Code was not 200, {r.status_code} instead")
+            exit(1)
+        try:
+            data = json.loads(r.text)
+            logging.info(f"{key} retrieved ")
+            return data
+        except urllib3.exceptions.NewConnectionError:
+            logging.error(f"Connection could be establish")
+        except json.JSONDecodeError as e:
+            logging.warning(f"JSON decode Error: {e}")
+    except SystemExit as e:
+        logging.info(f"SystemExit as planned, code: {e.code}")
+        exit(e.code)
+    except KeyboardInterrupt:
+        print("Process interrupted, aborting")
+        logging.warning("Process was manually aborted")
+        raise KeyboardInterrupt()
+    except Exception as e:
+        logging.critical(f"Surprise error [{e.__class__.__name__}] {e}")
+        exit(1)
+    return {}
+
+
+def part3_spcht_workings(extracted_dicts, spcht_descriptor_path):
+    duck = Spcht(spcht_descriptor_path)
+    triples = []
+    for each_entry in extracted_dicts:
+        triples += duck.process_data(each_entry, secret.subject)
+    temp_file_name = secret.turtle_file
+    with open(temp_file_name, "w") as rdf_file:
+        rdf_file.write(SpchtUtility.process2RDF(triples))  # ? avoiding circular imports
+    work_order = {
+        "meta": {
+            "status": 4,
+            "fetch": "local",
+            "type": "insert",
+            "method": "sparql",
+            "full_download": True
+        },
+        "file_list": {
+            "0": {
+                "rdf_file": secret.turtle_file,
+                "status": 4
+            }
+        }
+    }
+    # TODO: we have here a usecase for workorder fileIO
+    with open(secret.workorder_file, "w") as work_order_file:
+        json.dump(work_order, work_order_file)
+    res = WorkOrder.FulfillSparqlInsertOrder(secret.workorder_file, secret.sparql_url, secret.triple_user,
+                                             secret.triple_password, secret.named_graph)
+    logging.info(f"WorkOrder Fullfilment, now status: {res}")
 
 
 def full_update():
     # ! part 1 - download of raw data
     dumping_dict = {}
     for key, endpoint in endpoints.items():
-        try:
-            url = secret.url + endpoint + append
-            r = requests.get(url, headers=folio_header)
-            if r.status_code != 200:
-                logging.critical(f"Status Code was not 200, {r.status_code} instead")
-                exit(1)
-            try:
-                data = json.loads(r.text)
-                dumping_dict.update(data)
-                logging.info(f"{key} retrieved ")
-            except urllib3.exceptions.NewConnectionError:
-                logging.error(f"Connection could be establish")
-                continue
-            except json.JSONDecodeError as e:
-                logging.warning(f"JSON decode Error: {e}")
-                continue
-        except SystemExit as e:
-            logging.info(f"SystemExit as planned, code: {e.code}")
-            exit(e.code)
-        except KeyboardInterrupt:
-            print("Process interrupted, aborting")
-            logging.warning("Process was manually aborted")
-            exit(1)
-        except Exception as e:
-            logging.critical(f"Surprise error [{e.__class__.__name__}] {e}")
-            exit(1)
+        temp_data = part1_folio_workings(endpoint, key)
+        if temp_data:
+            dumping_dict.update(temp_data)
     # ! part 2 - packing data
     raw_info = dumping_dict
     hashes = {'loc': {}, 'opening': {}, 'raw': {}}
@@ -243,23 +376,10 @@ def full_update():
         print("Loading failed, cannot create what is needed")
         exit(0)
     # ! part 3 - SpchtWorkings
-    duck = Spcht(secret.foliospcht)
-    triples = []
-    for each_entry in extracted_dicts:
-        triples += duck.process_data(each_entry, secret.subject)
-    temp_file_name = secret.turtle_file
-    with open(temp_file_name, "w") as rdf_file:
-        rdf_file.write(SpchtUtility.process2RDF(triples))  # ? avoiding circular imports
-    exit(0)
-    f_path = shutil.copy(temp_file_name, secret.virtuoso_folder)
-    command = f"EXEC=ld_add('{f_path}', '{secret.named_graph}');"
-    subprocess.run(
-        [secret.isql_path, str(secret.isql_port), secret.isql_user, secret.isql_password, "VERBOSE=OFF", command,
-         "EXEC=rdf_loader_run();", "EXEC=checkpoint;"],
-        capture_output=True, check=True)
-    if os.path.exists(f_path):
-        os.remove(f_path)
+    part3_spcht_workings(extracted_dicts, secret.foliospcht)
 
 
 if __name__ == "__main__":
-    full_update()
+    #full_update()
+    opening_update()
+    #location_update()

@@ -1063,8 +1063,8 @@ def FulfillSparqlInsertOrder(work_order_file: str,
                 rounds = 0
                 for sub, pred, obj in this_graph:
                     rounds += 1
-                    if obj is rdflib.term.URIRef:
-                        triples += f"<{sub}> <{pred}> <{obj}> . \n"
+                    if isinstance(obj, rdflib.term.URIRef):
+                        triples += f"<{sub.toPython()}> <{pred.toPython()}> <{obj.toPython()}> . \n"
                     else:
                         if obj.language:
                             annotation = "@" + obj.language
@@ -1072,10 +1072,10 @@ def FulfillSparqlInsertOrder(work_order_file: str,
                             annotation = "^^" + obj.datatype
                         else:
                             annotation = ""
-                        triples += f"<{sub}> <{pred}> \"{obj}\"{annotation} . \n"
+                        triples += f"<{sub.toPython()}> <{pred.toPython()}> \"{obj.toPython()}\"{annotation} . \n"
                     # ! TODO: can optimize here, grouped queries
                     if rounds > SPARQL_CHUNK:
-                        query = f"""WITH <{named_graph}> INSERT {{ {triples}}}"""
+                        query = f"""WITH <{named_graph}> INSERT {{ {triples} }}"""
                         # * i have the sneaking suspicion that i defined the named graph twice
                         status, discard = sparqlQuery(query,
                                                       sparql_endpoint,

@@ -1,0 +1,20 @@
+{
+  "id_field": "inst_code",
+  "id_source": "dict",
+  "id_subject_prefix": "https://data.finc.info/organisations/",
+  "nodes": [
+    {
+      "field": "inst_code",
+      "predicate": "schema.org/department",
+      "insert_into": "https://data.finc.info/organisations/{}/department/zw{}",
+      "insert_add_fields": [
+        {
+          "field": "lib_code"
+        }
+      ],
+      "type": "uri",
+      "required": "optional",
+      "source": "dict"
+    }
+  ]
+}
