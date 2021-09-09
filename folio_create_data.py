@@ -126,9 +126,11 @@ if __name__ == "__main__":
 
             with open("folio_extract.json", "w") as folio_extract:
                 json.dump(extracted_dicts, folio_extract, indent=2)
+
         else:
             print("Loading failed, cannot create what is needed")
-
+    except KeyboardInterrupt:
+        exit(0)
     except Exception as e:
         print(f"THIS throws Exception {e.__class__.__name__}: '{e}'")
         exit(1)  # what sense is it to catch exceptions to then just print them?
