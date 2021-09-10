@@ -254,6 +254,8 @@ def opening_update():
         triples = []
         for negative in changed:
             triples += heron.process_data(negative, "https://matterless")
+            data['opening'][negative['loc_main_service_id']] = create_hash(negative['openingHours'], "opening")
+
         for obj in triples:
             query = f"""DELETE 
                         {{ GRAPH <{secret.named_graph}>
@@ -268,6 +270,8 @@ def opening_update():
                                           pwd=secret.triple_password,
                                           named_graph=secret.named_graph)
         part3_spcht_workings(changed, secret.delta_opening_spcht)
+        with open(secret.hash_file, "w") as hash_file:
+            json.dump(data, hash_file, indent=3)
     else:
         full_update()
 
@@ -329,6 +333,7 @@ def part3_spcht_workings(extracted_dicts, spcht_descriptor_path):
     res = WorkOrder.FulfillSparqlInsertOrder(secret.workorder_file, secret.sparql_url, secret.triple_user,
                                              secret.triple_password, secret.named_graph)
     logging.info(f"WorkOrder Fullfilment, now status: {res}")
+    return res
 
 
 def full_update():
@@ -376,7 +381,8 @@ def full_update():
         print("Loading failed, cannot create what is needed")
         exit(0)
     # ! part 3 - SpchtWorkings
-    part3_spcht_workings(extracted_dicts, secret.foliospcht)
+    if not part3_spcht_workings(extracted_dicts, secret.foliospcht):
+        os.remove(secret.hash_file)
 
 
 if __name__ == "__main__":
