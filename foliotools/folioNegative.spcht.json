@@ -1,0 +1,44 @@
+{
+  "id_field": "inst_code",
+  "id_source": "dict",
+  "id_subject_prefix": "https://data.finc.info/organisations/",
+  "nodes": [
+    {
+      "field": "inst_code",
+      "predicate": "https://schema.org/department",
+      "insert_into": "https://data.finc.info/organisations/{}/department/zw{}",
+      "insert_add_fields": [{"field": "lib_code"}],
+      "type": "uri",
+      "required": "optional",
+      "source": "dict",
+      "sub_nodes": [
+        {
+          "predicate": "schema.org/geo",
+          "field": "inst_code",
+          "static_field": "https://data.finc.info/Geokoordinaten/",
+          "required": "optional",
+          "source": "dict",
+          "type": "uri",
+          "append_uuid_object_fields": ["geo/longitude", "geo/latitude"]
+        },
+        {
+          "field": "inst_code",
+          "source": "dict",
+          "static_field": "https://data.finc.info/postalAddress/",
+          "predicate": "schema.org/address",
+          "required": "optional",
+          "type": "uri",
+          "append_uuid_object_fields": ["address/streetAddress", "address/Locality"]
+        },
+        {
+          "field": "openingHours",
+          "static_field": "https://schema.org/openingHoursSpecification",
+          "required": "optional",
+          "predicate": "for each element....",
+          "source": "dict",
+          "type": "uri"
+        }
+      ]
+    }
+  ]
+}
