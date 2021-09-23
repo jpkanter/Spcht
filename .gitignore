@@ -129,3 +129,4 @@ processing
 /foliotools/folio2triplestore_config.py
 /foliotools/folio_offline_copy.py
 /foliotools/folio_order.json
+/foliotools/folio2triple.save.json

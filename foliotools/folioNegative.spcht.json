@@ -29,14 +29,6 @@
           "required": "optional",
           "type": "uri",
           "append_uuid_object_fields": ["address/streetAddress", "address/Locality"]
-        },
-        {
-          "field": "openingHours",
-          "static_field": "https://schema.org/openingHoursSpecification",
-          "required": "optional",
-          "predicate": "for each element....",
-          "source": "dict",
-          "type": "uri"
         }
       ]
     }

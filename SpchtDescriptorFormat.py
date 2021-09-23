@@ -63,12 +63,27 @@ class Spcht:
         self._raw_dict = None  # processing data
         self._m21_dict = None
         self._schema_path = schema_path
+        self.name = None
         if filename is not None:
             if not self.load_descriptor_file(filename):
                 logger.critical("spcht_init: cannot load initial spcht file")
                 raise SpchtErrors.OperationalError("Something with the specified Spcht file was wrong")
 
         # does absolutely nothing in itself
+
+    @property
+    def name(self):
+        if self._name:
+            return self._name
+        else:
+            return ""
+
+    @name.setter
+    def name(self, name: str):
+        if isinstance(name, str):
+            self._name = "|" + name + "|"
+        else:
+            self._name = None
 
     def __repr__(self):
         if len(self._DESCRI) > 0:
@@ -1012,7 +1027,7 @@ class Spcht:
                         triple.subject = copy.copy(sub_subject)
                     return_quadros += sub_values
             except Exception as e:
-                logger.warning(f"SubNode throws Exception {e.__class__.__name__}: '{e}'")
+                logger.warning(f"{self.name}SubNode throws Exception {e.__class__.__name__}: '{e}'")
                 print(colored("✗Processing of sub_node failed.", "red"))
         return return_quadros
 
@@ -1391,8 +1406,7 @@ class SpchtThird:
         if isinstance(content, (str, int, float, bool, complex)):
             self._content = content
         else:
-            print(type(content))
-            raise TypeError("content must be str (or int, float, bool)")
+            raise TypeError(f"content must be str (or int, float, bool) - .str: '{str(content)[:127]}'")
 
     @property
     def language(self):
@@ -1493,6 +1507,20 @@ class SpchtTriple:
             return True
         self.complete = False
         return False
+
+    @staticmethod
+    def extract_subjects(triples: list) -> list:
+        """
+
+        :param triples:
+        :type triples: list[SpchtTriples]
+        :return:
+        :rtype: list[Str]
+        """
+        monocles = []
+        for each in triples:
+            monocles.append(str(each.sobject))
+        return monocles
 
     @property
     def subject(self):

@@ -134,7 +134,7 @@ def additional_remote_data(servicepoint_id: str) -> dict:
     except json.JSONDecodeError:
         print("Second returned Json could not be handled, mostly because it wasnt json, aborting")
         return {}
-    return step2_data['openingDays']
+    return step2_data
 
 
 def create_single_location(location: dict):
@@ -143,29 +143,33 @@ def create_single_location(location: dict):
     return create_location_node(location, inst, lib)
 
 
-def check_location_changes(hashfile_contet: dict):
-    hashes = {'loc': {}, 'opening': {}, 'raw': {}}
-    for location, old_hash in hashfile_contet['loc'].items():
+def check_location_changes(hashes: dict):
+    verdict = {}
+    for location, old_hash in hashes.items():
         current_location = part1_folio_workings(secret.endpoints['locations'] + "/" + location)
         new_hash = create_hash(current_location, "loc")
         if new_hash == old_hash:
             continue
         else:
-            data, data_hash, open_hash = create_single_location(current_location)
-    return False
+            verdict[location] = {
+                "hash": new_hash,
+                "location": create_single_location(current_location)
+            }
+    return verdict
 
 
 def check_opening_changes(hashfile_content: dict):
-    verdict = []
-    for servicepoint, old_hash in hashfile_content['opening'].items():
+    verdict = {}
+    for servicepoint, old_hash in hashfile_content.items():
         opening = additional_remote_data(servicepoint)
-        new_hash = create_hash(opening, "opening")
+        new_hash = create_hash(opening['openingDays'], "opening")
         if new_hash == old_hash:
             continue
         else:
-            old_and_new = copy.deepcopy(find(hashfile_content['raw'], servicepoint))
-            old_and_new['openingHours'] = opening
-            verdict.append(old_and_new)
+            verdict[servicepoint] = {
+                "hash": new_hash,
+                "hours": opening
+            }
     return verdict
 
 
@@ -208,7 +212,6 @@ def create_location_node(location: dict, inst: dict, lib: dict):
     """
     location_hash = create_hash(location, "loc")
     open_hash = dict()
-    raw_data = dict()
     one_node = {
         "inst_code": inst['code'],
         "inst_name": inst['name'],
@@ -223,11 +226,10 @@ def create_location_node(location: dict, inst: dict, lib: dict):
     }
     opening_hours = additional_remote_data(location['primaryServicePoint'])
     if opening_hours:
-        one_node['openingHours'] = opening_hours
-        open_hash[location['primaryServicePoint']] = create_hash(opening_hours, "opening")
+        one_node['openingHours'] = opening_hours['openingDays']
+        open_hash[location['primaryServicePoint']] = create_hash(opening_hours['openingDays'], "opening")
     one_node.update(location['details'])
     small_node = copy.copy(one_node)
     del small_node['openingHours']
-    raw_data[location['id']] = small_node
-    return one_node, location_hash, open_hash, raw_data
+    return one_node, location_hash, open_hash
 
