@@ -151,9 +151,11 @@ def check_location_changes(hashes: dict):
         if new_hash == old_hash:
             continue
         else:
+            loc_data, location_hash, opening_hash = create_single_location(current_location)
             verdict[location] = {
-                "hash": new_hash,
-                "location": create_single_location(current_location)
+                "location_hash": location_hash,
+                "opening_hash": opening_hash,
+                "location": loc_data
             }
     return verdict
 
@@ -196,7 +198,7 @@ def part1_folio_workings(endpoint, key="an endpoint", append=""):
         logging.warning("Process was manually aborted")
         raise KeyboardInterrupt()
     except Exception as e:
-        logging.critical(f"Surprise error [{e.__class__.__name__}] {e}")
+        logging.critical(f"FOLIO_WORKINGS::Surprise error [{e.__class__.__name__}] {e}")
         exit(1)
     return {}
 
@@ -229,7 +231,7 @@ def create_location_node(location: dict, inst: dict, lib: dict):
         one_node['openingHours'] = opening_hours['openingDays']
         open_hash[location['primaryServicePoint']] = create_hash(opening_hours['openingDays'], "opening")
     one_node.update(location['details'])
-    small_node = copy.copy(one_node)
-    del small_node['openingHours']
+    # small_node = copy.copy(one_node)
+    # del small_node['openingHours']
     return one_node, location_hash, open_hash
 

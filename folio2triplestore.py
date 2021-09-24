@@ -52,7 +52,12 @@ def location_update(location_hashes, location_objects):
         logging.info("Check completed without any found changes, hibernating...")
         return {}
     else:
-        print(json.dumps(changed, indent=3))
+        changedLocs = {k: v['location'] for k, v in changed.items()}
+        changedOpenHashs = {k: v['opening_hash'] for k, v in changed.items()}
+        changedLocHashs = {k: v['location_hash'] for k, v in changed.items()}
+        print(json.dumps(changedLocs, indent=3))
+        exit(0)
+        triples, anti_triple, anti_opening = part3_spcht_workings(changedLocs, secret.folio_spcht, secret.anti_folio_spcht, secret.anti_opening_spcht)
         return {}
 
 
