@@ -26,13 +26,14 @@ import re
 import os
 import json
 from datetime import datetime
+import traceback
 
 import SpchtUtility
 import WorkOrder
 
 from SpchtDescriptorFormat import Spcht, SpchtTriple, SpchtThird
 from local_tools import sparqlQuery
-from foliotools.foliotools import additional_remote_data, part1_folio_workings, grab, find, create_single_location, create_hash, check_location_changes, check_opening_changes, create_location_node
+from foliotools.foliotools import additional_remote_data, part1_folio_workings, grab, find, create_single_location, create_hash, check_location_changes, check_opening_changes, create_location_node, sparql_delete_node_plus1
 
 import foliotools.folio2triplestore_config as secret
 
@@ -46,19 +47,26 @@ def crawl_location():
     pass
 
 
-def location_update(location_hashes, location_objects):
+def location_update(location_hashes, opening_hashes, location_objects, opening_objects):
     changed = check_location_changes(location_hashes)
     if not changed:
         logging.info("Check completed without any found changes, hibernating...")
-        return {}
+        return []
     else:
         changedLocs = {k: v['location'] for k, v in changed.items()}
-        changedOpenHashs = {k: v['opening_hash'] for k, v in changed.items()}
-        changedLocHashs = {k: v['location_hash'] for k, v in changed.items()}
-        print(json.dumps(changedLocs, indent=3))
-        exit(0)
+
+        location_hashes.update({k: v['location_hash'] for k, v in changed.items()})
+        opening_hashes.update({k: v['opening_hash'] for k, v in changed.items()})
+
+        for hash_key in changedLocs:
+            for node in location_objects[hash_key]:
+                sparql_delete_node_plus1(secret.named_graph, node, secret.sparql_url, secret.triple_user, secret.triple_password)
+
         triples, anti_triple, anti_opening = part3_spcht_workings(changedLocs, secret.folio_spcht, secret.anti_folio_spcht, secret.anti_opening_spcht)
-        return {}
+        part4_work_order(triples)
+        opening_objects.update({k: v[0] for k, v in anti_opening.items()})
+        location_objects.update(anti_triple)
+        return [hash_key for hash_key in changedLocs.keys()]
 
 
 def opening_update(opening_hashes: dict, opening_object: dict):
@@ -237,9 +245,13 @@ if __name__ == "__main__":
             crawl_location()
         if (ahuit - time_switch['location']).total_seconds() > secret.interval_location:
             logging.info(f"Location update triggered - now: '{ahuit.isoformat()}', last call: '{main_file['meta']['last_location']}'")
-            #main_file['meta']['last_location'] = ahuit.isoformat()
-            update_return = location_update(main_file['hashes']['location'], main_file['triples']['location'])
+            main_file['meta']['last_location'] = ahuit.isoformat()
+            update_return = location_update(main_file['hashes']['location'],
+                                            main_file['hashes']['opening'],
+                                            main_file['triples']['location'],
+                                            main_file['triples']['opening'], )
             if update_return:
+                print(update_return)
                 logging.info("Updated locations")
 
         if (ahuit - time_switch['opening']).total_seconds() > secret.interval_opening:
@@ -257,4 +269,5 @@ if __name__ == "__main__":
         exit(0)
     except Exception as e:
         logging.critical(f"MAIN::Unexpected exception {e.__class__.__name__} occured, message '{e}'")
+        traceback.print_exc()
         exit(9)

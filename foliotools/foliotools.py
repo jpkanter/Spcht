@@ -29,6 +29,7 @@ import pytz
 import requests
 import urllib3
 from datetime import datetime
+from local_tools import sparqlQuery
 
 import foliotools.folio2triplestore_config as secret
 
@@ -77,6 +78,7 @@ def create_hash(data: dict, variant):
     elif variant == "opening":
         try:
             hasheable = ""
+            # ? i could just use str(data) right?
             for day in data:
                 hasheable += day['weekdays']['day']
                 hasheable += str(day['openingDay'])
@@ -164,14 +166,15 @@ def check_opening_changes(hashfile_content: dict):
     verdict = {}
     for servicepoint, old_hash in hashfile_content.items():
         opening = additional_remote_data(servicepoint)
-        new_hash = create_hash(opening['openingDays'], "opening")
-        if new_hash == old_hash:
-            continue
-        else:
-            verdict[servicepoint] = {
-                "hash": new_hash,
-                "hours": opening
-            }
+        if opening:
+            new_hash = create_hash(opening['openingDays'], "opening")
+            if new_hash == old_hash:
+                continue
+            else:
+                verdict[servicepoint] = {
+                    "hash": new_hash,
+                    "hours": opening
+                }
     return verdict
 
 
@@ -235,3 +238,18 @@ def create_location_node(location: dict, inst: dict, lib: dict):
     # del small_node['openingHours']
     return one_node, location_hash, open_hash
 
+
+def sparql_delete_node_plus1(named_graph, node, sparql_endpoint, sparql_user, sparql_pw):
+    query = f"""DELETE 
+                {{ GRAPH <{named_graph}>
+                    {{ {node} ?p ?o }}
+                }}
+                WHERE {{ GRAPH <{named_graph}>
+                    {{ {node} ?p ?o }}
+                    }};"""
+    status, discard = sparqlQuery(query,
+                                  sparql_endpoint,
+                                  auth=sparql_user,
+                                  pwd=sparql_pw,
+                                  named_graph=named_graph)
+    return status
