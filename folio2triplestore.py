@@ -23,6 +23,7 @@
 import logging
 import sys
 import re
+import copy
 import os
 import json
 from datetime import datetime
@@ -43,8 +44,31 @@ logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
 append = "?limit=1000"
 
 
-def crawl_location():
-    pass
+def crawl_location(location_hashes, opening_hashes, location_objects, opening_objects):
+    global append
+    locations = part1_folio_workings(secret.endpoints['locations'], "location", append)
+    found_locations = {}
+    for each in locations['locations']:
+        if re.search(secret.name, each['code']):
+            found_locations[each['id']] = copy.deepcopy(each)
+    new_locations = {}
+    for key, each in found_locations.items():
+        if key not in location_hashes:
+            one_loc, loc_hash, open_hash = create_single_location(each)
+            location_hashes.update({key: loc_hash})
+            opening_hashes.update(open_hash)
+            new_locations[key] = one_loc
+    if new_locations:
+        logging.info(f"Found {len(new_locations)} new locations")
+        triples, anti_triple, anti_opening = part3_spcht_workings(new_locations, secret.folio_spcht,
+                                                                  secret.anti_folio_spcht,
+                                                                  secret.anti_opening_spcht)
+        part4_work_order(triples)
+        opening_objects.update({k: v[0] for k, v in anti_opening.items()})
+        location_objects.update(anti_triple)
+        return True
+    return False
+
 
 
 def location_update(location_hashes, opening_hashes, location_objects, opening_objects):
@@ -56,12 +80,17 @@ def location_update(location_hashes, opening_hashes, location_objects, opening_o
         changedLocs = {k: v['location'] for k, v in changed.items()}
 
         location_hashes.update({k: v['location_hash'] for k, v in changed.items()})
-        opening_hashes.update({k: v['opening_hash'] for k, v in changed.items()})
+        opening_hashes.update({dic['opening_hash'] for dic in changedLocs.values()})
+        # ? double dictionary comprehension, the way 'create_node' works is that it has to transport the id of  the
+        # ? opening hour somehow, this it does by nesting the key one layer deeper, so that the result of 'create_one_node'
+        # ? that is used in location changes gives us {location}, str_hash, {uuid_str: str_hash}
+        # ? to get the actual opening hour uuid we therefore have to go two layers deep, in this case there should always
+        # ? be only one key for opening_hour hashes but this method would even work with more, no clue how 'expensive'
+        # ? this is but it should not matter a lot
 
         for hash_key in changedLocs:
             for node in location_objects[hash_key]:
                 sparql_delete_node_plus1(secret.named_graph, node, secret.sparql_url, secret.triple_user, secret.triple_password)
-
         triples, anti_triple, anti_opening = part3_spcht_workings(changedLocs, secret.folio_spcht, secret.anti_folio_spcht, secret.anti_opening_spcht)
         part4_work_order(triples)
         opening_objects.update({k: v[0] for k, v in anti_opening.items()})
@@ -242,14 +271,18 @@ if __name__ == "__main__":
             'crawl':  datetime.fromisoformat(main_file['meta']['last_crawl'])
         }
         if (ahuit - time_switch['crawl']).total_seconds() > secret.interval_all:
-            crawl_location()
+            logging.info(f"Crawling for Locations triggered - now: '{ahuit.isoformat()}', last call: '{main_file['meta']['last_crawl']}'")
+            crawl_return = crawl_location(main_file['hashes']['location'],
+                                            main_file['hashes']['opening'],
+                                            main_file['triples']['location'],
+                                            main_file['triples']['opening'])
         if (ahuit - time_switch['location']).total_seconds() > secret.interval_location:
             logging.info(f"Location update triggered - now: '{ahuit.isoformat()}', last call: '{main_file['meta']['last_location']}'")
             main_file['meta']['last_location'] = ahuit.isoformat()
             update_return = location_update(main_file['hashes']['location'],
                                             main_file['hashes']['opening'],
                                             main_file['triples']['location'],
-                                            main_file['triples']['opening'], )
+                                            main_file['triples']['opening'] )
             if update_return:
                 print(update_return)
                 logging.info("Updated locations")
