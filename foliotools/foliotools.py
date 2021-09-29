@@ -149,16 +149,21 @@ def check_location_changes(hashes: dict):
     verdict = {}
     for location, old_hash in hashes.items():
         current_location = part1_folio_workings(secret.endpoints['locations'] + "/" + location)
-        new_hash = create_hash(current_location, "loc")
-        if new_hash == old_hash:
-            continue
+        if current_location:
+            new_hash = create_hash(current_location, "loc")
+            if new_hash == old_hash:
+                continue
+            else:
+                loc_data, location_hash, opening_hash = create_single_location(current_location)
+                verdict[location] = {
+                    "location_hash": location_hash,
+                    "opening_hash": opening_hash,
+                    "location": loc_data
+                }
         else:
-            loc_data, location_hash, opening_hash = create_single_location(current_location)
-            verdict[location] = {
-                "location_hash": location_hash,
-                "opening_hash": opening_hash,
-                "location": loc_data
-            }
+            print("Disappeared id found", location)
+            verdict[location] = {}
+    print(verdict)
     return verdict
 
 
@@ -182,17 +187,20 @@ def part1_folio_workings(endpoint, key="an endpoint", append=""):
     try:
         url = secret.url + endpoint + append
         r = requests.get(url, headers=secret.folio_header)
-        if r.status_code != 200:
-            logging.critical(f"Status Code was not 200, {r.status_code} instead")
-            exit(1)
-        try:
-            data = json.loads(r.text)
-            logging.info(f"{key} retrieved ")
-            return data
-        except urllib3.exceptions.NewConnectionError:
-            logging.error(f"Connection could be establish")
-        except json.JSONDecodeError as e:
-            logging.warning(f"JSON decode Error: {e}")
+        if r.status_code == 200:
+            try:
+                data = json.loads(r.text)
+                logging.debug(f"{key} retrieved ")
+                return data
+            except urllib3.exceptions.NewConnectionError:
+                logging.error(f"Connection could be establish")
+            except json.JSONDecodeError as e:
+                logging.warning(f"JSON decode Error: {e}")
+        elif r.status_code == 404:
+            return {}
+        else:
+            logging.error(f"Status Code {r.status_code} - {r.text[:128]}")
+            return {}
     except SystemExit as e:
         logging.info(f"SystemExit as planned, code: {e.code}")
         exit(e.code)
@@ -239,13 +247,13 @@ def create_location_node(location: dict, inst: dict, lib: dict):
     return one_node, location_hash, open_hash
 
 
-def sparql_delete_node_plus1(named_graph, node, sparql_endpoint, sparql_user, sparql_pw):
+def sparql_delete_node_plus1(named_graph, subject, sparql_endpoint, sparql_user, sparql_pw, predicate = "?p", sobject = "?o"):
     query = f"""DELETE 
                 {{ GRAPH <{named_graph}>
-                    {{ {node} ?p ?o }}
+                    {{ {subject} {predicate} {sobject} }}
                 }}
                 WHERE {{ GRAPH <{named_graph}>
-                    {{ {node} ?p ?o }}
+                    {{ {subject} {predicate} {sobject} }}
                     }};"""
     status, discard = sparqlQuery(query,
                                   sparql_endpoint,

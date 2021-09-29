@@ -66,9 +66,8 @@ def crawl_location(location_hashes, opening_hashes, location_objects, opening_ob
         part4_work_order(triples)
         opening_objects.update({k: v[0] for k, v in anti_opening.items()})
         location_objects.update(anti_triple)
-        return True
-    return False
-
+        return new_locations.keys()
+    return []
 
 
 def location_update(location_hashes, opening_hashes, location_objects, opening_objects):
@@ -77,10 +76,13 @@ def location_update(location_hashes, opening_hashes, location_objects, opening_o
         logging.info("Check completed without any found changes, hibernating...")
         return []
     else:
-        changedLocs = {k: v['location'] for k, v in changed.items()}
+        changedLocs = {k: v['location'] for k, v in changed.items() if 'location' in v}
 
-        location_hashes.update({k: v['location_hash'] for k, v in changed.items()})
-        opening_hashes.update({dic['opening_hash'] for dic in changedLocs.values()})
+        location_hashes.update({k: v['location_hash'] for k, v in changed.items() if 'location_hash' in v})
+        for dic in changed.values():
+            if 'opening_hash' in dic:
+                opening_hashes.update(dic['opening_hash'])
+        # * opening_hashes.update({dic['opening_hash'] for dic in changed.values()})
         # ? double dictionary comprehension, the way 'create_node' works is that it has to transport the id of  the
         # ? opening hour somehow, this it does by nesting the key one layer deeper, so that the result of 'create_one_node'
         # ? that is used in location changes gives us {location}, str_hash, {uuid_str: str_hash}
@@ -88,9 +90,13 @@ def location_update(location_hashes, opening_hashes, location_objects, opening_o
         # ? be only one key for opening_hour hashes but this method would even work with more, no clue how 'expensive'
         # ? this is but it should not matter a lot
 
-        for hash_key in changedLocs:
+        for hash_key in changed:
             for node in location_objects[hash_key]:
                 sparql_delete_node_plus1(secret.named_graph, node, secret.sparql_url, secret.triple_user, secret.triple_password)
+                sparql_delete_node_plus1(secret.named_graph, "?s", secret.sparql_url, secret.triple_user, secret.triple_password, sobject=node)
+            if not changed[hash_key]:  #delete disappeard entries
+                del location_objects[hash_key]
+                del location_hashes[hash_key]
         triples, anti_triple, anti_opening = part3_spcht_workings(changedLocs, secret.folio_spcht, secret.anti_folio_spcht, secret.anti_opening_spcht)
         part4_work_order(triples)
         opening_objects.update({k: v[0] for k, v in anti_opening.items()})
@@ -127,18 +133,13 @@ def opening_update(opening_hashes: dict, opening_object: dict):
     # ! discard processing
     for key in changed.keys():
         sobject = opening_object[key]
-        query = f"""DELETE 
-                    {{ GRAPH <{secret.named_graph}>
-                        {{ {sobject} <https://schema.org/openingHoursSpecification> ?o }}
-                    }}
-                    WHERE {{ GRAPH <{secret.named_graph}>
-                        {{ {sobject} <https://schema.org/openingHoursSpecification> ?o }}
-                        }};"""
-        status, discard = sparqlQuery(query,
-                                      secret.sparql_url,
-                                      auth=secret.triple_user,
-                                      pwd=secret.triple_password,
-                                      named_graph=secret.named_graph)
+        status, discard = sparql_delete_node_plus1(secret.named_graph,
+                                                   sobject,
+                                                   secret.sparql_url,
+                                                   secret.triple_user,
+                                                   secret.triple_password,
+                                                   "<https://schema.org/openingHoursSpecification>"
+                                                   )
     part4_work_order(all_triples)
     return opening_hashes
 
