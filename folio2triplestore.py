@@ -295,6 +295,10 @@ if __name__ == "__main__":
             if update_return:
                 logging.info("Updated opening hours")
                 main_file['hashes']['opening'] = update_return
+        if main_file['meta']['avg_cal_intervall']:
+            pass
+        else:
+            pass
         with open(secret.main_file, "w") as big_file:
             json.dump(main_file, big_file, indent=3)
 
