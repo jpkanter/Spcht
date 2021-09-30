@@ -46,6 +46,26 @@ Back to the locations, there are two links to servicepoints, there is for one a 
 
 *All those endpoints are configurable in the config file if every anything changes here*
 
+### The Working file
+
+To save the current state of the updates and data a file based "database" is utilised. It might as well be a lean sqlite file but the necessary access seems to favor a simple and solid solution without the need to add overhead. By default the file is called `folio2triple.save.json` and is, as the name suggests, a json-file. Its overall structure looks like this:
+
+```json
+{
+   "meta": { },
+   "hashes": {
+      "location": { },
+      "opening": { }
+   },
+   "triples": {
+      "location": { UUID: [], ... },
+      "opening": { UUID: str, ...}
+   }
+}
+```
+
+The first key, 'meta' holds time based data on when the three processed where called last and some statistics. Hashes holds the hash of serialised information of locations and opening. Under the key 'triples' the so called "delta-subjects" are stored. These are used to surgical remove old and abandoned entries without deploying additional garbage collection tools.
+
 
 ### Update process
 
@@ -63,5 +83,18 @@ Opening hours in folio are designed as calendar entries, as it seems the origina
 
 To keep the footprint of requests to the OKAPI interface low only that data is requested that is absolutely necessary. While creating the opening hours a hash over all hours and days was created that gets compared on checkup. For checkup only those opening hours that are known will be queried. 
 
-When there is a change the aforementioned "delta subjects" will be utilized, these are part of the triple that define the opening hour triple for any one given location (organised in departments), the tool will then delete all links to specific opening hours and replace those with new entries (and might create specific opening&closing times that do yet not exist). Afterwards the hash list is updated and the tool goes back into hibernation till called the next time.
+When there is a change the aforementioned "delta subjects" will be utilised, these are part of the triple that define the opening hour triple for any one given location (organised in departments), the tool will then delete all links to specific opening hours and replace those with new entries (and might create specific opening&closing times that do yet not exist). Afterwards the hash list is updated and the tool goes back into hibernation till called the next time.
 
+#### Location Changes
+
+Similar to the opening changes there is a hash for a location, it does not include the opening hours but as part of the process those will be replaced as well, regardless of actual changes. When updating any given location the entire "department" inside the triplestore will be deleted, this included data that lies under another node like addresses or geographic positions. As the tool cannot know those and seperate them from data like the opening hours that might be used by more than one instance additional data was saved in the working file. If, for any reason, a location vanishes entirely the corresponding triple store entries will be deleted and not replaced as it would be for an update.
+
+#### New Entry Check
+
+By default, every 7 days all location data will be downloaded and its names searched for a specific, configured name to find new so called "entrances" that define the opening hours for any one given building. Different from the initial blank slate operation this will only fetch all locations but only those institutions, libraries and servicepoints that are actually necessary to create a new "department"
+
+*Ironically, the example use case for this has always the same institution and campus for every single library so that the 'data hoarder' approach actually uses less data band with. Overall this shouldn't matter either way as it all is pure text data and no media like videos is part of it*
+
+### The configuration file - folio2triplestore_config.py
+
+This file contains all settings and file path to other files that are needed for the overall procedure. In a standard installation the file wont be present and instead a file called `folio2triplestore_config.example.py` can be found within the `./foliotools` folder.
