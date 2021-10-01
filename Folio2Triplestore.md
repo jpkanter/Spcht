@@ -2,7 +2,7 @@
 
 # Folio 2 Triplestore
 
-This is a slightly specialised tool that extracts data from the folio library services platform, transforms them and inserts them into an arbitrary triplestore. It uses the already established Spcht-infrastructures and methods but is unfortunately a lot more geared to a single purpose and harder to adapt / modify.
+This is a slightly specialised tool that extracts data from the Folio library services platform, transforms them and inserts them into an arbitrary triplestore. It uses the already established Spcht-infrastructures and methods but is unfortunately a lot more geared to a single purpose and harder to adapt / modify.
 
 ### First Run
 
@@ -22,7 +22,7 @@ The relevant part of the folio data lie in a small compartment that is the `loca
 * "institution" is the overall organisation, it can consist of many "libraries" and "campuses" scattered over the country or even the world
 * "campus" is the local entity libraries are organised under, similar to university campuses, a *fenced* compound that defines an area, that fence can be everything from a real brick wall to an imaginary border that includes half of the city
 
-* "library" is a, roughly speaking the building any given amount of shelves filled books resides, it can contain multiple "locations"
+* "library" is, roughly speaking, the building any given amount of shelves filled with books resides, it can contain multiple "locations"
 * "location" stands for places within a "library", small ones might only have one, big ones might have multiple floors with more than five locations each, locations are the go to entry point for all data operations
 * "servicepoints" are like a specialised type of location that can be interacted with. While locations might only define a place a servicepoint is a promise. A servicepoint has a time where someone or something is actively interacting with customers. Only service points can have opening hours.
 
@@ -38,7 +38,7 @@ LOCATION					SERVICEPOINT
 └details {}
 ```
 
-There is also some additional data describing normal database stuff like metadata, more ids and some functionality this tool doesn't care about.
+There is also some additional data describing normal database stuff like metadata, more ids and some functionality this tool doesn't care about. The most important part of a location among the links to all other things is the field `details`, it can contain arbitrary key-value pairs that can be entered by a user on the folio side. To utilise those data its important to have a proper schema and well communicated unified structure for data. All further operation assume that the data provided by `details` is uniform and each one key describes always the same thing.
 
 It was stated that every servicepoint has opening hours linked to it, but as visible, there are no ids for opening hours inside a given servicepoint. For that kind of data the tool has to query the calendar interface `/calendar/periods/{UUID}/period` where "UUID" is the given id of any one servicepoint. *Folio* then returns a list of all available calendars with a timerange that describes **when** those calendars actually apply, therefore a third request is necessary to get the detailed list of open and closing times on a day-by-day basis.
 
@@ -99,7 +99,7 @@ By default, every 7 days all location data will be downloaded and its names sear
 
 This file contains all settings and file path to other files that are needed for the overall procedure. In a standard installation the file wont be present and instead a file called `folio2triplestore_config.example.py` can be found within the `./foliotools` folder.
 
-## general design philosophy
+## General design philosophy
 
 Broadly speaking, there were two approaches to maintain synchronicity between the triplestore and the Folio that is the master of all data in this use case. Either way there needs to be some procedure that checks whether the data in the triplestore still reflect the content of the Folio. This tools does manage its update times itself, defined by three parameters in the configuration file, there would have been an alternative to make it a pure command line dependent application. In both cases the script has to be called by *cron* or some other kind of task scheduler. I believe to compress some complexity by managing the time frames for updates inside the same configuration file that holds other information concerning the process i choose the *better* way. Although there is room for discussion [^1]
 
