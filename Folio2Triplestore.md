@@ -98,3 +98,10 @@ By default, every 7 days all location data will be downloaded and its names sear
 ### The configuration file - folio2triplestore_config.py
 
 This file contains all settings and file path to other files that are needed for the overall procedure. In a standard installation the file wont be present and instead a file called `folio2triplestore_config.example.py` can be found within the `./foliotools` folder.
+
+## general design philosophy
+
+Broadly speaking, there were two approaches to maintain synchronicity between the triplestore and the Folio that is the master of all data in this use case. Either way there needs to be some procedure that checks whether the data in the triplestore still reflect the content of the Folio. This tools does manage its update times itself, defined by three parameters in the configuration file, there would have been an alternative to make it a pure command line dependent application. In both cases the script has to be called by *cron* or some other kind of task scheduler. I believe to compress some complexity by managing the time frames for updates inside the same configuration file that holds other information concerning the process i choose the *better* way. Although there is room for discussion [^1]
+
+[^1]: as always
+

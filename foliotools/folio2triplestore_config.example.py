@@ -48,12 +48,15 @@ interval_all = 60*60*24*7  # time in seconds when to check for new locations
 processing = "sparql" # kind of processing the work order uses, can be either 'isql' or 'sparql'
 log_file = "./folio_update.log" # file where the logs are saved
 
+# endpoints, should almost never change, period & one_period use substitutes for the position of the UUIDs
 endpoints = {
     "library": "/location-units/libraries",
     "campus": "/location-units/campuses",
     "institution": "/location-units/institutions",
     "service": "/service-points",
-    "locations": "/locations"
+    "locations": "/locations",
+    "periods": "/calendar/periods/$servicepoint_id/period",
+    "one_period": "/calendar/periods/$servicepoint_id/period/$period_id"
 }
 
 folio_header = {

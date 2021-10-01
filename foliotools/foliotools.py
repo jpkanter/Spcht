@@ -29,6 +29,7 @@ import pytz
 import requests
 import urllib3
 from datetime import datetime
+from string import Template
 from local_tools import sparqlQuery
 
 import foliotools.folio2triplestore_config as secret
@@ -95,19 +96,32 @@ def create_hash(data: dict, variant):
 
 
 def additional_remote_data(servicepoint_id: str) -> dict:
+    """
+    Fetches calendar data from a folio endpoint
+    :param servicepoint_id:
+    :type servicepoint_id:
+    :return: A dictionary that may or not may be empty if everything goes smooth, None in case of error
+    :rtype: Dict or None
+    """
     utc = pytz.UTC
 
     # ! first request
-    request_url = secret.url + "/calendar/periods/" + servicepoint_id + "/period"
+    periods = Template(secret.endpoints['periods'])
+    one_period = Template(secret.endpoints['one_period'])
+    request_url = secret.url + periods.substitute(servicepoint_id=servicepoint_id)
     r = requests.get(request_url, headers=secret.folio_header)
-    if r.status_code != 200:
-        print(f"'{request_url}' could not retrieve data, status {r.status_code}")
+    if r.status_code == 200:
+        try:
+            step1_data = r.json()
+        except json.JSONDecodeError:
+            logging.warning("Returned Json could not be handled, mostly because it wasnt json, aborting")
+            return None
+    elif r.status_code == 404:
+        logging.debug(f"No opening hours found for '{servicepoint_id}', none")
         return {}
-    try:
-        step1_data = r.json()
-    except json.JSONDecodeError:
-        print("Returned Json could not be handled, mostly because it wasnt json, aborting")
-        return {}
+    else:
+        logging.warning(f"'{request_url}' could not retrieve data, status {r.status_code}")
+        return None
     # check if given opening hours block is valid today
     step2_uuid = None
     for period in step1_data['openingPeriods']:
@@ -118,25 +132,29 @@ def additional_remote_data(servicepoint_id: str) -> dict:
             step2_uuid = period['id']
             break
     if not step2_uuid:
-        print(f"No suiteable and valid opening hour found for '{servicepoint_id}'")
+        logging.debug(f"No suiteable and valid opening hour found for '{servicepoint_id}'")
         return {}
     # ! second request
-    request_url = secret.url + "/calendar/periods/" + servicepoint_id + "/period/" + step2_uuid
-    r = requests.get(request_url, headers=secret.folio_header)
-    if r.status_code != 200:
-        print(f"'{servicepoint_id}' + '{step2_uuid}' could not retrieve data, status {r.status_code}")
-        return {}
+    request_url = secret.url + one_period.substitute(servicepoint_id=servicepoint_id, period_id=step2_uuid)
     try:
-        step2_data = r.json()
-        # refining data for future use, i dont like manipulating the data even more here
-        # adds the day identifier to each start&end time cause Spcht doesnt support backward lookups
-        for days in step2_data['openingDays']:
-            for hours in days['openingDay']['openingHour']:
-                hours['day'] = days['weekdays']['day']
+        r = requests.get(request_url, headers=secret.folio_header)
+        if r.status_code == 200:
+            step2_data = r.json()
+            # refining data for future use, i dont like manipulating the data even more here
+            # adds the day identifier to each start&end time cause Spcht doesnt support backward lookups
+            for days in step2_data['openingDays']:
+                for hours in days['openingDay']['openingHour']:
+                    hours['day'] = days['weekdays']['day']
+            return step2_data
+        elif r.status_code == 404:
+            logging.warning(f"No currently valid opening hour for {servicepoint_id} found, DESPITE it being there mere ms ago")
+            return {}
+        else:
+            logging.warning(f"'{servicepoint_id}' + '{step2_uuid}' could not retrieve data, status {r.status_code}")
+            return None
     except json.JSONDecodeError:
-        print("Second returned Json could not be handled, mostly because it wasnt json, aborting")
-        return {}
-    return step2_data
+        logging.warning("Second returned Json could not be handled, mostly because it wasnt json, aborting")
+        return None
 
 
 def create_single_location(location: dict):

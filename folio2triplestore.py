@@ -26,7 +26,7 @@ import re
 import copy
 import os
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 import traceback
 
 import SpchtUtility
@@ -38,7 +38,8 @@ from foliotools.foliotools import additional_remote_data, part1_folio_workings, 
 
 import foliotools.folio2triplestore_config as secret
 
-logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.INFO)
+logging.basicConfig(filename=secret.log_file, format='[%(asctime)s] %(levelname)s:%(message)s', level=logging.INFO)
+#logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.INFO)
 logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
 
 append = "?limit=1000"
@@ -58,16 +59,18 @@ def crawl_location(location_hashes, opening_hashes, location_objects, opening_ob
             location_hashes.update({key: loc_hash})
             opening_hashes.update(open_hash)
             new_locations[key] = one_loc
-    if new_locations:
-        logging.info(f"Found {len(new_locations)} new locations")
-        triples, anti_triple, anti_opening = part3_spcht_workings(new_locations, secret.folio_spcht,
-                                                                  secret.anti_folio_spcht,
-                                                                  secret.anti_opening_spcht)
-        part4_work_order(triples)
-        opening_objects.update({k: v[0] for k, v in anti_opening.items()})
-        location_objects.update(anti_triple)
-        return new_locations.keys()
-    return []
+    if not new_locations:
+        return []
+    logging.info(f"Found {len(new_locations)} new locations")
+    triples, anti_triple, anti_opening = part3_spcht_workings(new_locations, secret.folio_spcht,
+                                                              secret.anti_folio_spcht,
+                                                              secret.anti_opening_spcht)
+    opening_objects.update({k: v[0] for k, v in anti_opening.items()})
+    location_objects.update(anti_triple)
+    if part4_work_order(triples):
+        return [location for location in new_locations.keys()]
+    else:
+        return None
 
 
 def location_update(location_hashes, opening_hashes, location_objects, opening_objects):
@@ -75,33 +78,34 @@ def location_update(location_hashes, opening_hashes, location_objects, opening_o
     if not changed:
         logging.info("Check completed without any found changes, hibernating...")
         return []
-    else:
-        changedLocs = {k: v['location'] for k, v in changed.items() if 'location' in v}
+    changedLocs = {k: v['location'] for k, v in changed.items() if 'location' in v}
 
-        location_hashes.update({k: v['location_hash'] for k, v in changed.items() if 'location_hash' in v})
-        for dic in changed.values():
-            if 'opening_hash' in dic:
-                opening_hashes.update(dic['opening_hash'])
-        # * opening_hashes.update({dic['opening_hash'] for dic in changed.values()})
-        # ? double dictionary comprehension, the way 'create_node' works is that it has to transport the id of  the
-        # ? opening hour somehow, this it does by nesting the key one layer deeper, so that the result of 'create_one_node'
-        # ? that is used in location changes gives us {location}, str_hash, {uuid_str: str_hash}
-        # ? to get the actual opening hour uuid we therefore have to go two layers deep, in this case there should always
-        # ? be only one key for opening_hour hashes but this method would even work with more, no clue how 'expensive'
-        # ? this is but it should not matter a lot
+    location_hashes.update({k: v['location_hash'] for k, v in changed.items() if 'location_hash' in v})
+    for dic in changed.values():
+        if 'opening_hash' in dic:
+            opening_hashes.update(dic['opening_hash'])
+    # * opening_hashes.update({dic['opening_hash'] for dic in changed.values()})
+    # ? double dictionary comprehension, the way 'create_node' works is that it has to transport the id of  the
+    # ? opening hour somehow, this it does by nesting the key one layer deeper, so that the result of 'create_one_node'
+    # ? that is used in location changes gives us {location}, str_hash, {uuid_str: str_hash}
+    # ? to get the actual opening hour uuid we therefore have to go two layers deep, in this case there should always
+    # ? be only one key for opening_hour hashes but this method would even work with more, no clue how 'expensive'
+    # ? this is but it should not matter a lot
 
-        for hash_key in changed:
-            for node in location_objects[hash_key]:
-                sparql_delete_node_plus1(secret.named_graph, node, secret.sparql_url, secret.triple_user, secret.triple_password)
-                sparql_delete_node_plus1(secret.named_graph, "?s", secret.sparql_url, secret.triple_user, secret.triple_password, sobject=node)
-            if not changed[hash_key]:  #delete disappeard entries
-                del location_objects[hash_key]
-                del location_hashes[hash_key]
-        triples, anti_triple, anti_opening = part3_spcht_workings(changedLocs, secret.folio_spcht, secret.anti_folio_spcht, secret.anti_opening_spcht)
-        part4_work_order(triples)
-        opening_objects.update({k: v[0] for k, v in anti_opening.items()})
-        location_objects.update(anti_triple)
+    for hash_key in changed:
+        for node in location_objects[hash_key]:
+            sparql_delete_node_plus1(secret.named_graph, node, secret.sparql_url, secret.triple_user, secret.triple_password)
+            sparql_delete_node_plus1(secret.named_graph, "?s", secret.sparql_url, secret.triple_user, secret.triple_password, sobject=node)
+        if not changed[hash_key]:  #delete disappeard entries
+            del location_objects[hash_key]
+            del location_hashes[hash_key]
+    triples, anti_triple, anti_opening = part3_spcht_workings(changedLocs, secret.folio_spcht, secret.anti_folio_spcht, secret.anti_opening_spcht)
+    opening_objects.update({k: v[0] for k, v in anti_opening.items()})
+    location_objects.update(anti_triple)
+    if part4_work_order(triples):
         return [hash_key for hash_key in changedLocs.keys()]
+    else:
+        return None
 
 
 def opening_update(opening_hashes: dict, opening_object: dict):
@@ -140,8 +144,11 @@ def opening_update(opening_hashes: dict, opening_object: dict):
                                                    secret.triple_password,
                                                    "<https://schema.org/openingHoursSpecification>"
                                                    )
-    part4_work_order(all_triples)
-    return opening_hashes
+
+    if part4_work_order(all_triples):
+        return [key for key in changed.keys()]
+    else:
+        return None  # failed inserts
 
 
 def part3_spcht_workings(extracted_dicts: dict, main_spcht: str, anti_spcht=None, anti_spcht2=None):
@@ -255,28 +262,29 @@ if __name__ == "__main__":
         with open(secret.main_file, "r") as big_file:
             try:
                 main_file = json.load(big_file)
+                main_file_bck = copy.deepcopy(main_file)
             except json.JSONDecodeError:
                 logging.error("'big_file' could not be read, apparently json interpreting failed. Start anew?")
                 exit(1)
         ahuit = datetime.now()
-        main_file['meta']['last_call'] = ahuit.isoformat()
-        main_file['meta']['counter'] += 1
-        try:
-            pass # do average call intervall
-        except Exception as e:
-            logging.debug(f"Updating of average call intervall failed somehow: {e.__class__.__name__}: {e}")
-
+        insert_failure = False
         time_switch = {
             'opening':  datetime.fromisoformat(main_file['meta']['last_opening']),
             'location':  datetime.fromisoformat(main_file['meta']['last_location']),
-            'crawl':  datetime.fromisoformat(main_file['meta']['last_crawl'])
+            'crawl':  datetime.fromisoformat(main_file['meta']['last_crawl']),
+            'last_call': datetime.fromisoformat(main_file['meta']['last_call'])
         }
         if (ahuit - time_switch['crawl']).total_seconds() > secret.interval_all:
             logging.info(f"Crawling for Locations triggered - now: '{ahuit.isoformat()}', last call: '{main_file['meta']['last_crawl']}'")
+            main_file['meta']['last_crawl'] = ahuit.isoformat()
             crawl_return = crawl_location(main_file['hashes']['location'],
                                             main_file['hashes']['opening'],
                                             main_file['triples']['location'],
                                             main_file['triples']['opening'])
+            if crawl_return:
+                logging.info("New Locations inserted:", str(crawl_return))
+            elif crawl_return is None:
+                insert_failure = True
         if (ahuit - time_switch['location']).total_seconds() > secret.interval_location:
             logging.info(f"Location update triggered - now: '{ahuit.isoformat()}', last call: '{main_file['meta']['last_location']}'")
             main_file['meta']['last_location'] = ahuit.isoformat()
@@ -285,9 +293,9 @@ if __name__ == "__main__":
                                             main_file['triples']['location'],
                                             main_file['triples']['opening'] )
             if update_return:
-                print(update_return)
-                logging.info("Updated locations")
-
+                logging.info("Updated locations:", str(update_return))
+            elif update_return is None:
+                insert_failure = True
         if (ahuit - time_switch['opening']).total_seconds() > secret.interval_opening:
             logging.info(f"Opening update triggered - now: '{ahuit.isoformat()}', last call: '{main_file['meta']['last_opening']}'")
             main_file['meta']['last_opening'] = ahuit.isoformat()
@@ -295,10 +303,29 @@ if __name__ == "__main__":
             if update_return:
                 logging.info("Updated opening hours")
                 main_file['hashes']['opening'] = update_return
-        if main_file['meta']['avg_cal_intervall']:
-            pass
-        else:
-            pass
+
+        if insert_failure:
+            # ? due my stupidity the update/crawl functions update referenced dics, the most easy solution for me is to
+            # ? just replace the change with the former state
+            main_file = copy.deepcopy(main_file_bck)
+        try: # this is just a try block cause i fear it might fail for stupid reasons and i dont want the entire procedure
+            # crash because of that
+            if main_file['meta']['avg_cal_intervall']:
+                old_delta = timedelta(seconds=int(main_file['meta']['avg_cal_intervall']))
+                relative_delta = ahuit - time_switch['last_call']
+                # nd = new_delta # it was just to long to write 4 times in one line
+                nd = (old_delta + relative_delta) / 2  # ! hail to datetime library for doing the heavy lifting
+            else:
+                nd = ahuit - time_switch['last_call']
+            main_file['meta']['avg_cal_intervall_human'] = \
+                f"{str(nd.days):0>3}d-{str(nd.seconds//3600):0>2}h:{str((nd.seconds//60)%60):0>2}m:{str((nd.seconds%60)%60):0>2}s"
+            main_file['meta']['avg_cal_intervall'] = (nd.days * 60 * 60 * 24) + nd.seconds
+        except Exception as e:
+            logging.debug(f"Updating of average call intervall failed somehow: {e.__class__.__name__}: {e}")
+            traceback.print_exc()
+        main_file['meta']['last_call'] = ahuit.isoformat()
+        main_file['meta']['counter'] += 1
+
         with open(secret.main_file, "w") as big_file:
             json.dump(main_file, big_file, indent=3)
 
