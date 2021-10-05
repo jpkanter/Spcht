@@ -25,6 +25,7 @@ import sys
 import re
 import copy
 import os
+import argparse
 import json
 from datetime import datetime, timedelta
 import traceback
@@ -33,7 +34,7 @@ import SpchtUtility
 import WorkOrder
 
 from SpchtDescriptorFormat import Spcht, SpchtTriple, SpchtThird
-from local_tools import sparqlQuery
+from local_tools import sizeof_fmt
 from foliotools.foliotools import additional_remote_data, part1_folio_workings, grab, find, create_single_location, create_hash, check_location_changes, check_opening_changes, create_location_node, sparql_delete_node_plus1
 
 import foliotools.folio2triplestore_config as secret
@@ -43,6 +44,7 @@ logging.basicConfig(filename=secret.log_file, format='[%(asctime)s] %(levelname)
 logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
 
 append = "?limit=1000"
+__version__ = 0.7
 
 
 def crawl_location(location_hashes, opening_hashes, location_objects, opening_objects):
@@ -258,6 +260,34 @@ def full_update():
 
 
 if __name__ == "__main__":
+    # * Argparse Init
+    parser = argparse.ArgumentParser(
+        description="Folio2Triplestore Tool - Converts Folio Data into triples",
+        usage="folio2triplestore.py [--info][--opening][--location][--crawl]",
+        epilog="All Settings are to be done in './foliotools/folio2triplestore_config.py'",
+        prefix_chars="-")
+    parser.add_argument("-i", "--info", action="store_true", help="Shows info about the current file if it exists")
+    parser.add_argument("-c", "--crawl", action="store_true", help="Crawls for new locations regardless of time since last crawl")
+    parser.add_argument("-l", "--location", action="store_true", help="Checks all known location for updates, ignores cooldown")
+    parser.add_argument("-o", "--opening", action="store_true", help="Checks all opening hours for changes, ignores cooldown")
+    args = parser.parse_args()
+
+    # This seems like the most inelegant way to trigger the processes by multiple, exclusive conditions
+    do_crawl = False
+    do_location = False
+    do_opening = False
+    no_arguments = False
+    if len(sys.argv) == 1:
+        no_arguments = True
+    if args.info:
+        pass
+    if args.crawl:
+        do_crawl = True
+    if args.location:
+        do_location = True
+    if args.opening:
+        do_opening = True
+
     try:
         with open(secret.main_file, "r") as big_file:
             try:
@@ -274,7 +304,26 @@ if __name__ == "__main__":
             'crawl':  datetime.fromisoformat(main_file['meta']['last_crawl']),
             'last_call': datetime.fromisoformat(main_file['meta']['last_call'])
         }
-        if (ahuit - time_switch['crawl']).total_seconds() > secret.interval_all:
+        # * Time Switch
+        if no_arguments:  # when no argument are given use the normal timer events to trigger
+            if (ahuit - time_switch['crawl']).total_seconds() > secret.interval_all:
+                do_crawl = True
+            if (ahuit - time_switch['opening']).total_seconds() > secret.interval_opening:
+                do_opening = True
+            if (ahuit - time_switch['location']).total_seconds() > secret.interval_location:
+                do_location = True
+
+        if args.info:
+            print(f"Folio2Triplestore Tool Version {__version__}")
+            print(f"    Locations:             {len(main_file['hashes']['location'])}")
+            print(f"    Last call:             {main_file['meta']['last_call']}")
+            print(f"    Total calls:           {main_file['meta']['counter']}")
+            print(f"    Avg. time btw. calls:  {main_file['meta']['avg_cal_intervall_human']}")
+            print(f"    Log file size:         {sizeof_fmt(os.stat(secret.log_file).st_size)}")
+        if len(sys.argv) == 2 and args.info:
+            exit(0)  # no changes written if only info was called
+
+        if do_crawl:
             logging.info(f"Crawling for Locations triggered - now: '{ahuit.isoformat()}', last call: '{main_file['meta']['last_crawl']}'")
             main_file['meta']['last_crawl'] = ahuit.isoformat()
             crawl_return = crawl_location(main_file['hashes']['location'],
@@ -285,7 +334,7 @@ if __name__ == "__main__":
                 logging.info("New Locations inserted:", str(crawl_return))
             elif crawl_return is None:
                 insert_failure = True
-        if (ahuit - time_switch['location']).total_seconds() > secret.interval_location:
+        if do_location:
             logging.info(f"Location update triggered - now: '{ahuit.isoformat()}', last call: '{main_file['meta']['last_location']}'")
             main_file['meta']['last_location'] = ahuit.isoformat()
             update_return = location_update(main_file['hashes']['location'],
@@ -296,7 +345,7 @@ if __name__ == "__main__":
                 logging.info("Updated locations:", str(update_return))
             elif update_return is None:
                 insert_failure = True
-        if (ahuit - time_switch['opening']).total_seconds() > secret.interval_opening:
+        if do_opening:
             logging.info(f"Opening update triggered - now: '{ahuit.isoformat()}', last call: '{main_file['meta']['last_opening']}'")
             main_file['meta']['last_opening'] = ahuit.isoformat()
             update_return = opening_update(main_file['hashes']['opening'], main_file['triples']['opening'])
@@ -308,8 +357,9 @@ if __name__ == "__main__":
             # ? due my stupidity the update/crawl functions update referenced dics, the most easy solution for me is to
             # ? just replace the change with the former state
             main_file = copy.deepcopy(main_file_bck)
-        try: # this is just a try block cause i fear it might fail for stupid reasons and i dont want the entire procedure
-            # crash because of that
+
+        try:  # this is a try block cause i fear it might fail for stupid reasons and i dont want the entire procedure
+            # crash because of that screwing around with deltatimes
             if main_file['meta']['avg_cal_intervall']:
                 old_delta = timedelta(seconds=int(main_file['meta']['avg_cal_intervall']))
                 relative_delta = ahuit - time_switch['last_call']
@@ -323,6 +373,8 @@ if __name__ == "__main__":
         except Exception as e:
             logging.debug(f"Updating of average call intervall failed somehow: {e.__class__.__name__}: {e}")
             traceback.print_exc()
+        logging.debug(f"Call finished, last call was: {main_file['meta']['last_call']}, average time between calls is now: {main_file['meta']['avg_cal_intervall_human']}")
+        print("Call to folio2triplestore finished, times updated")  # print so at least something shows up in the console if manually called
         main_file['meta']['last_call'] = ahuit.isoformat()
         main_file['meta']['counter'] += 1
 

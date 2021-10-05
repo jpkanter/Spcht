@@ -181,7 +181,6 @@ def check_location_changes(hashes: dict):
         else:
             print("Disappeared id found", location)
             verdict[location] = {}
-    print(verdict)
     return verdict
 
 
