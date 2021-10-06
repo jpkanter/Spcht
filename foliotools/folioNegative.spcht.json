@@ -25,7 +25,7 @@
           "field": "inst_code",
           "source": "dict",
           "static_field": "https://data.finc.info/postalAddress/",
-          "predicate": "schema.org/address",
+          "predicate": "https://schema.org/address",
           "required": "optional",
           "type": "uri",
           "append_uuid_object_fields": ["address/streetAddress", "address/Locality"]

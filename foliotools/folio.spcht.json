@@ -60,33 +60,33 @@
           "field": "inst_code",
           "source": "dict",
           "static_field": "https://data.finc.info/postalAddress/",
-          "predicate": "schema.org/address",
+          "predicate": "https://schema.org/address",
           "required": "optional",
           "type": "uri",
           "append_uuid_object_fields": ["address/streetAddress", "address/Locality"],
           "sub_nodes": [
             {
               "field": "address/streetAddress",
-              "predicate": "schema.org/streetAddress",
+              "predicate": "https://schema.org/streetAddress",
               "source": "dict",
               "required": "optional"
             },
             {
               "field": "address/postalCode",
-              "predicate": "schema.org/postalCode",
+              "predicate": "https://schema.org/postalCode",
               "source": "dict",
               "required": "optional"
             },
             {
               "field": "address/Locality",
-              "predicate": "schema.org/addressLocality",
+              "predicate": "https://schema.org/addressLocality",
               "source": "dict",
               "required": "optional",
               "tag": "@de"
             },
             {
               "field": "address/Country",
-              "predicate": "schema.org/addressCountry",
+              "predicate": "https://schema.org/addressCountry",
               "source": "dict",
               "required": "optional",
               "tag": "@de"
@@ -104,7 +104,7 @@
               "field": "static",
               "source": "dict",
               "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
-              "static_field": "schema.org/PostalAddress",
+              "static_field": "https://schema.org/PostalAddress",
               "required": "optional",
               "type": "uri"
             }
