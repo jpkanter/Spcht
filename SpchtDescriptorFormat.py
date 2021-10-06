@@ -201,7 +201,7 @@ class Spcht:
             triple_list += triples
         self._m21_dict = None
         self._raw_dict = None
-        #print(export_graph.serialize(format="turtle").decode("utf-8"))
+        #print(export_graph.serialize(format="turtle")
         return triple_list  # * can be empty []
     # TODO: Error logs for known error entries and total failures as statistic
 

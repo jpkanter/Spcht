@@ -532,7 +532,7 @@ def process2RDF(quadro_list: list, export_format_type="turtle", export=True) -> 
             print(f"RDF Exception [{error.__class__.__name__}] occured with {each.predicate} - {error}", file=sys.stderr)
     try:
         if export:
-            return graph.serialize(format=export_format_type).decode("utf-8")
+            return graph.serialize(format=export_format_type)
         else:
             return graph
     except Exception as e:

@@ -331,7 +331,7 @@ if __name__ == "__main__":
                                             main_file['triples']['location'],
                                             main_file['triples']['opening'])
             if crawl_return:
-                logging.info("New Locations inserted:", str(crawl_return))
+                logging.info("New Locations inserted:" + str(crawl_return))
             elif crawl_return is None:
                 insert_failure = True
         if do_location:
@@ -342,7 +342,7 @@ if __name__ == "__main__":
                                             main_file['triples']['location'],
                                             main_file['triples']['opening'] )
             if update_return:
-                logging.info("Updated locations:", str(update_return))
+                logging.info("Updated locations:" + str(update_return))
             elif update_return is None:
                 insert_failure = True
         if do_opening:
