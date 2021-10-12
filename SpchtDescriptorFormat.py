@@ -153,6 +153,8 @@ class Spcht:
 
         if 'rdflib' in sys.modules and isinstance(subject, rdflib.URIRef):
             subject = subject.toPython()
+        elif isinstance(subject, SpchtThird):
+            subject = subject.content
 
         # generates the subject URI, i presume we already checked the spcht for being correct
         # ? instead of making one hard coded go i could insert a special round of the general loop right?
@@ -179,8 +181,6 @@ class Spcht:
         main_subject = SpchtThird(subject+ressource, uri=True)
         triple_list = []
         for node in self._DESCRI['nodes']:
-            self_sufficient_triples = None  # additional informations for sub nodes
-            rdf_triples = None
             # ! MAIN CALL TO PROCESS DATA
             try:
                 triples = self._recursion_node(node)
@@ -201,7 +201,6 @@ class Spcht:
             triple_list += triples
         self._m21_dict = None
         self._raw_dict = None
-        #print(export_graph.serialize(format="turtle")
         return triple_list  # * can be empty []
     # TODO: Error logs for known error entries and total failures as statistic
 
@@ -442,7 +441,6 @@ class Spcht:
             self.debug_print(colored(sub_dict.get('name', ""), "cyan"), end=" ")
 
         full_triples = []
-
         # * Replacement of old procedure with universal extraction
         # * this funnels a 'main_value' through the procedure and utilises a host of exist nodes
         if sub_dict['source'] == "dict":
@@ -461,7 +459,7 @@ class Spcht:
                 self.debug_print(colored(f"✗ joined mapping could not be fullfilled", "magenta"), end="-> ")
                 return self._call_fallback(sub_dict)
             return joined_result
-        elif 'sub_data' in sub_dict:
+        elif 'sub_data' in sub_dict: # sub data procedure
             if 'if_field' in sub_dict:
                 if not self._handle_if(sub_dict):
                     return self._call_fallback(sub_dict)  # ? EXIT 4 # might use if_condition globally
@@ -479,6 +477,8 @@ class Spcht:
                             processed_goods = colibri._recursion_node(a_node)
                             if processed_goods:
                                 sub_data_tuples += processed_goods
+                    else:
+                        self.debug_print(colored(f"• Sub Data part was of type '{type(sub_data_set)}'"))
                 self.debug_print(colored("✓ Sub Data successfully added", "green"), )
                 del colibri
                 return sub_data_tuples
