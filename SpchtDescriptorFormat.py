@@ -85,6 +85,66 @@ class Spcht:
         else:
             self._name = None
 
+    @property
+    def default_fields(self):
+        """
+                The fields that are always included by get_node_fields. Per default this is just the explicit modelling of
+                the authors usecase, the field 'fullrecord' which contains the marc21 fields. As it doesnt appear normally
+                in any spcht descriptor
+        """
+        return self._default_fields
+
+    @default_fields.setter
+    def default_fields(self, list_of_strings: list):
+        """
+        The fields that are always included by get_node_fields. Per default this is just the explicit modelling of
+        the authors usecase, the field 'fullrecord' which contains the marc21 fields. As it doesnt appear in the normal
+        spcht descriptor
+
+        :para list_of_strings list: a list of strings that replaces the previous list
+        :return: Returns nothing but raises a TypeException is something is off
+        :rtype None:
+       """
+        # ? i first tried to implement an extend list class that only accepts strs as append/extend parameter cause
+        # ? you can still append, extend and so on with default_fields and this protects only against a pure set-this-to-x
+        # ? but i decided that its just not worth it
+        if not isinstance(list_of_strings, list):
+            raise TypeError("Given parameter is not a list")
+        for each in list_of_strings:
+            if not isinstance(each, str):
+                raise TypeError("An element in the list is not a string")
+        self._default_fields = list_of_strings
+
+    @property
+    def debug(self):
+        """
+        'debug' is a switch that activates deep (and possibly colored) information about the mapping while doing so, it
+        also makes some prints a bit more verbose and shows file paths while loading
+        """
+        return self._debug
+
+    @debug.setter
+    def debug(self, mode):
+        if mode:
+            self._debug = True
+        else:
+            self._debug = False
+
+    @property
+    def log_debug(self):
+        """
+        if log_debug is true everything that debug writes will also land in the log files, as i used debug print a
+        lot to write continuous lines that concat but log writes a new line every call this will be extra spammy
+        """
+        return self._log_debug
+
+    @log_debug.setter
+    def log_debug(self, mode):
+        if mode:
+            self._log_debug = True
+        else:
+            self._log_debug = False
+
     def __repr__(self):
         if len(self._DESCRI) > 0:
             some_text = ""
@@ -459,31 +519,10 @@ class Spcht:
                 self.debug_print(colored(f"✗ joined mapping could not be fullfilled", "magenta"), end="-> ")
                 return self._call_fallback(sub_dict)
             return joined_result
-        elif 'sub_data' in sub_dict: # sub data procedure
-            if 'if_field' in sub_dict:
-                if not self._handle_if(sub_dict):
-                    return self._call_fallback(sub_dict)  # ? EXIT 4 # might use if_condition globally
+        elif 'sub_data' in sub_dict:  # sub data procedure
+            # ! this is actually a quite big process just masked as one-liner
             self.debug_print(colored("✓ sub_data", "green"), end="-> ")
-            colibri = Spcht()  # TODO1: just create and save a separate Spcht for ever sub_data node and use them again
-            sub_data_list = self.extract_dictmarc_value(sub_dict, raw=True)
-            if sub_data_list:
-                self.debug_print(colored(f"length={len(sub_data_list)} Datapoints", "yellow"), end="...")
-                self.debug_print(colored(f"sub_data_nodes: {len(sub_dict['sub_data'])}", "grey"))
-                sub_data_tuples = []
-                for sub_data_set in sub_data_list:
-                    if isinstance(sub_data_set, dict):
-                        colibri._raw_dict = sub_data_set
-                        for a_node in sub_dict['sub_data']:
-                            processed_goods = colibri._recursion_node(a_node)
-                            if processed_goods:
-                                sub_data_tuples += processed_goods
-                    else:
-                        self.debug_print(colored(f"• Sub Data part was of type '{type(sub_data_set)}'"))
-                self.debug_print(colored("✓ Sub Data successfully added", "green"), )
-                del colibri
-                return sub_data_tuples
-            self.debug_print(colored("✗ Sub Data not found", "magenta"), )
-            #sub_data_result = self._handle_sub_data()
+            return self._handle_sub_data(sub_dict)
         else:
             main_value = self.extract_dictmarc_value(sub_dict)
             if 'static_field' in sub_dict:
@@ -582,7 +621,6 @@ class Spcht:
             return [SpchtTriple(None, SpchtThird(predicate, uri=True), sobject) for sobject in sobjects]
         if isinstance(sobjects, SpchtThird):
             return [SpchtTriple(None, SpchtThird(predicate, uri=True), SpchtThird(sobjects))]
-            #return [(predicate, s) for s in subject if s]
         logger.error(f"While using the node_return_iron something failed while ironing '{str(sobjects)}'")
         raise TypeError("Could handle predicate, subject pair")
 
@@ -591,7 +629,7 @@ class Spcht:
         """
         Filtering the given value or list of values with the node-parameter 'match' or '{prefix}match', it will then
         return a list with all strings that match, will convert numbers to strings, the entire string will be returned
-        not just the matching part. Regex Syntax is used (and regex itself of course) If no entry matches an empty
+        not just the matching part. Regex Symmntax is used (and regex itself of course) If no entry matches an empty
         list will be returned. Will throw an TypeError if a non-str, non-int and non-float is given as value or as element
         of the given list. List order should be preserved but there is no garantue for that.
 
@@ -680,6 +718,7 @@ class Spcht:
         inherit = False
         regex = False
         if not isinstance(mapping, dict) or mapping is None:
+            logger.debug("Spcht._node_mapping::Given mapping is not a dictionary.")
             return value
         if settings is not None and isinstance(settings, dict):
             if '$default' in settings:
@@ -693,6 +732,7 @@ class Spcht:
                 regex = True
             if '$casesens' in settings and not settings['$casesens']:  # carries the risk of losing entries
                 # case insensitivity is achieved by just converting every key to lowercase
+                #TODO: if this is ever used it blasts a lot of cpu cycles EVERY time
                 mapping = {str(k).lower(): v for k, v in mapping.items()}
 
         if isinstance(value, list):  # ? repeated dictionary calls not good for performance?
@@ -730,7 +770,8 @@ class Spcht:
                 # ! stupid past me, it should throw an exception
         else:
             logger.error("_node_mapping: got a non-list as value.")
-            print(f"field contains a non-list: {type(value)}", file=self.std_err)
+            self.debug_print(f"field contains a non-list: {type(value)}")
+            return []
 
     def _joined_map(self, sub_dict: dict) -> list:
         """
@@ -1031,8 +1072,41 @@ class Spcht:
                 print(colored("✗Processing of sub_node failed.", "red"))
         return return_quadros
 
-    def _handle_sub_data(self):
-        pass
+    def _handle_sub_data(self, sub_dict: dict) -> list:
+        """
+        Handles the sub_data part of any given data, sub_data is a list of dictionaries of any length:
+
+        * Example: [{key: value}, {key:value}]
+
+        The sub_node contained in sub_node will then be used on every instance of that given dictionary to process
+        the data. Subject will still be the main subject given as there are just nested data but no nested nodes.
+        For new, nested notes see sub_node
+        :param dict sub_dict: the main_node that CONTAINS 'sub_data'
+        :return: a list of SpchtThird as returned by _recursion_node
+        :rtype: list
+        """
+        if 'if_field' in sub_dict:
+            if not self._handle_if(sub_dict):
+                return self._call_fallback(sub_dict)  # ? EXIT 4 # might use if_condition globally
+        colibri = Spcht()  # TODO1: just create and save a separate Spcht for ever sub_data node and use them again
+        sub_data_list = self.extract_dictmarc_value(sub_dict, raw=True)
+        if sub_data_list:
+            self.debug_print(colored(f"length={len(sub_data_list)} Datapoints", "yellow"), end="...")
+            self.debug_print(colored(f"sub_data_nodes: {len(sub_dict['sub_data'])}", "grey"))
+            sub_data_tuples = []
+            for sub_data_set in sub_data_list:
+                if isinstance(sub_data_set, dict):
+                    colibri._raw_dict = sub_data_set
+                    for a_node in sub_dict['sub_data']:
+                        processed_goods = colibri._recursion_node(a_node)
+                        if processed_goods:
+                            sub_data_tuples += processed_goods
+                else:
+                    self.debug_print(colored(f"• Sub Data part was of type '{type(sub_data_set)}'"))
+            self.debug_print(colored("✓ Sub Data successfully added", "green"), )
+            del colibri
+            return sub_data_tuples
+        self.debug_print(colored("✗ Sub Data not found", "magenta"), )
 
     def _add_to_save_as(self, value, sub_dict):
         # this was originally 3 lines of boilerplate inside postprocessing, i am not really sure if i shouldn't have
@@ -1251,67 +1325,6 @@ class Spcht:
                     part_list += temp_list
         return part_list
 
-    @property
-    def default_fields(self):
-        """
-                The fields that are always included by get_node_fields. Per default this is just the explicit modelling of
-                the authors usecase, the field 'fullrecord' which contains the marc21 fields. As it doesnt appear normally
-                in any spcht descriptor
-        """
-        return self._default_fields
-
-    @default_fields.setter
-    def default_fields(self, list_of_strings: list):
-        """
-        The fields that are always included by get_node_fields. Per default this is just the explicit modelling of
-        the authors usecase, the field 'fullrecord' which contains the marc21 fields. As it doesnt appear in the normal
-        spcht descriptor
-
-        :para list_of_strings list: a list of strings that replaces the previous list
-        :return: Returns nothing but raises a TypeException is something is off
-        :rtype None:
-       """
-        # ? i first tried to implement an extend list class that only accepts strs as append/extend parameter cause
-        # ? you can still append, extend and so on with default_fields and this protects only against a pure set-this-to-x
-        # ? but i decided that its just not worth it
-        if not isinstance(list_of_strings, list):
-            raise TypeError("Given parameter is not a list")
-        for each in list_of_strings:
-            if not isinstance(each, str):
-                raise TypeError("An element in the list is not a string")
-        self._default_fields = list_of_strings
-
-    @property
-    def debug(self):
-        """
-        'debug' is a switch that activates deep (and possibly colored) information about the mapping while doing so, it
-        also makes some prints a bit more verbose and shows file paths while loading
-        """
-        return self._debug
-
-    @debug.setter
-    def debug(self, mode):
-        if mode:
-            self._debug = True
-        else:
-            self._debug = False
-
-    @property
-    def log_debug(self):
-        """
-        if log_debug is true everything that debug writes will also land in the log files, as i used debug print a
-        lot to write continuous lines that concat but log writes a new line every call this will be extra spammy
-        """
-        return self._log_debug
-
-    @log_debug.setter
-    def log_debug(self, mode):
-        if mode:
-            self._log_debug = True
-        else:
-            self._log_debug = False
-
-
 class SpchtIterator:
     def __init__(self, spcht: Spcht):
         self._spcht = spcht
@@ -1350,7 +1363,7 @@ class SpchtThird:
             annotation = "\"" + self.annotation + "\""
         else:
             annotation = "None"
-        return "SpchtThird(\"" + self.content + "\",uri=" + str(self.uri) + ",language=" + language + ",annotation=" + annotation + ")"
+        return "SpchtThird(\"" + str(self.content) + "\",uri=" + str(self.uri) + ",language=" + language + ",annotation=" + annotation + ")"
 
     def __str__(self):
         if self.uri:
@@ -1418,7 +1431,7 @@ class SpchtThird:
             self._language = None
         else:
             if self.annotation is None:
-                self._language = language
+                self._language = str(language)
             else:
                 raise ValueError("cannot set annotation and language")
 
@@ -1444,7 +1457,7 @@ class SpchtThird:
             self._annotation = None
         elif isinstance(annotation, str):
             if self.language is None:
-                self._annotation = annotation
+                self._annotation = str(annotation)
             else:
                 raise ValueError("cannot set language and annotation")
         else:
@@ -1670,6 +1683,7 @@ class SpchtNode:
             return default
 
     def import_dict(self, dictionary: dict):
+        # TODO
         """
         Takes the given dictionary that represents a spcht node and imports it in the correct structure
         """
@@ -1678,7 +1692,7 @@ class SpchtNode:
                 self[key] = dictionary[key]
                 dictionary.pop(key)
         for foreign_key in dictionary:
-            re.match(r"^(comment).*$")
+            re.match(r"^(comment).*$", foreign_key)
 
     @property
     def source(self):

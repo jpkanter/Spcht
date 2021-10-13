@@ -90,4 +90,4 @@ if __name__ == "__main__":
     quadro_console_out(lines)
     export = SpchtUtility.process2RDF(lines, export=False)
     with open("processing_turtle.ttl", "w") as turtle_file:
-        turtle_file.write(export.serialize(format="turtle").decode("utf-8"))
+        turtle_file.write(export.serialize(format="turtle"))

@@ -40,34 +40,34 @@ class TestSpchtThird(unittest.TestCase):
         with self.subTest("creation"):
             self.assertIsInstance(SpchtThird(""), SpchtThird)  # this is a wild test Oo
         with self.subTest("create_str"):
-            self.assertEqual("test", str(SpchtThird("test")))
+            self.assertEqual('"test"', str(SpchtThird("test")))
         with self.subTest("create_repr"):
-            self.assertEqual('"test"', str(repr(SpchtThird("test"))))
+            self.assertEqual('"test"', str(SpchtThird("test")))
 
     def test_uri_create(self):
-        self.assertEqual('<test>', str(repr(SpchtThird("test", uri=True))))
+        self.assertEqual('<test>', str(SpchtThird("test", uri=True)))
 
     def test_create_language(self):
-        self.assertEqual('"test"@se', str(repr(SpchtThird("test", language="se"))))
+        self.assertEqual('"test"@se', str(SpchtThird("test", language="se")))
 
     def test_create_annoation(self):
-        self.assertEqual('"test"^^xsd:time', str(repr(SpchtThird("test", annotation="xsd:time"))))
+        self.assertEqual('"test"^^xsd:time', str(SpchtThird("test", annotation="xsd:time")))
 
     def test_create_import(self):
         with self.subTest("import proper process annotation"):
-            self.assertEqual('"test"^^xsd:time', str(repr(SpchtThird("test", tag="^^xsd:time"))))
+            self.assertEqual('"test"^^xsd:time', str(SpchtThird("test", tag="^^xsd:time")))
         with self.subTest("import proper process annotation"):
-            self.assertEqual('"test"@se', str(repr(SpchtThird("test", tag="@se"))))
+            self.assertEqual('"test"@se', str(SpchtThird("test", tag="@se")))
         with self.subTest("import inproper annotation"):
-            self.assertEqual('"test"', str(repr(SpchtThird("test", tag="^xsd:time"))))
+            self.assertEqual('"test"', str(SpchtThird("test", tag="^xsd:time")))
         with self.subTest("import inproper process annotation"):
-            self.assertEqual('"test"', str(repr(SpchtThird("test", tag="äse"))))
+            self.assertEqual('"test"', str(SpchtThird("test", tag="äse")))
 
     def test_annotation(self):
         with self.subTest("proper annotation"):
             one_third = SpchtThird("test")
             one_third.annotation = "xsd:time"
-            self.assertEqual('"test"^^xsd:time', str(repr(one_third)))
+            self.assertEqual('"test"^^xsd:time', str(one_third))
         with self.subTest("annotation collision"):
             with self.assertRaises(ValueError):
                 one_third.language = "de"
@@ -76,7 +76,7 @@ class TestSpchtThird(unittest.TestCase):
         with self.subTest("proper language"):
             one_third = SpchtThird("test")
             one_third.language = "se"
-            self.assertEqual('"test"@se', str(repr(one_third)))
+            self.assertEqual('"test"@se', str(one_third))
         with self.subTest("language collision"):
             with self.assertRaises(ValueError):
                 one_third.annotation = "xsd:time"
@@ -101,15 +101,15 @@ class TestSpchtTriple(unittest.TestCase):
         super(TestSpchtTriple, self).__init__(*args, **kwargs)
 
     def test_empty_creation(self):
-        self.assertEqual('?s ?p ?o .', str(repr(SpchtTriple())))
+        self.assertEqual('(None, None, None)', str(SpchtTriple()))
 
     def test_object_creation(self):
         with self.subTest("object"):
-            self.assertEqual('?s ?p "bla" .', str(repr(SpchtTriple(sobject=SpchtThird("bla")))))
+            self.assertEqual('(None, None, "bla")', str(SpchtTriple(sobject=SpchtThird("bla"))))
         with self.subTest("subject"):
-            self.assertEqual('<bla> ?p ?o .', str(repr(SpchtTriple(subject=SpchtThird("bla", uri=True)))))
+            self.assertEqual('(<bla>, None, None)', str(SpchtTriple(subject=SpchtThird("bla", uri=True))))
         with self.subTest("predicate"):
-            self.assertEqual('?s <bla> ?o .', str(repr(SpchtTriple(predicate=SpchtThird("bla", uri=True)))))
+            self.assertEqual('(None, <bla>, None)', str(SpchtTriple(predicate=SpchtThird("bla", uri=True))))
 
     def test_uri_check(self):
         with self.subTest("subject not uri"):

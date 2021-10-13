@@ -24,7 +24,7 @@
 """
 tests internal functions of the spcht descriptor format
 """
-
+import sys
 import unittest
 import copy
 from SpchtDescriptorFormat import Spcht, SpchtThird, SpchtTriple
@@ -501,7 +501,7 @@ class TestSpchtInternal(unittest.TestCase):
         }
         expected = [SpchtTriple(None,
                                 SpchtThird('nonsense', uri=True),
-                                SpchtThird('https://test.whargable/7958fa30-fb37-5692-8715-ceb160f1323f'))
+                                SpchtThird('https://test.whargable/fbe44eac-4162-5ee5-bf36-88ea7914eb6d'))
                     ]
         self.assertEqual(expected, self.crow._recursion_node(node))
 
