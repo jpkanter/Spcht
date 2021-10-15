@@ -950,7 +950,15 @@ def check_format_node(node, error_desc, out, base_path, is_root=False):
     return True
 
 
-def extract_node_tag(node_tag):
+def extract_node_tag(node_tag) -> tuple:
+    """
+    extracts the node and language tag from a sparql style experession:
+    '@en' becomes just 'en'
+    '^^xsd:string' becomes 'xsd:string'
+    :param str node_tag: simple string containing the entire tag
+    :return: a tuple that is (language, datatype), one of those should always be None
+    :rtype: tuple
+    """
     lang = None
     datatype = None
     if re.search(r"^@(.*)", node_tag):
@@ -958,4 +966,3 @@ def extract_node_tag(node_tag):
     if re.search(r"^\^\^(.*)", node_tag):
         datatype = node_tag[2:]
     return lang, datatype
-
