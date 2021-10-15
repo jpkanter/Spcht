@@ -1,0 +1,193 @@
+{
+  "id_field": "servicePointId",
+  "id_source": "dict",
+  "id_subject_prefix": "https://data.finc.info/organisations/",
+  "nodes": [
+    {
+      "field": "openingDays",
+      "required": "optional",
+      "predicate": "for each element....",
+      "source": "dict",
+      "type": "uri",
+      "sub_data": [
+        {
+          "field": "openingDay>openingHour",
+          "source": "tree",
+          "predicate": "for each element....",
+          "required": "optional",
+          "if_field": "openingDay>allDay",
+          "if_condition": "eq",
+          "if_value": false,
+          "sub_data": [
+            {
+              "field": "day",
+              "source": "dict",
+              "required": "optional",
+              "predicate": "https://schema.org/openingHoursSpecification",
+              "mapping": {
+                "MONDAY": "Mo",
+                "TUESDAY": "Tu",
+                "WEDNESDAY": "We",
+                "THURSDAY": "Th",
+                "FRIDAY": "Fr",
+                "SATURDAY": "Sa",
+                "SUNDAY": "Su"
+              },
+              "insert_into": "https://data.finc.info/OpeningHoursSpecification/{}_{}_{}",
+              "insert_add_fields": [
+                {
+                  "field": "startTime",
+                  "cut": "(:)",
+                  "append": "00"
+                },
+                {
+                  "field": "endTime",
+                  "cut": "(:)",
+                  "append": "00"
+                }
+              ],
+              "type": "uri",
+              "sub_nodes": [
+                {
+                  "field": "startTime",
+                  "source": "dict",
+                  "required": "optional",
+                  "predicate": "https://schema.org/opens",
+                  "append": ":00",
+                  "comment_tag": "^^xsd:time"
+                },
+                {
+                  "field": "endTime",
+                  "source": "dict",
+                  "required": "optional",
+                  "predicate": "https://schema.org/closes",
+                  "append": ":00",
+                  "comment_tag": "^^xsd:time"
+                },
+                {
+                  "source": "dict",
+                  "required": "optional",
+                  "field": "day",
+                  "predicate": "https://schema.org/dayOfWeek",
+                  "type": "uri",
+                  "mapping": {
+                    "MONDAY": "https://schema.org/Monday",
+                    "TUESDAY": "https://schema.org/Tuesday",
+                    "WEDNESDAY": "https://schema.org/Wednesday",
+                    "THURSDAY": "https://schema.org/Thursday",
+                    "FRIDAY": "https://schema.org/Friday",
+                    "SATURDAY": "https://schema.org/Saturday",
+                    "SUNDAY": "https://schema.org/Sunday"
+                  }
+                },
+                {
+                  "field": "static",
+                  "source": "dict",
+                  "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+                  "static_field": "https://schema.org/OpeningHoursSpecification",
+                  "required": "optional",
+                  "type": "uri"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "field": "openingDay>openingHour",
+          "source": "tree",
+          "predicate": "for each element....",
+          "required": "optional",
+          "if_field": "openingDay>allDay",
+          "if_condition": "eq",
+          "if_value": true,
+          "type": "uri",
+          "sub_data": [
+            {
+              "field": "day",
+              "source": "dict",
+              "required": "optional",
+              "predicate": "https://schema.org/openingHoursSpecification",
+              "prepend": "https://data.finc.info/OpeningHoursSpecification/",
+              "mapping": {
+                "MONDAY": "Mo",
+                "TUESDAY": "Tu",
+                "WEDNESDAY": "We",
+                "THURSDAY": "Th",
+                "FRIDAY": "Fr",
+                "SATURDAY": "Sa",
+                "SUNDAY": "Su"
+              },
+              "append": "_000000_240000",
+              "type": "uri",
+              "sub_nodes": [
+                {
+                  "source": "tree",
+                  "required": "optional",
+                  "field": "weekdays>day",
+                  "mapping": {
+                    "MONDAY": "Montag",
+                    "TUESDAY": "Dienstag",
+                    "WEDNESDAY": "Mittwoch",
+                    "THURSDAY": "Donnerstag",
+                    "FRIDAY": "Freitag",
+                    "SATURDAY": "Samstag",
+                    "SUNDAY": "Sonntag"
+                  },
+                  "append": "{}: Ganztägig",
+                  "predicate": "http://www.w3.org/2000/01/rdf-schema#label",
+                  "tag": "@de"
+                },
+                {
+                  "source": "tree",
+                  "required": "optional",
+                  "field": "weekdays>day",
+                  "mapping": {
+                    "MONDAY": "Monday",
+                    "TUESDAY": "Tuesday",
+                    "WEDNESDAY": "Wednesday",
+                    "THURSDAY": "Thursday",
+                    "FRIDAY": "Friday",
+                    "SATURDAY": "Saturday",
+                    "SUNDAY": "Sunday"
+                  },
+                  "append": "{}: all day",
+                  "predicate": "http://www.w3.org/2000/01/rdf-schema#label",
+                  "tag": "@en"
+                },
+                {
+                  "source": "dict",
+                  "field": "matterless",
+                  "required": "optional",
+                  "static_field": "00:00:00",
+                  "predicate": "https://schema.org/opens"
+                },
+                {
+                  "source": "dict",
+                  "field": "matterless",
+                  "required": "optional",
+                  "static_field": "23:59:59",
+                  "predicate": "https://schema.org/opens"
+                },
+                {
+                  "source": "tree",
+                  "required": "optional",
+                  "field": "weekdays>day",
+                  "predicate": "https://schema.org/dayOfWeek",
+                  "mapping": {
+                    "MONDAY": "https://schema.org/Monday",
+                    "TUESDAY": "https://schema.org/Tuesday",
+                    "WEDNESDAY": "https://schema.org/Wednesday",
+                    "THURSDAY": "https://schema.org/Thursday",
+                    "FRIDAY": "https://schema.org/Friday",
+                    "SATURDAY": "https://schema.org/Saturday",
+                    "SUNDAY": "https://schema.org/Sunday"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

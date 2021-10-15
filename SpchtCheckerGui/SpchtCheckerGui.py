@@ -313,7 +313,7 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         debug_dict = {}  # TODO: loading of definitions
         basePath = Path(filename)
         descriPath = os.path.join(f"{basePath.parent}", f"{basePath.stem}.descri{basePath.suffix}")
-        print(descriPath)
+        print("Additional description path:",descriPath)
         # the ministry for bad python hacks presents you this path thingy, pathlib has probably something better i didnt find in 10 seconds of googling
         try:
             with open(descriPath) as file:  # complex file operation here

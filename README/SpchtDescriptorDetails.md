@@ -155,12 +155,42 @@ To combine our data we leverage the abilities of `insert_into` with the addition
     "field": "title_short",
     "predicate": "http://purl.org/dc/terms/title",
     "insert_into": "{}: {}",
-    "insert_add_fields": ["title_sub"],
+    "insert_add_fields": [ { "field": "title_sub" } ],
     "required": "optional"
 }
 ```
 
-The actual string to insert into is quite simple, it barely contains more than two placeholders and a colon with a space. The content of `insert_add_fields` is more interesting as the field name is written in square brackets `[]`. This defines an **array** in *JSON* (*known as list in Python*), the data-structure used in all Spcht-context. A *JSON*-list can contain any number of data and data-types (for example, the nodes itself reside in a list that contains so called *dictionaries*), the order of data in a list is preserved and duplicates can be present. If, for some reason, you required, to insert the same value twice in at different positions in a placeholder. In this notation the first placeholder will always contain the `field` value, the second placeholder the first position of `insert_add_fields`  will be the second placeholder, the second *add_fields* position will be the third placeholder and so on. Therefore, if you want to set the first placeholder to the content of the first `insert_add_fields` content, you have to swap fields with the one of `field`. There is one caveat here, other operations like `cut`, `replace`, `append`, `prepend` and `mapping` will actually work in concert with `insert_into` but **only** for the first value defined by `field`
+The actual string to insert into is quite simple, it barely contains more than two placeholders and a colon with a space. The content of `insert_add_fields` is more interesting as the field name is written in square brackets `[]`. This defines an **array** in *JSON* (*known as list in Python*), the data-structure used in all Spcht-context. A *JSON*-list can contain any number of data and data-types (for example, the nodes itself reside in a list that contains so called *dictionaries*), the order of data in a list is preserved and duplicates can be present. If, for some reason, you required, to insert the same value twice in at different positions in a placeholder. In this notation the first placeholder will always contain the `field` value, the second placeholder the first position of `insert_add_fields`  will be the second placeholder, the second *add_fields* position will be the third placeholder and so on. Therefore, if you want to set the first placeholder to the content of the first `insert_add_fields` content, you have to swap fields with the one of `field`. The secondary,  tertiary and other following fields actually allow for some basic operations. In short, every 'insert_add_fields' basically acts as its own node with very limited functionality. The first field will make use of ALL Spcht functionalities that transform or replace the processed value, the additional fields only allow for the operations: `cut`, `replace`, `append`, `prepend`, `match`
+
+*Note: Match will filter out every entry that doesn't match its Regex, if no value remains there will be also no resulting value to be inserted and therefore no result at all for that node*
+
+Example of a full blown `insert_into`
+
+```json
+{
+    "source": "dict",
+    "field": "title_short",
+    "predicate": "http://purl.org/dc/terms/title",
+    "insert_into": "{}: {} - {}",
+    "insert_add_fields": [ 
+    		{ 
+                "field": "title_sub",
+              	"append": "xB",
+                "prepend": "Bx",
+                "match": "^(\S*)$",
+                "cut": "(duck)",
+                "replace": "goose"
+            },
+         	{
+                "field": "title_short",
+                "append": "nonsense"
+            }
+    	],
+    "required": "optional"
+}
+```
+
+This example has everything that `insert_into` supports. And it makes no logical sense. For the example data above this wouldn't even generate anything because the content of `title_sub` is more than one word. This might look intimidating on the first glance but is logically in its own. In most cases a simple `"field": "<data-field"` will totally suffice, just the additional brackets make it slightly more verbose. This is necessary to allow for the depth that is offered.
 
 ### Cut & Replace
 
@@ -393,6 +423,80 @@ For more complex operations a `fallback` can be defined. It is an entire new nod
 }
 ```
 
+## Generating operations
+
+Up until now all operations transformed or replaced any given data to another kind of data. The following procedures are different from that, they generate data in a non-transparent or predictable way.
+
+### Static Fields
+
+Despite what was said before, `static_field` is totally predictable. It will replace the extracted value with the one right side of the colon of this entry. If there is more than one extracted value there will be still only one static field. The content of `field` will be ignored, the node still needs the definition of `field` for internal purposes (the JSON Schema wouldn't validate otherwise). Used without any further context this achieves not a lot, but for the time being it is needed for the next field:
+
+### Generate UUID from Fields
+
+This topic actually has two separate functions under its umbrella:
+
+* `append_uuid_predicate_fields`
+* `append_uuid_object_fields`
+
+Each accepts an array of strings for its operation where each string is a field present in the data set. Spcht will generate an UUID for the values of those fields, if there is more than one value in one or more given fields, all values will be used in the order they appear to generate the UUID. The string of that UUID will then be appended to either the predicate or object value.
+
+### Sub Node
+
+This key generates an entirely new set of triples. Instead of the former subject the value of the parent node will be used as subject part of the triple. Each sub node can contain more sub nodes. Complex Example:
+
+```json
+{
+      "field": "inst_code",
+      "predicate": "/department",
+      "insert_into": "/organisations/{}/department/zw{}",
+      "insert_add_fields": [{"field": "lib_code"}],
+      "type": "uri",
+      "required": "optional",
+      "source": "dict",
+      "sub_nodes": [
+        {
+          "predicate": "/geo",
+          "field": "inst_code",
+          "static_field": "/Geokoor/",
+          "required": "optional",
+          "source": "dict",
+          "type": "uri",
+          "append_uuid_object_fields": ["geo/longitude", "geo/latitude"],
+          "sub_nodes": [
+            {
+              "field": "geo/latitude",
+              "predicate": "/latitude",
+              "required": "optional",
+              "tag": "^^xsd:double",
+              "source": "dict",
+              "type": "literal"
+            }
+          ]
+        }
+      ]
+}
+```
+
+For a data set that contains all the fields referenced in the above description data that will look similar to this will be generated:
+
+```
+</DE-15> </department> </orga/DE-15/department/zw01>
+
+</org/DE-15/department/zw01> </geo> </Geokoor/11324a2c-2e1a-5775-aca4-6ab6c0394b81>
+
+</Geokoor/11324a2c-2e1a-5775-aca4-6ab6c0394b81> </latitude>                      "51.332495"^^xsd:double
+
+```
+
+The topmost entry generates first a value with `insert_into` that serves as unique identifier for further operations according to two extracted values. This Value then will be used as link between a generated coordinate  and the original node. The unique ID node can be extended with additional information like a label or other data that can be extracted from the given data set. In the end a tree like structure is achived:
+
+* Institution
+  * Department
+    * /coordinates
+      * [actual data]
+
+**Attention: each parent node should never return more than one value**
+
 ## Source: marc21
 
 The default state of input data for all Spcht operations is a dictionary (or ''*object*'' in JSON-speech), a data representation of an unique key linked to a set of data in an list. The first task that initiated the creation of Spcht handled data from an *Apache Solr* of the UBL that contained a field called `fullrecord`. This field contains the unmolested raw marc21-dataset that the other informations are derived from. As good data should not be wasted, Spcht includes utility to access such information. Unlike the clean dictionary structure marc is an old format that carries heavily upon its decades old burdens. The basic gist to access a marc21-field is to use identifiers like this:
@@ -474,6 +578,10 @@ In the second ever example in this document was shown how to create a triple tha
 ### name
 
 This is an entirely optional key that does nothing in the processing or for  the processing. It can be seen in log-files and the *SpchtCheckerGui* Program that analysis SpchtDescriptor Files. It is helpful to keep some order in an otherwise chaotic descriptor.
+
+### tag
+
+Per default all generated values that are not an URI are literals without any further designation. `tag` allows for deeper designations like language or string definitions for floats.
 
 ### comment*
 

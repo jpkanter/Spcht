@@ -201,13 +201,19 @@ def DeleteNestedDictionaryKey(dictionary: dict, *args) -> bool:
 
 
 def CheckForParameters(expectations: tuple, **kwargs):
+    """
+    Checks if all if the expected parameters are present in the parameters of this function and returns those that are not
+    :param tuple expectations:
+    :type expectations:
+    :param kwargs:
+    :return: a list of missing parameters
+    :rtype: list
+    """
     missing = []
     for argument in expectations:
         if argument not in kwargs:
             missing.append(argument)
-    if len(missing) > 0:
-        return missing
-    return None
+    return missing
     # ? a list with len > 0 is unfortunately truthy so that i have to violate proper protocol a bit here
 
 
@@ -365,25 +371,31 @@ def UseWorkOrder(work_order_file, **kwargs) -> list or int:
     if work_order is not None:
         try:
             if work_order['meta']['status'] == 1:  # fetching started
+                logger.debug(f"Order {work_order_file}: Status 1 detected, reseting")
                 # fetch process is not recoverable, need to reset to zero state and start anew
                 HardResetWorkOrder(work_order_file)
             if work_order['meta']['status'] == 0 or work_order['meta']['status'] == 1:  # freshly created
+                logger.debug(f"Order {work_order_file}: Status 0 detected")
                 if work_order['meta']['fetch'] == "solr":
                     # ! checks
                     if work_order['meta']['type'] == "update":
+                        logger.debug(f"Order {work_order_file}: Status 0 sorted into update download/insert")
                         expected = (
                             "work_order_file", "solr_url", "query", "total_rows", "chunk_size", "spcht_descriptor",
                             "save_folder", "max_age")
                     else:
+                        logger.debug(f"Order {work_order_file}: Status 0 sorted into normal insert")
                         expected = (
                             "work_order_file", "solr_url", "query", "total_rows", "chunk_size", "spcht_descriptor",
                             "save_folder")
                     missing = CheckForParameters(expected, **kwargs)
                     if missing:
+                        logger.info(f"WorkOrder File '{work_order_file}' couldnt not be processed because parameters {str(missing)} were missing.")
                         return missing
                     # ! process
                     UpdateWorkOrder(work_order_file, update=("meta", "status", 1))
                     if FetchWorkOrderSolr(**kwargs):
+                        logger.debug(f"Order {work_order_file}: Solr fetching finished successful")
                         UpdateWorkOrder(work_order_file, update=("meta", "status", 2))
                         return 2
                     else:
@@ -392,13 +404,15 @@ def UseWorkOrder(work_order_file, **kwargs) -> list or int:
                         print(f"{msg}{boiler_print}")
                         return 1
             if work_order['meta']['status'] == 3:  # processing started
+                logger.debug(f"Order {work_order_file}: Status 3 detected")
                 print(f"Pickuping the order in an 'inbetween' status - {WORK_ORDER_STATUS[work_order['meta']['status']]}")
                 if not SoftResetWorkOrder(work_order_file):
                     msg = f"Reseting work order to state {WORK_ORDER_STATUS[work_order['meta']['status']] - 1} failed"
                     print(msg)
-                    logger.critical(f"UserWorkOrder > {msg}")
+                    logger.critical(f"UseWorkOrder > {msg}")
                     return 3
             if work_order['meta']['status'] == 2 or work_order['meta']['status'] == 3:  # fetching completed
+                logger.debug(f"Order {work_order_file}: Status 2 detected")
                 # ! checks
                 expected = ("work_order_file", "spcht_descriptor", "subject")
                 missing = CheckForParameters(expected, **kwargs)
@@ -416,13 +430,15 @@ def UseWorkOrder(work_order_file, **kwargs) -> list or int:
                 logger.info(f"Turtle Files created, commencing to next step")
                 return 4
             if work_order['meta']['status'] == 5:  # intermediate processing started
+                logger.debug(f"Order {work_order_file}: Status 5 detected")
                 print(f"Pickuping the order in an 'inbetween' status - {WORK_ORDER_STATUS[work_order['meta']['status']]}")
                 if not SoftResetWorkOrder(work_order_file):
                     msg = f"Reseting work order to state {WORK_ORDER_STATUS[work_order['meta']['status']] - 1} failed"
                     print(msg)
-                    logger.critical(f"UserWorkOrder > {msg}")
+                    logger.critical(f"UseWorkOrder > {msg}")
                     return 3
             if work_order['meta']['status'] == 4 or work_order['meta']['status'] == 5:  # processing done
+                logger.debug(f"Order {work_order_file}: Status 4 detected")
                 if work_order['meta']['type'] == "insert":
                     UpdateWorkOrder(work_order_file, update=("meta", "status", 6))
                     return UseWorkOrder(**kwargs)  # jumps to the next step, a bit dirty this solution
@@ -466,15 +482,17 @@ def UseWorkOrder(work_order_file, **kwargs) -> list or int:
                         logger.critical(
                             f"Unknown method '{work_order['meta']['method']}' in work order file {work_order_file}")
             if work_order['meta']['status'] == 7:  # inserting started
-                print(
-                    f"Pickuping the order in an 'inbetween' status - {WORK_ORDER_STATUS[work_order['meta']['status']]}")
+                logger.debug(f"Order {work_order_file}: Status 7 detected")
+                print(f"Pickuping the order in an 'inbetween' status - {WORK_ORDER_STATUS[work_order['meta']['status']]}")
                 if not SoftResetWorkOrder(work_order_file):
                     msg = f"Reseting work order to state {WORK_ORDER_STATUS[work_order['meta']['status']] - 1} failed"
                     print(msg)
-                    logger.critical(f"UserWorkOrder > {msg}")
+                    logger.critical(f"UseWorkOrder > {msg}")
                     return 3
             if work_order['meta']['status'] == 6 or work_order['meta']['status'] == 7:  # intermediate processing done
+                logger.debug(f"Order {work_order_file}: Status 6 detected")
                 if work_order['meta']['method'] == "isql":
+                    logger.debug(f"Order {work_order_file}: Status 6 sorted into isql insert")
                     # ! checks
                     expected = ("work_order_file", "named_graph", "isql_path", "user", "password", "virt_folder")
                     missing = CheckForParameters(expected, **kwargs)
@@ -492,6 +510,7 @@ def UseWorkOrder(work_order_file, **kwargs) -> list or int:
                         print(f"{msg}{boiler_print}")
                         return 7
                 elif work_order['meta']['method'] == "sparql":
+                    logger.debug(f"Order {work_order_file}: Status 6 sorted into sparql insert")
                     # ! checks
                     expected = ("work_order_file", "named_graph", "sparql_endpoint", "user", "password")
                     missing = CheckForParameters(expected, **kwargs)
@@ -509,23 +528,29 @@ def UseWorkOrder(work_order_file, **kwargs) -> list or int:
                         print(f"{msg}{boiler_print}")
                         return 7
             if work_order['meta']['status'] == 8:  # inserting completed
+                logger.debug(f"Order {work_order_file}: Status 8 detected")
                 if CleanUpWorkOrder(work_order_file, **kwargs):
                     UpdateWorkOrder(work_order_file, update=("meta", "status", 9))
                     return 9
                 else:
                     return 8  # ! this is not all that helpful, like you "cast" this on status 8 and get back status 8, wow
             if work_order['meta']['status'] == 9:  # fulfilled, cleanup done
+                logger.debug(f"Order {work_order_file}: Status 9 detected - nothing to do")
                 # * do nothing, order finished
                 return 9
 
         except KeyError as key:
             logger.critical(f"The supplied json file doesnt appear to have the needed data, '{key}' was missing")
         except TypeError as e:
+            fnc = "UseWorkOrder"
             if e == "'NoneType' object is not subscriptable":  # feels brittle
                 msg = "Could not properly load work order file"
-                fnc = "UseWorkOrder"
                 print(msg)
-                logging.error(f"{fnc} > {msg}")
+                logging.critical(f"{fnc} > {msg}")
+            else:
+                msg = f"{e.__class__.__name__}: {e}"
+                logging.critical(f"{fnc} > {msg}")
+                print(msg)
             return False
 
 
@@ -713,7 +738,7 @@ def FetchWorkOrderSolr(work_order_file: str,
             # ! call to solr for data
             data = test_json(load_remote_content(solr_url, parameters))
             if data is not None:
-                file_path = f"{os.path.basename(work_order_file)}_{hash(start_time)}_{i}-{n}.json"
+                file_path = f"{os.path.basename(work_order_file)}_{hash(start_time)}_{i+1}-{n}.json"
                 filename = os.path.join(base_path, file_path)
                 try:
                     extracted_data = solr_handle_return(data)
@@ -1038,13 +1063,19 @@ def FulfillSparqlInsertOrder(work_order_file: str,
                 rounds = 0
                 for sub, pred, obj in this_graph:
                     rounds += 1
-                    if obj is rdflib.term.URIRef:
-                        triples += f"<{sub}> <{pred}> <{obj}> . \n"
+                    if isinstance(obj, rdflib.term.URIRef):
+                        triples += f"<{sub.toPython()}> <{pred.toPython()}> <{obj.toPython()}> . \n"
                     else:
-                        triples += f"<{sub}> <{pred}> \"{obj}\" . \n"
+                        if obj.language:
+                            annotation = "@" + obj.language
+                        elif obj.datatype:
+                            annotation = "^^" + obj.datatype
+                        else:
+                            annotation = ""
+                        triples += f"<{sub.toPython()}> <{pred.toPython()}> \"{obj.toPython()}\"{annotation} . \n"
                     # ! TODO: can optimize here, grouped queries
                     if rounds > SPARQL_CHUNK:
-                        query = f"""WITH <{named_graph}> INSERT {{ {triples}}}"""
+                        query = f"""WITH <{named_graph}> INSERT {{ {triples} }}"""
                         # * i have the sneaking suspicion that i defined the named graph twice
                         status, discard = sparqlQuery(query,
                                                       sparql_endpoint,

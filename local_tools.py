@@ -318,3 +318,21 @@ def load_from_json(file_path):
         logger.error(f"A general exception occured while tyring to open the supposed json file '{file_path}' - {error.args}")
         return None
 
+
+def sizeof_fmt(num: int, suffix="B") -> str:
+    """
+    Human readeable size
+
+    https://stackoverflow.com/a/1094933
+
+    https://web.archive.org/web/20111010015624/http://blogmag.net/blog/read/38/Print_human_readable_file_size
+    :param int num: size in bytes
+    :param str suffix: suffix after size identifier, like GiB
+    """
+    for unit in ["", "Ki", "Mi", "Gi", "Ti", "Pi", "Ei", "Zi"]:
+        if abs(num) < 1024.0:
+            return f"{num:3.1f} {unit}{suffix}"
+        num /= 1024.0
+    return f"{num:.1f} Yi{suffix}"
+
+

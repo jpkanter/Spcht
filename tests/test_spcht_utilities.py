@@ -24,7 +24,7 @@ import json
 import unittest
 
 import SpchtUtility
-from SpchtDescriptorFormat import Spcht
+from SpchtDescriptorFormat import Spcht, SpchtThird, SpchtTriple
 from SpchtUtility import list_wrapper, insert_list_into_str, is_dictkey, list_has_elements, all_variants, match_positions, fill_var
 
 
@@ -219,17 +219,36 @@ class TestFunc(unittest.TestCase):
     def test_extract_dictmarc(self):
         with open("thetestset.json", "r") as json_file:
             thetestset = json.load(json_file)
-        fake_node = { "source": "marc", "field": "951:a"}
+        fake_node = {"source": "marc", "field": "951:a"}
         expected = ["MV", "XA-DE", "XA-PL"]
         empty_spcht = Spcht()
         empty_spcht._m21_dict = SpchtUtility.marc2list(thetestset[0]['fullrecord'])
         with self.subTest("Extract dictmarc list: dictionary"):
             expected = ["MV", "XA-DE", "XA-PL"]
-            self.assertEqual(expected, empty_spcht.extract_dictmarc_value(fake_node))
+            computed = [x.content for x in empty_spcht.extract_dictmarc_value(fake_node)]
+            self.assertEqual(expected, computed)
         with self.subTest("Extract dictmarc dictionary: list"):
             expected = ["(DE-627)1270642103", "(DE-625)rvk/96225:", "(DE-576)200642103"]
             fake_node['field'] = "936:0"
-            self.assertEqual(expected, empty_spcht.extract_dictmarc_value(fake_node))
+            computed = [x.content for x in empty_spcht.extract_dictmarc_value(fake_node)]
+            self.assertEqual(expected, computed)
+
+    def test_spcht_triple_serialize(self):
+        one_uri = SpchtThird("https://schema.org/adress", uri=True)
+        snd_uri = SpchtThird("https://schema.org/cat", uri=True)
+        one_literal = SpchtThird("Miau", tag="xsd:integer")
+        snd_literal = SpchtThird("english", language="en")
+        triple_1 = SpchtTriple(one_uri, snd_uri, snd_literal)
+        triple_2 = SpchtTriple(one_uri, snd_uri, one_literal)
+        expected = """@prefix ns1: <https://schema.org/> .
+
+ns1:adress ns1:cat "Miau",
+        "english"@en .
+
+"""
+        computed = SpchtUtility.process2RDF([triple_1, triple_2])
+        self.assertEqual(expected, computed)
+
 
 if __name__ == '__main__':
     unittest.main()

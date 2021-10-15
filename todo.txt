@@ -18,6 +18,7 @@
     [ ] Escape pre and append texts
     [x] Reference Nodes - Check if full path or relative path is provided os.path.isabs(my_path)
     [x] Add output kinds
+    [ ] node mapping compresses the mapping for case-insensitive entries EVERY time, but that should happen only once when reading in
     [x] arbitary inser for pre&append texts, more than one entry
 * SPARQL
     [x] differenciate between graph and string that happens to be a link to somewhere

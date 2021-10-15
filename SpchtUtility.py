@@ -20,10 +20,11 @@
 # along with Solr2Triplestore Tool.  If not, see <http://www.gnu.org/licenses/>.
 #
 # @license GPL-3.0-only <https://www.gnu.org/licenses/gpl-3.0.en.html>
+import itertools
 import json
 import os
-import sys
 import re
+import sys
 import pymarc
 from pymarc.exceptions import RecordLengthInvalid, RecordLeaderInvalid, BaseAddressNotFound, BaseAddressInvalid, \
     RecordDirectoryInvalid, NoFieldsFound
@@ -104,43 +105,7 @@ def all_variants(variant_matrix: list) -> list:
     :return: a list of lists of all combinations, throws various TypeErrors if something isnt alright
     :rtype: list
     """
-    many = []
-    for cur_idx in range(0, len(variant_matrix), 2):
-        if len(variant_matrix)-1 > cur_idx:  # there is at least one more position to come
-            if len(many) <= 0:  # this are elements 1 & 2
-                for each in variant_matrix[cur_idx]:
-                    for every in variant_matrix[cur_idx + 1]:
-                        many.append([each, every])
-            else:  # these are elements 3+ and 4+
-                much = []
-                for each in variant_matrix[cur_idx]:
-                    for every in variant_matrix[cur_idx + 1]:
-                        much.append([each, every])
-                temp_list = []
-                for every in many:
-                    for each in much:
-                        temp_line = every.copy()
-                        temp_line.append(each[0])
-                        temp_line.append(each[1])
-                        temp_list.append(temp_line)
-                        del temp_line  # this should do nothing
-                many = temp_list
-        else:  # this position is the last one
-            if len(many) <= 0:
-                for each in variant_matrix[cur_idx]:
-                    many.append([each])  # this is only one entry, a list of list is expected
-            else:  # there was already a previous rounds with two entries in a "tuple"
-                temp_list = []
-                for every in many:
-                    for each in variant_matrix[cur_idx]:
-                        temp_line = every.copy()
-                        temp_line.append(each)
-                        temp_list.append(temp_line)
-                        del temp_line
-                many = temp_list
-        if not len(variant_matrix) >= cur_idx + 1:  # there is no next block after this one
-            break  # does that really matter? we are doing strides of two anyway right?
-    return many
+    return list([list(v) for v in itertools.product(*variant_matrix)])
 
 
 def match_positions(regex_pattern, zeichenkette: str) -> list or None:
@@ -556,23 +521,18 @@ def process2RDF(quadro_list: list, export_format_type="turtle", export=True) -> 
         :rtype: str or rdflib.Graph
     """
     if NORDF:  # i am quite sure that this is not the way to do such  things
-        raise ImportError("No RDF Library avaible, cannot process Spcht.process2RDF")
+        logger.critical("process2RDF - failure to convert to RDF")
+        raise ImportError("No RDF Library avaible, cannot process SpchtUtility.process2RDF")
     graph = rdflib.Graph()
     for each in quadro_list:
         try:  # ! using an internal rdflib function is clearly dirty af
-            if rdflib.term._is_valid_uri(each[0]) and rdflib.term._is_valid_uri(each[1]):
-                if each[3] == 0:
-                    graph.add((rdflib.URIRef(each[0]), rdflib.URIRef(each[1]), rdflib.Literal(each[2])))
-                elif each[3] == 1 and rdflib.term._is_valid_uri(each[2]):
-                    graph.add((rdflib.URIRef(each[0]), rdflib.URIRef(each[1]), rdflib.URIRef(each[2])))
-                else:
-                    logger.error(
-                        f"URL Parsing for <{each[0]}> <{each[1]}> & ({each[2]}) failed due an URI check error")
+            if rdflib.term._is_valid_uri(each.subject.content) and rdflib.term._is_valid_uri(each.predicate.content):
+                graph.add((each.subject.convert2rdflib(), each.predicate.convert2rdflib(), each.sobject.convert2rdflib()))
         except Exception as error:
-            print(f"RDF Exception occured with {each[1]} - {error}", file=sys.stderr)
+            print(f"RDF Exception [{error.__class__.__name__}] occured with {each.predicate} - {error}", file=sys.stderr)
     try:
         if export:
-            return graph.serialize(format=export_format_type).decode("utf-8")
+            return graph.serialize(format=export_format_type)
         else:
             return graph
     except Exception as e:
@@ -988,3 +948,21 @@ def check_format_node(node, error_desc, out, base_path, is_root=False):
             print(error_desc['fallback_dict'], file=out)
             return False
     return True
+
+
+def extract_node_tag(node_tag) -> tuple:
+    """
+    extracts the node and language tag from a sparql style experession:
+    '@en' becomes just 'en'
+    '^^xsd:string' becomes 'xsd:string'
+    :param str node_tag: simple string containing the entire tag
+    :return: a tuple that is (language, datatype), one of those should always be None
+    :rtype: tuple
+    """
+    lang = None
+    datatype = None
+    if re.search(r"^@(.*)", node_tag):
+        lang = node_tag[1:]
+    if re.search(r"^\^\^(.*)", node_tag):
+        datatype = node_tag[2:]
+    return lang, datatype
