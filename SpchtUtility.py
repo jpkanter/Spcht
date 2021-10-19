@@ -498,14 +498,11 @@ def quickSparql(quadro_list: tuple, graph: str) -> str:
 def quickSparqlEntry(quadro):
     """
         Converts the tuple format of the data processing into a sparql query string
-        :param tuple quadro: a tuple with 4 entries containing the graph plus identifier
+        :param SpchtTriple quadro: a SpchtTriple object that contains 3 SpchtThird objects
         :rtype: str
         :return: a sparql query of the structure <s> <p> <o> .
     """
-    if quadro[3] == 1:
-        return f"<{quadro[0]}> <{quadro[1]}> <{quadro[2]}> . \n"
-    else:
-        return f"<{quadro[0]}> <{quadro[1]}> \"{quadro[2]}\" . \n"
+    return f"{str(quadro.subject)} {str(quadro.predicate)} {str(quadro.sobject)} . \n"
 
 
 def process2RDF(quadro_list: list, export_format_type="turtle", export=True) -> str or rdflib.Graph:

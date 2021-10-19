@@ -1501,7 +1501,7 @@ class SpchtTriple:
         elif item == 2 or str(item).lower() == "object":
             return self.sobject
         else:
-            raise KeyError("SpchtTriple only has only 3 items")
+            raise KeyError("SpchtTriple only has 3 items, you cannot access an index greater than 2")
 
     def __eq__(self, other):
         if not isinstance(other, SpchtTriple):

@@ -27,6 +27,7 @@ from PySide2.QtWidgets import *
 from PySide2 import QtWidgets, QtCore
 
 import SpchtCheckerGui_i18n
+import SpchtConstants
 
 # ! import language stuff
 i18n = SpchtCheckerGui_i18n.Spcht_i18n("./GuiLanguage.json")
@@ -215,52 +216,16 @@ class SpchtMainWindow(object):
 
         self.explorer_top_layout.addWidget(self.explorer_field_filter)
         self.explorer_top_layout.addWidget(self.explorer_filter_behaviour)
-        self.explore_main_vertical.addLayout(self.explorer_top_layout)
+        #self.explore_main_vertical.addLayout(self.explorer_top_layout)
 
-        # ? central row
+        # ? right row
         self.explorer_center_layout = QHBoxLayout()
 
-        self.explorer_toolbox = QToolBox()
-        self.explorer_toolbox.setMinimumWidth(800)
-        self.explorer_tree_spcht_view = QTreeView()
-        self.explorer_tree_spcht_view.setMaximumWidth(400)
-        self.populate_spcht_view()
-        self.explorer_spcht_result = QTextEdit()
-        self.explorer_spcht_result.setMaximumWidth(400)
-        ver_layout_19 = QVBoxLayout()
-        ver_layout_19.addWidget(self.explorer_tree_spcht_view)
-        ver_layout_19.addWidget(self.explorer_spcht_result)
-
-        self.explorer_toolbox_page0 = QWidget()
-        self.explorer_data_file_path = QLineEdit()
-        self.explorer_data_file_path.setReadOnly(True)
-        self.explorer_data_load_button = QPushButton(i18n['generic_load'])
-        hor_layout_20 = QHBoxLayout(self.explorer_toolbox_page0)
-        hor_layout_20.addWidget(self.explorer_data_file_path)
-        hor_layout_20.addWidget(self.explorer_data_load_button)
-
-        self.explorer_toolbox_page1 = QWidget()
-        self.explorer_toolbox_page2 = QWidget()
-
-        self.explorer_dictionary_treeview = QTreeView()
-        hor_layout_21 = QHBoxLayout(self.explorer_toolbox_page1)
-        hor_layout_21.addWidget(self.explorer_dictionary_treeview)
-
-        self.explorer_marc_treeview = QTreeView()
-        hor_layout_22 = QHBoxLayout(self.explorer_toolbox_page2)
-        hor_layout_22.addWidget(self.explorer_marc_treeview)
-
-        self.explorer_toolbox.addItem(self.explorer_toolbox_page0, i18n['toolbox_load_data'])
-        self.explorer_toolbox.addItem(self.explorer_toolbox_page1, i18n['toolbox_page1'])
-        self.explorer_toolbox.addItem(self.explorer_toolbox_page2, i18n['toolbox_page2'])
-
-        self.explorer_center_layout.addWidget(self.explorer_toolbox)
-        #self.explorer_center_layout.addWidget(self.explorer_tree_spcht_view)
-        self.explorer_center_layout.addLayout(ver_layout_19)
-        self.explore_main_vertical.addLayout(self.explorer_center_layout)
-
         # ? bottom row
-        self.explorer_bottom_layout = QHBoxLayout()
+        self.explorer_middle_nav_layout = QHBoxLayout()
+        self.explorer_mid_nav_dummy = QWidget()
+        self.explorer_mid_nav_dummy.setMaximumWidth(400)
+        self.explorer_mid_nav_dummy.setLayout(self.explorer_middle_nav_layout)
 
         self.explorer_left_horizontal_spacer = QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum)
         self.explorer_right_horizontal_spacer = QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum)
@@ -282,38 +247,132 @@ class SpchtMainWindow(object):
                                      self.explorer_linetext_search,
                                      self.explorer_center_search_button)
 
-        self.explorer_bottom_layout.addItem(self.explorer_left_horizontal_spacer)
-        self.explorer_bottom_layout.addWidget(self.explorer_leftleft_button)
-        self.explorer_bottom_layout.addWidget(self.explorer_left_button)
-        self.explorer_bottom_layout.addLayout(self.explorer_bottom_center_layout)
-        self.explorer_bottom_layout.addWidget(self.explorer_right_button)
-        self.explorer_bottom_layout.addWidget(self.explorer_rightright_button)
-        self.explorer_bottom_layout.addItem(self.explorer_right_horizontal_spacer)
+        self.explorer_middle_nav_layout.addItem(self.explorer_left_horizontal_spacer)
+        self.explorer_middle_nav_layout.addWidget(self.explorer_leftleft_button)
+        self.explorer_middle_nav_layout.addWidget(self.explorer_left_button)
+        self.explorer_middle_nav_layout.addLayout(self.explorer_bottom_center_layout)
+        self.explorer_middle_nav_layout.addWidget(self.explorer_right_button)
+        self.explorer_middle_nav_layout.addWidget(self.explorer_rightright_button)
+        self.explorer_middle_nav_layout.addItem(self.explorer_right_horizontal_spacer)
 
-        self.explore_main_vertical.addLayout(self.explorer_bottom_layout)
+        # self.explore_main_vertical.addLayout(self.explorer_bottom_layout)
 
-    def populate_spcht_view(self):
-        self.spcht_tree_model = QStandardItemModel()
-        key_list = ["field", "alternatives", "required", "predicate", "source", "match", "if_field", "if_value",
-                    "if_condition", "append", "prepend", "cut", "replace", "insert_into", "insert_add_field", "mapping",
-                    "mapping_settings", "joined_map", "joined_filed", "comment"]
-        self.spcht_tree_model.setHorizontalHeaderLabels([i18n['generic_property'], i18n['generic_value']])
-        top_node = QStandardItem("Name")
-        top_node.setCheckable(True)
-        top_node.setCheckState(QtCore.Qt.Checked)
-        top_node.setEditable(False)
-        self.spcht_tree_model.setItem(0, 0, top_node)
-        for idx, each in enumerate(key_list):
-            prop = QStandardItem(each)
-            prop.setEditable(False)
-            value = QStandardItem("")
-            top_node.setChild(idx, 0, prop)
-            top_node.setChild(idx, 1, value)
+        self.explorer_toolbox = QToolBox()
+        self.explorer_toolbox.setMinimumWidth(800)
+        self.explorer_tree_spcht_view = QTreeView()
+        self.explorer_tree_spcht_view.setMaximumWidth(400)
+        self.explorer_spcht_result = QTextEdit()
+        self.explorer_spcht_result.setMaximumWidth(400)
+        ver_layout_19 = QVBoxLayout()
+        ver_layout_19.addWidget(self.explorer_tree_spcht_view)
+        #ver_layout_19.addLayout(self.explorer_middle_nav_layout)
+        ver_layout_19.addWidget(self.explorer_mid_nav_dummy)
+        ver_layout_19.addWidget(self.explorer_spcht_result)
 
-        test = QStandardItem("Test")
-        self.explorer_tree_spcht_view.setModel(self.spcht_tree_model)
-        idx = self.spcht_tree_model.index(0, 0)
-        self.explorer_tree_spcht_view.expand(idx)
+        self.explorer_toolbox_page0 = QWidget()
+        self.explorer_data_file_path = QLineEdit()
+        self.explorer_data_file_path.setReadOnly(True)
+        self.explorer_data_load_button = QPushButton(i18n['generic_load'])
+        ver_layout_18 = QVBoxLayout(self.explorer_toolbox_page0)
+        hor_layout_20 = QHBoxLayout()
+        hor_layout_20.addWidget(self.explorer_data_file_path)
+        hor_layout_20.addWidget(self.explorer_data_load_button)
+        hor_layout_21 = QHBoxLayout()
+        self.explorer_dictionary_treeview = QTreeView()
+        hor_layout_21.addWidget(self.explorer_dictionary_treeview)
+        ver_layout_18.addLayout(self.explorer_top_layout)
+        ver_layout_18.addLayout(hor_layout_20)
+        ver_layout_18.addLayout(hor_layout_21)
+
+        self.explorer_toolbox_page1 = QWidget()
+        ver_layout_23 = QVBoxLayout(self.explorer_toolbox_page1)
+        hor_layour_22 = QHBoxLayout()
+        self.explorer_node_add_btn = QPushButton(i18n['generic_add'], MaximumWidth=150)
+        self.explorer_node_import_btn = QPushButton(i18n['generic_import'], MaximumWidth=150)
+        self.explorer_node_export_btn = QPushButton(i18n['generic_export'], MaximumWidth=150)
+        self.explorer_node_compile_btn = QPushButton(i18n['generic_compile'], MaximumWidth=150)
+        hor_layour_22.addWidget(self.explorer_node_add_btn)
+        hor_layour_22.addStretch(0)
+        hor_layour_22.addWidget(self.explorer_node_import_btn)
+        hor_layour_22.addWidget(self.explorer_node_export_btn)
+        hor_layour_22.addWidget(self.explorer_node_compile_btn)
+
+        self.explorer_node_treeview = QTreeView()
+        ver_layout_23.addWidget(self.explorer_node_treeview, 1)
+        ver_layout_23.addLayout(hor_layour_22)
+
+        self.explorer_tabview = QTabWidget()
+        self.explorer_tabview.setTabShape(QTabWidget.Rounded)
+        # ! Tab Widgets
+        # * general Tab
+        self.exp_tab_general = QWidget()
+        exp_tab_form_general = QFormLayout(self.exp_tab_general)
+
+        # line 1
+        exp_tab1_label11 = QLabel(i18n['node_name'])
+        self.exp_tab_node_name = QLineEdit(PlaceholderText=i18n['node_name_placeholder'])
+        exp_tab_form_general.addRow(exp_tab1_label11, self.exp_tab_node_name)
+        # line 1
+        exp_tab1_label16 = QLabel(i18n['node_field'])
+        self.exp_tab_node_field = QLineEdit(PlaceholderText=i18n['node_field_placeholder'])
+        exp_tab_form_general.addRow(exp_tab1_label16, self.exp_tab_node_field)
+        # line 1
+        exp_tab1_label17 = QLabel(i18n['node_source'])
+        self.exp_tab_node_source = QComboBox(placeholderText=i18n['node_source_placeholder'])
+        self.exp_tab_node_source.addItems(SpchtConstants.sources)
+        exp_tab_form_general.addRow(exp_tab1_label17, self.exp_tab_node_source)
+        # line 2
+        exp_tab1_label13 = QLabel(i18n['node_mandatory'])
+        self.exp_tab_node_mandatory = QCheckBox()
+        exp_tab_form_general.addRow(exp_tab1_label13, self.exp_tab_node_mandatory)
+        # line 3
+        exp_tab1_label14 = QLabel(i18n['node_uri'])
+        self.exp_tab_node_uri = QCheckBox()
+        exp_tab_form_general.addRow(exp_tab1_label14, self.exp_tab_node_uri)
+        # line 4
+        exp_tab1_label15 = QLabel(i18n['node_tag'])
+        self.exp_tab_node_tag = QLineEdit(PlaceholderText=i18n['node_tag_placeholder'])
+        exp_tab_form_general.addRow(exp_tab1_label15, self.exp_tab_node_tag)
+        #line 6
+        exp_tab1_label12 = QLabel(i18n['node_comment'])
+        self.exp_tab_node_comment = QTextEdit()
+        exp_tab_form_general.addRow(exp_tab1_label12, self.exp_tab_node_comment)
+
+        # * simple text transformation
+        self.exp_tab_simpletext = QWidget()
+        exp_tab_form_simpletext = QFormLayout(self.exp_tab_simpletext)
+        # line 1
+        exp_tab1_label21 = QLabel(i18n['node_prepend'])
+        self.exp_tab_node_prepend = QLineEdit(PlaceholderText=i18n['node_prepend_placeholder'])
+        exp_tab_form_simpletext.addRow(exp_tab1_label21, self.exp_tab_node_prepend)
+        # line 2
+        exp_tab1_label22 = QLabel(i18n['node_append'])
+        self.exp_tab_node_append = QLineEdit(PlaceholderText=i18n['node_append_placeholder'])
+        exp_tab_form_simpletext.addRow(exp_tab1_label22, self.exp_tab_node_append)
+        # line 3
+        exp_tab1_label23 = QLabel(i18n['node_cut'])
+        self.exp_tab_node_cut = QLineEdit(PlaceholderText=i18n['node_cut_placeholder'])
+        exp_tab_form_simpletext.addRow(exp_tab1_label23, self.exp_tab_node_cut)
+        # line 4
+        exp_tab1_label24 = QLabel(i18n['node_replace'])
+        self.exp_tab_node_replace = QLineEdit(PlaceholderText=i18n['node_replace_placeholder'])
+        exp_tab_form_simpletext.addRow(exp_tab1_label24, self.exp_tab_node_replace)
+
+
+        # ! End of Tab Widgets, adding content
+        self.explorer_tabview.addTab(self.exp_tab_general, i18n['tab_general'])
+        self.explorer_tabview.addTab(self.exp_tab_simpletext, i18n['tab_simpletext'])
+
+        self.explorer_toolbox_page2 = QWidget(self.explorer_tabview)
+
+        self.explorer_toolbox.addItem(self.explorer_toolbox_page0, i18n['builder_toolbox_load_data'])
+        self.explorer_toolbox.addItem(self.explorer_toolbox_page1, i18n['builder_toolbox_node_overview'])
+        self.explorer_toolbox.addItem(self.explorer_tabview, i18n['builder_toolbox_main_builder'])
+
+        self.explorer_center_layout.addWidget(self.explorer_toolbox)
+        #self.explorer_center_layout.addWidget(self.explorer_tree_spcht_view)
+        self.explorer_center_layout.addLayout(ver_layout_19)
+        self.explore_main_vertical.addLayout(self.explorer_center_layout)
 
     @staticmethod
     def set_max_size(width=0, height=0, *args):
@@ -323,4 +382,143 @@ class SpchtMainWindow(object):
                     each.setMaximumWidth(width)
                 if height:
                     each.setMaximumHeight(height)
+
+
+class ListDialogue(QDialog):
+    def __init__(self, title:str, main_message:str, headers=[],init_data=None, parent=None):
+        #ListDialogue.result()
+        super().__init__(parent)
+
+        self.setWindowTitle(title)
+        self.setMinimumWidth(400)
+        self.setMinimumHeight(600)
+        QBtn = QDialogButtonBox.Save | QDialogButtonBox.Cancel
+
+        self.buttonBox = QDialogButtonBox(QBtn)
+
+        self.layout = QVBoxLayout()
+        top_mesage = QLabel(main_message)
+        self.table = QTableWidget()
+        self.addBtn = QPushButton(i18n['insert_before'], icon=QIcon.fromTheme('insert-image'))
+        self.deleteBtn = QPushButton(i18n['generic_delete'], icon=QIcon.fromTheme('delete'))
+        btn_line = QHBoxLayout()
+        btn_line.addWidget(self.addBtn)
+        btn_line.addWidget(self.deleteBtn)
+        self.layout.addWidget(top_mesage)
+        self.layout.addWidget(self.table)
+        self.layout.addLayout(btn_line)
+        self.layout.addWidget(self.buttonBox)
+        self.setLayout(self.layout)
+
+        # * setup table
+        self.tablemodel = QStandardItemModel()
+
+        if not headers:
+            if init_data and isinstance(init_data, dict):
+                dict_len = 2
+                for value in init_data.values():
+                    if isinstance(value, list):
+                        if temp := len(value) > dict_len:
+                            dict_len = temp
+                self.table.setColumnCount(dict_len)
+            else:
+                self.table.setColumnCount(1)
+                self.table.setHorizontalHeaderLabels([i18n['value']])
+        else:
+            self.table.setColumnCount(len(headers))
+            self.table.setHorizontalHeaderLabels(headers)
+
+        if init_data:
+            if isinstance(init_data, list):
+                self.table.setRowCount(len(init_data)+1)
+                for i, each in enumerate(init_data):
+                    print(i)
+                    self.table.setItem(i, 0, QTableWidgetItem(each))
+            if isinstance(init_data, dict):
+                self.table.setRowCount(len(init_data.keys()) + 1)
+                for i, (key, value) in enumerate(init_data.items()):
+                    self.table.setItem(i, 0, QTableWidgetItem(str(key)))
+                    if isinstance(value, list):
+                        for j, each in enumerate(value):
+                            self.table.setItem(i, j+1, QTableWidgetItem(str(each)))
+                    else:
+                        self.table.setItem(i, 1, QTableWidgetItem(str(value)))
+                self.table.resizeColumnToContents(0)
+        else:
+            self.table.setRowCount(1)
+
+        self.table.horizontalHeader().setStretchLastSection(True)
+
+        # ! final event setup:
+        self.deleteBtn.clicked.connect(self.deleteCurrentRow)
+        self.addBtn.clicked.connect(self.insertCurrentRow)
+        self.table.itemChanged.connect(self.dataChange)
+        self.buttonBox.accepted.connect(self.accept)
+        self.buttonBox.rejected.connect(self.reject)
+
+    def deleteCurrentRow(self):
+        # https://stackoverflow.com/a/50427744
+        rows = set()
+        for index in self.table.selectedIndexes():
+            rows.add(index.row())
+
+        for row in sorted(rows, reverse=True):
+            self.table.removeRow(row)
+
+    def insertCurrentRow(self):
+        rows = set()
+        for index in self.table.selectedIndexes():
+            rows.add(index.row())
+        lastRow = 0  # i have the feeling that this is not the most optimal way
+        for row in sorted(rows):
+            lastRow = row
+        self.table.insertRow(lastRow)
+
+    def dataChange(self):
+        # adds empty lines if none are present after editing
+        model = self.table.model()
+        is_empty = False
+        for row in range(self.table.rowCount()):
+            row_filled = False
+            for column in range(self.table.columnCount()):
+                cell_data = self.table.item(row, column)
+                if cell_data and str(cell_data.text()).strip() != "":
+                    row_filled = True
+                    break
+            if not row_filled:  # at least one empty line
+                is_empty = True
+                break
+
+        if not is_empty:
+            self.table.setRowCount(self.table.rowCount()+1)
+
+    def getList(self):
+        model = self.table.model()
+        data = []
+        for row in range(model.rowCount()):
+            cell_data = model.index(row, 0)
+            if cell_data:  # for some reasons Python 3.8 cannot combine those with an and, weird
+                if content := str(model.data(cell_data)).strip() != "":
+                    data.append(content)
+        return data
+
+    def getDictionary(self):
+        temp_model = self.table.model()
+        data = {}
+        for row in range(temp_model.rowCount()):
+            key = temp_model.data(temp_model.index(row, 0))
+            if key:
+                values = []
+                for column in range(1, temp_model.columnCount()):
+                    values.append(temp_model.data(temp_model.index(row, column)))
+                if len(values) == 1:
+                    values = values[0]
+                data[key] = values
+        return data
+
+    def getData(self):
+        if self.table.columnCount() == 1:
+            return self.getList()
+        else:
+            return self.getDictionary()
 

@@ -30,17 +30,17 @@ from io import StringIO
 from datetime import datetime
 from pathlib import Path
 
-from PySide2.QtGui import QStandardItemModel, QStandardItem, QFontDatabase, QIcon
+from PySide2.QtGui import QStandardItemModel, QStandardItem, QFontDatabase, QIcon, QScreen
 from PySide2.QtWidgets import *
 from PySide2 import QtWidgets, QtCore
 
 from dateutil.relativedelta import relativedelta
 
 import SpchtErrors
-from SpchtDescriptorFormat import Spcht
+from SpchtDescriptorFormat import Spcht, SpchtThird, SpchtTriple
 
 import SpchtUtility
-from SpchtCheckerGui_interface import SpchtMainWindow
+from SpchtCheckerGui_interface import SpchtMainWindow, ListDialogue
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -116,6 +116,8 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         self.console.insertPlainText(time_log(f"Init done, program started"))
         self.console.insertPlainText(f"Working Directory: {os.getcwd()}")
 
+        self.center()
+
     def setup_event_binds(self):
         self.btn_load_spcht_file.clicked.connect(self.btn_spcht_load_dialogue)
         self.btn_load_spcht_retry.clicked.connect(self.btn_spcht_load_retry)
@@ -132,8 +134,15 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         self.explorer_field_filter.returnPressed.connect(self.fct_exec_delayed_field_change)
         self.explorer_filter_behaviour.stateChanged.connect(self.fct_exec_delayed_field_change)
 
+        self.explorer_center_search_button.clicked.connect(self.test_button)
         #self.explorer_tree_spcht_view.selectionModel().selectionChanged.connect(self.fct_explorer_spcht_change)
-        self.spcht_tree_model.itemChanged.connect(self.fct_explorer_spcht_change)
+        #self.spcht_tree_model.itemChanged.connect(self.fct_explorer_spcht_change)
+
+    def center(self):
+        center = QScreen.availableGeometry(QApplication.primaryScreen()).center()
+        geo = self.frameGeometry()
+        geo.moveCenter(center)
+        self.move(geo.topLeft())
 
     def btn_spcht_load_retry(self):
         self.load_spcht(self.linetext_spcht_filepath.displayText())
@@ -364,12 +373,8 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
                 text_list.append(
                 "\n=== {} - {} ===\n".format(entry.get('id', "Unknown ID"), debug_dict.get(entry.get('id'), "Ohne Name")))
                 for each in temp:
-                    if each[3] == 0:
-                        tbl_list.append((each[0], each[1], each[2]))
-                        tmp_sparql = f"<{each[0]}> <{each[1]}> \"{each[2]}\" . \n"
-                    else:  # "<{}> <{}> <{}> .\n".format(graph + ressource, node['graph'], facet))
-                        tmp_sparql = f"<{each[0]}> <{each[1]}> <{each[2]}> . \n"
-                        tbl_list.append((each[0], each[1], f"<{each[2]}>"))
+                    tbl_list.append(each)
+                    tmp_sparql = SpchtUtility.quickSparqlEntry(each)
                     text_list.append(tmp_sparql)
         # txt view
         self.txt_tabview.clear()
@@ -379,9 +384,9 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         if self.mdl_tbl_sparql.hasChildren():
             self.mdl_tbl_sparql.removeRows(0, self.mdl_tbl_sparql.rowCount())
         for each in tbl_list:
-            col0 = QStandardItem(each[0])
-            col1 = QStandardItem(each[1])
-            col2 = QStandardItem(each[2])
+            col0 = QStandardItem(str(each.subject))
+            col1 = QStandardItem(str(each.predicate))
+            col2 = QStandardItem(str(each.sobject))
             disableEdits(col0, col1, col2)
             self.mdl_tbl_sparql.appendRow([col0, col1, col2])
         self.toogleTriState(2)
@@ -480,6 +485,11 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
                 data_model.setItem(vertical, horizontal, QStandardItem(text))
                 data_model.setData(data_model.index(vertical, horizontal), QtCore.Qt.AlignTop, QtCore.Qt.TextAlignmentRole)
         self.explorer_dictionary_treeview.setModel(data_model)
+
+    def test_button(self):
+        dlg = ListDialogue("Testtitle", "Do Stuff", headers=["key", "mapping"], init_data={"exe": "excecutor", "rtf": "rich text"}, parent=self)
+        if dlg.exec_():
+            print(dlg.getData())
 
 
 if __name__ == "__main__":

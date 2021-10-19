@@ -40,6 +40,86 @@
     "en": "blacklist",
     "de": "Blacklist"
   },
+  "builder_toolbox_load_data": {
+    "en": "Load test data dialogue",
+    "de": "Dialog zum Testdaten Laden"
+  },
+  "builder_toolbox_node_overview": {
+    "en": "Spcht Node managment",
+    "de": "Spcht Knoten Verwaltung"
+  },
+  "builder_toolbox_main_builder": {
+    "en": "Main Spcht builder view",
+    "de": "Spcht Montageplattform"
+  },
+  "node_name": {
+    "en": "Name",
+    "de": "Name"
+  },
+  "node_name_placeholder": {
+    "en": "Unique name for a node, used to identify referenced node by fallback, sub_node & sub_data",
+    "de": "Einzigartiger Name für einen Knoten, genutzt um referenzierte Knoten für 'fallback', 'sub_node' und 'sub_data' zu erkennen"
+  },
+  "node_mandatory": {
+    "en": "Mandatory Node",
+    "de": "Notwendiger Knoten"
+  },
+  "node_uri": {
+    "en": "Node is URI",
+    "de": "Knoten ist eine URI"
+  },
+  "node_comment": {
+    "en": "Comment",
+    "de": "Kommentar"
+  },
+  "node_tag": {
+    "en": "Tag",
+    "de": "Auszeichnung"
+  },
+  "node_tag_placeholder": {
+    "en": "Language or datatype tag, written in sparql-like notation: '@en' // '^^xsd:string'",
+    "de": "Sprach- oder Datentypauszeichnung, sparql-artiger Syntax: '@de' // '^^xsd:string'"
+  },
+  "node_prepend": {
+    "en": "prepend text",
+    "de": "vorgestellter Text"
+  },
+  "node_prepend_placeholder": {
+    "en": "puts the content of this field in front of the actual value",
+    "de": "fügt den Inhalt dieses Feldes VOR dem eigentlichen Wert"
+  },
+  "node_append": {
+    "en": "appended text",
+    "de": "angehängter text"
+  },
+  "node_append_placeholder": {
+    "en": "puts the content of this field after the actual value",
+    "de": "fügt den Inhalt dieses Feldes NACH dem eigentlichen Wert"
+  },
+  "node_cut": {
+    "en": "remove regex ('cut')",
+    "de": "entferne regex ('cut')"
+  },
+  "node_cut_placeholder": {
+    "en": "replaces every match with the content of 'replace' (or nothing if its empty)",
+    "de": "ersetzt jeden Fund von 'match' mit dem Inhalt von 'replace' (oder nichts wenn dieses Feld leer ist)"
+  },
+  "node_replace": {
+    "en": "replace 'cut'",
+    "de": "ersetzt 'cut'"
+  },
+  "node_replace_placeholder": {
+    "en": "replaces the removed part from 'cut' with this content",
+    "de": "ersetzt den entfernten Teil von 'cut' mit diesem Wert"
+  },
+  "tab_general": {
+    "en": "General",
+    "de": "Allgemein"
+  },
+  "tab_simpletext": {
+    "en": "Text transformation",
+    "de": "Texttransformation"
+  },
   "generic_retry": {
     "en": "retry",
     "de": "wiederholen"
@@ -55,6 +135,10 @@
   "generic_name": {
     "en": "Name",
     "de": "Name"
+  },
+  "generic_load": {
+    "en": "Open File",
+    "de": "Datei öffnen"
   },
   "generic_predicate": {
     "en": "Predicate",
@@ -74,5 +158,9 @@
   "generic_comments": {
     "en": "Comments",
     "de": "Kommentare"
+  },
+  "ex_c&p": {
+    "en": "",
+    "de": ""
   }
 }
