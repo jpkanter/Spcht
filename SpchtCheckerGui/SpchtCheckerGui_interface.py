@@ -21,10 +21,12 @@
 #
 # @license GPL-3.0-only <https://www.gnu.org/licenses/gpl-3.0.en.html>
 
+from SpchtBuilder import SpchtBuilder
+import json
 
 from PySide2.QtGui import QStandardItemModel, QStandardItem, QFontDatabase, QIcon
 from PySide2.QtWidgets import *
-from PySide2 import QtWidgets, QtCore
+from PySide2 import QtCore
 
 import SpchtCheckerGui_i18n
 import SpchtConstants
@@ -199,6 +201,8 @@ class SpchtMainWindow(object):
         self.central_widget.addWidget(checker_wrapper)
         self.central_widget.addWidget(self.explorer)
 
+        self.TEST_createSpcht()
+
     def create_explorer_layout(self):
         self.explorer = QWidget()
         self.explore_main_vertical = QVBoxLayout(self.explorer)
@@ -357,6 +361,10 @@ class SpchtMainWindow(object):
         exp_tab1_label24 = QLabel(i18n['node_replace'])
         self.exp_tab_node_replace = QLineEdit(PlaceholderText=i18n['node_replace_placeholder'])
         exp_tab_form_simpletext.addRow(exp_tab1_label24, self.exp_tab_node_replace)
+        # line 4
+        exp_tab1_label25 = QLabel(i18n['node_match'])
+        self.exp_tab_node_match = QLineEdit(PlaceholderText=i18n['node_match_placeholder'])
+        exp_tab_form_simpletext.addRow(exp_tab1_label25, self.exp_tab_node_match)
 
 
         # ! End of Tab Widgets, adding content
@@ -373,6 +381,28 @@ class SpchtMainWindow(object):
         #self.explorer_center_layout.addWidget(self.explorer_tree_spcht_view)
         self.explorer_center_layout.addLayout(ver_layout_19)
         self.explore_main_vertical.addLayout(self.explorer_center_layout)
+
+    def TEST_createSpcht(self):
+        headers = {0: "name", 1: "source", 2: "field", 3: "predicate", 4: "type", 5: "mandatory",
+                   6: "sub_nodes", 7: "sub_data"}
+        with open("../foliotools/folio.spcht.json") as json_file:
+            big_bird = json.load(json_file)
+        test1 = SpchtBuilder(big_bird)
+        test1.repository = test1._importSpcht(big_bird)
+        test_model = QStandardItemModel()
+        test_model.setHorizontalHeaderLabels(["Name", "Source", "Field", "Predicate", "URI", "Mandatory", "Sub_nodes", "Sub_data"])
+        bi_screen = test1.displaySpcht()
+        for big_i, (parent, group) in enumerate(bi_screen.items()):
+            top_node = QStandardItem(parent)
+            for i, each in enumerate(group):
+                for index, key in headers.items():
+                    element = QStandardItem(each[key])
+                    element.setEditable(False)
+                    top_node.setChild(i, index, element)
+            test_model.setItem(big_i, 0, top_node)
+            top_node.setEditable(False)
+        self.explorer_node_treeview.setModel(test_model)
+
 
     @staticmethod
     def set_max_size(width=0, height=0, *args):
@@ -521,4 +551,3 @@ class ListDialogue(QDialog):
             return self.getList()
         else:
             return self.getDictionary()
-
