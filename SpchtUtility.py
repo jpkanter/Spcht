@@ -29,13 +29,10 @@ import pymarc
 from pymarc.exceptions import RecordLengthInvalid, RecordLeaderInvalid, BaseAddressNotFound, BaseAddressInvalid, \
     RecordDirectoryInvalid, NoFieldsFound
 from jsonschema import validate, ValidationError, SchemaError, RefResolutionError
+from SpchtConstants import SPCHT_BOOL_OPS
 
 # ? if i import this i get circular imports and i really dont want that so got a bit of boilerplate here in the sincere
 # ? hope that the amount of boolean operators never changes
-# from SpchtDescriptorFormat import SPCHT_BOOL_OPS
-SPCHT_BOOL_OPS = {"equal":"==", "eq":"==","greater":">","gr":">","lesser":"<","ls":"<",
-                    "greater_equal":">=","gq":">=", "lesser_equal":"<=","lq":"<=",
-                  "unequal":"!=","uq":"!=","=":"==","==":"==","<":"<",">":">","<=":"<=",">=":">=","!=":"!=","exi":"exi"}
 
 import logging
 logger = logging.getLogger(__name__)

@@ -29,6 +29,7 @@ import requests
 import logging
 
 import SpchtErrors
+
 from dateutil.relativedelta import relativedelta
 from termcolor import colored
 from requests.auth import HTTPDigestAuth
@@ -36,17 +37,6 @@ from requests.auth import HTTPDigestAuth
 logger = logging.getLogger(__name__)
 
 # describes structure of the json response from solr Version 7.3.1 holding the ubl data
-
-WORK_ORDER_STATUS = ("Freshly created",  # * 0
-                   "fetch started",  # *  1
-                   "fetch completed",  # * 2
-                   "processing started",  # *  3
-                   "processing completed",  # *  4
-                   "intermediate process started",  # * 5
-                   "intermediate process finished",  # * 6
-                   "inserting started",  # *  7
-                   "insert completed/finished",  # * 8
-                   "fullfilled")  # * 9
 
 
 def slice_header_json(data):

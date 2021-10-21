@@ -38,21 +38,11 @@ import rdflib
 
 import SpchtErrors
 from SpchtDescriptorFormat import Spcht
+from SpchtConstants import WORK_ORDER_STATUS
 import SpchtDescriptorFormat
 
 from local_tools import load_from_json, sparqlQuery, delta_now, test_json, \
     load_remote_content, solr_handle_return
-
-WORK_ORDER_STATUS = ("Freshly created",  # * 0
-                     "fetch started",  # *  1
-                     "fetch completed",  # * 2
-                     "processing started",  # *  3
-                     "processing completed",  # *  4
-                     "intermediate process started",  # * 5
-                     "intermediate process finished",  # * 6
-                     "inserting started",  # *  7
-                     "insert completed/finished",  # * 8
-                     "fullfilled")  # * 9
 
 logger = logging.getLogger(__name__)
 

@@ -21,9 +21,6 @@
 #
 # @license GPL-3.0-only <https://www.gnu.org/licenses/gpl-3.0.en.html>
 
-from SpchtBuilder import SpchtBuilder
-import json
-
 from PySide2.QtGui import QStandardItemModel, QStandardItem, QFontDatabase, QIcon
 from PySide2.QtWidgets import *
 from PySide2 import QtCore
@@ -201,8 +198,6 @@ class SpchtMainWindow(object):
         self.central_widget.addWidget(checker_wrapper)
         self.central_widget.addWidget(self.explorer)
 
-        self.TEST_createSpcht()
-
     def create_explorer_layout(self):
         self.explorer = QWidget()
         self.explore_main_vertical = QVBoxLayout(self.explorer)
@@ -263,12 +258,12 @@ class SpchtMainWindow(object):
 
         self.explorer_toolbox = QToolBox()
         self.explorer_toolbox.setMinimumWidth(800)
-        self.explorer_tree_spcht_view = QTreeView()
-        self.explorer_tree_spcht_view.setMaximumWidth(400)
+        self.explorer_filtered_data = QTableWidget()
+        self.explorer_filtered_data.setMaximumWidth(400)
         self.explorer_spcht_result = QTextEdit()
         self.explorer_spcht_result.setMaximumWidth(400)
         ver_layout_19 = QVBoxLayout()
-        ver_layout_19.addWidget(self.explorer_tree_spcht_view)
+        ver_layout_19.addWidget(self.explorer_filtered_data)
         #ver_layout_19.addLayout(self.explorer_middle_nav_layout)
         ver_layout_19.addWidget(self.explorer_mid_nav_dummy)
         ver_layout_19.addWidget(self.explorer_spcht_result)
@@ -323,7 +318,7 @@ class SpchtMainWindow(object):
         # line 1
         exp_tab1_label17 = QLabel(i18n['node_source'])
         self.exp_tab_node_source = QComboBox(placeholderText=i18n['node_source_placeholder'])
-        self.exp_tab_node_source.addItems(SpchtConstants.sources)
+        self.exp_tab_node_source.addItems(SpchtConstants.SOURCES)
         exp_tab_form_general.addRow(exp_tab1_label17, self.exp_tab_node_source)
         # line 2
         exp_tab1_label13 = QLabel(i18n['node_mandatory'])
@@ -381,28 +376,6 @@ class SpchtMainWindow(object):
         #self.explorer_center_layout.addWidget(self.explorer_tree_spcht_view)
         self.explorer_center_layout.addLayout(ver_layout_19)
         self.explore_main_vertical.addLayout(self.explorer_center_layout)
-
-    def TEST_createSpcht(self):
-        headers = {0: "name", 1: "source", 2: "field", 3: "predicate", 4: "type", 5: "mandatory",
-                   6: "sub_nodes", 7: "sub_data"}
-        with open("../foliotools/folio.spcht.json") as json_file:
-            big_bird = json.load(json_file)
-        test1 = SpchtBuilder(big_bird)
-        test1.repository = test1._importSpcht(big_bird)
-        test_model = QStandardItemModel()
-        test_model.setHorizontalHeaderLabels(["Name", "Source", "Field", "Predicate", "URI", "Mandatory", "Sub_nodes", "Sub_data"])
-        bi_screen = test1.displaySpcht()
-        for big_i, (parent, group) in enumerate(bi_screen.items()):
-            top_node = QStandardItem(parent)
-            for i, each in enumerate(group):
-                for index, key in headers.items():
-                    element = QStandardItem(each[key])
-                    element.setEditable(False)
-                    top_node.setChild(i, index, element)
-            test_model.setItem(big_i, 0, top_node)
-            top_node.setEditable(False)
-        self.explorer_node_treeview.setModel(test_model)
-
 
     @staticmethod
     def set_max_size(width=0, height=0, *args):

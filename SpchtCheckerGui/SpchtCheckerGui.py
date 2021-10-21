@@ -37,6 +37,7 @@ from PySide2 import QtWidgets, QtCore
 from dateutil.relativedelta import relativedelta
 
 import SpchtErrors
+from SpchtBuilder import SpchtBuilder
 from SpchtDescriptorFormat import Spcht, SpchtThird, SpchtTriple
 
 import SpchtUtility
@@ -108,6 +109,8 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         self.taube = Spcht()
 
         self.data_cache = None
+        self.spcht_builder = None
+        self.active_spcht_node = None
 
         # * Event Binds
         self.setup_event_binds()
@@ -115,6 +118,8 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         # various
         self.console.insertPlainText(time_log(f"Init done, program started"))
         self.console.insertPlainText(f"Working Directory: {os.getcwd()}")
+
+        self.TEST_createSpcht()
 
         self.center()
 
@@ -134,7 +139,9 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         self.explorer_field_filter.returnPressed.connect(self.fct_exec_delayed_field_change)
         self.explorer_filter_behaviour.stateChanged.connect(self.fct_exec_delayed_field_change)
 
-        self.explorer_center_search_button.clicked.connect(self.test_button)
+        #self.explorer_center_search_button.clicked.connect(self.test_button)
+        self.explorer_center_search_button.clicked.connect(self.computeSpcht)
+        self.explorer_node_treeview.doubleClicked.connect(self.displayNodeDetails)
         #self.explorer_tree_spcht_view.selectionModel().selectionChanged.connect(self.fct_explorer_spcht_change)
         #self.spcht_tree_model.itemChanged.connect(self.fct_explorer_spcht_change)
 
@@ -491,6 +498,93 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         if dlg.exec_():
             print(dlg.getData())
 
+    def TEST_createSpcht(self):
+        headers = {0: "name", 1: "source", 2: "field", 3: "predicate", 4: "type", 5: "mandatory",
+                   6: "sub_nodes", 7: "sub_data"}
+        #with open("../foliotools/folio.spcht.json") as json_file:
+        with open("../ub-solr.spcht.json") as json_file:
+            big_bird = json.load(json_file)
+        test1 = SpchtBuilder(big_bird)
+        test1.repository = test1._importSpcht(big_bird)
+        test_model = QStandardItemModel()
+        test_model.setHorizontalHeaderLabels(["Name", "Source", "Field", "Predicate", "URI", "Mandatory", "Sub_nodes", "Sub_data"])
+        bi_screen = test1.displaySpcht()
+        for big_i, (parent, group) in enumerate(bi_screen.items()):
+            top_node = QStandardItem(parent)
+            for i, each in enumerate(group):
+                for index, key in headers.items():
+                    element = QStandardItem(each[key])
+                    element.setEditable(False)
+                    top_node.setChild(i, index, element)
+            test_model.setItem(big_i, 0, top_node)
+            top_node.setEditable(False)
+        self.explorer_node_treeview.setModel(test_model)
+        self.spcht_builder = test1
+
+    def displayNodeDetails(self):
+        indizes = self.explorer_node_treeview.selectedIndexes()
+        if not indizes:
+            return
+        item = indizes[0]
+        nodeName = item.model().itemFromIndex(item).text()
+        if nodeName in self.spcht_builder.repository:
+            self.active_spcht_node = self.spcht_builder.compileNode(nodeName)
+            n = self.spcht_builder.repository[nodeName]
+            self.exp_tab_node_name.setText(n.get('name', ""))
+            self.exp_tab_node_field.setText(n.get('field', ""))
+            self.exp_tab_node_tag.setText(n.get('tag', ""))
+            self.exp_tab_node_comment.setText(n.get('comment', ""))
+            self.exp_tab_node_prepend.setText(n.get('prepend', ""))
+            self.exp_tab_node_append.setText(n.get('append', ""))
+            self.exp_tab_node_cut.setText(n.get('cut', ""))
+            self.exp_tab_node_replace.setText(n.get('replace', ""))
+            self.exp_tab_node_match.setText(n.get('match', ""))
+            if n.get('mandatory', "optional") == "mandatory":
+                self.exp_tab_node_mandatory.setChecked(1)
+            else:
+                self.exp_tab_node_mandatory.setChecked(0)
+            if n.get('uri', "literal") == "uri":
+                self.exp_tab_node_uri.setChecked(1)
+            else:
+                self.exp_tab_node_uri.setChecked(0)
+            index = self.exp_tab_node_source.findText(n.get('source', "dict"), QtCore.Qt.MatchFixedString)
+            if index >= 0:
+                self.exp_tab_node_source.setCurrentIndex(index)
+
+    def computeSpcht(self):
+        if not self.data_cache or not self.active_spcht_node:
+            return
+        fake_spcht = {
+            "id_source": "dict",
+            "id_field": "id",
+            "nodes": [self.active_spcht_node]
+        }
+        habicht = Spcht()
+        habicht._DESCRI = fake_spcht
+        used_fields = habicht.get_node_fields()
+        element0 = self.data_cache[0]
+        if "fullrecord" in element0:
+            element0.pop("fullrecord")
+        self.explorer_filtered_data.setRowCount(len(used_fields))
+        self.explorer_filtered_data.setColumnCount(2)
+        self.explorer_filtered_data.setHorizontalHeaderLabels(["Key", "Value"])
+        for i, key in enumerate(used_fields):
+            self.explorer_filtered_data.setItem(i, 0, QTableWidgetItem(key))
+            if key in element0:
+                self.explorer_filtered_data.setItem(i, 1, QTableWidgetItem(str(element0[key])))
+            else:
+                self.explorer_filtered_data.setItem(i, 1, QTableWidgetItem("::MISSING::"))
+        self.explorer_filtered_data.resizeColumnToContents(0)
+        self.explorer_filtered_data.horizontalHeader().setStretchLastSection(True)
+        habicht._raw_dict = element0
+        processsing_results = habicht._recursion_node(self.active_spcht_node)
+        if processsing_results:
+            lines = ""
+            for each in processsing_results:
+                lines += f"{each.predicate} - {each.sobject}\n"
+            self.explorer_spcht_result.setText(lines)
+        else:
+            self.explorer_spcht_result.setText("::NORESULT::")
 
 if __name__ == "__main__":
     thisApp = QtWidgets.QApplication(sys.argv)
