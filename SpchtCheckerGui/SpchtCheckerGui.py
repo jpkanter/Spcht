@@ -37,11 +37,15 @@ from PySide2 import QtWidgets, QtCore
 from dateutil.relativedelta import relativedelta
 
 import SpchtErrors
+import local_tools
 from SpchtBuilder import SpchtBuilder
 from SpchtDescriptorFormat import Spcht, SpchtThird, SpchtTriple
 
 import SpchtUtility
 from SpchtCheckerGui_interface import SpchtMainWindow, ListDialogue
+from SpchtCheckerGui_i18n import Spcht_i18n
+i18n = Spcht_i18n("./GuiLanguage.json")
+
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -102,6 +106,16 @@ def handle_variants(dictlist: dict or list) -> list:
 
 
 class SpchtChecker(QMainWindow, SpchtMainWindow):
+    # as there should be always only one instance of this its hopefully okay this way
+    node_headers = [{'key': "name", 'header': i18n['col_name']},
+                    {'key': "source", 'header': i18n['col_source']},
+                    {'key': "field", 'header': i18n['col_field']},
+                    {'key': "predicate", 'header': i18n['col_predicate']},
+                    {'key': "type", 'header': i18n['col_type']},
+                    {'key': "mandatory", 'header': i18n['col_mandatory']},
+                    {'key': "sub_nodes", 'header': i18n['col_sub_nodes']},
+                    {'key': "sub_data", 'header': i18n['col_sub_data']},
+                    {'key': "comment", 'header': i18n['col_comment']}]
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -118,8 +132,6 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         # various
         self.console.insertPlainText(time_log(f"Init done, program started"))
         self.console.insertPlainText(f"Working Directory: {os.getcwd()}")
-
-        self.TEST_createSpcht()
 
         self.center()
 
@@ -140,6 +152,7 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         self.explorer_filter_behaviour.stateChanged.connect(self.fct_exec_delayed_field_change)
 
         #self.explorer_center_search_button.clicked.connect(self.test_button)
+        self.explorer_node_import_btn.clicked.connect(self.actImportSpcht)
         self.explorer_center_search_button.clicked.connect(self.computeSpcht)
         self.explorer_node_treeview.doubleClicked.connect(self.displayNodeDetails)
         #self.explorer_tree_spcht_view.selectionModel().selectionChanged.connect(self.fct_explorer_spcht_change)
@@ -498,28 +511,32 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         if dlg.exec_():
             print(dlg.getData())
 
-    def TEST_createSpcht(self):
-        headers = {0: "name", 1: "source", 2: "field", 3: "predicate", 4: "type", 5: "mandatory",
-                   6: "sub_nodes", 7: "sub_data"}
-        #with open("../foliotools/folio.spcht.json") as json_file:
-        with open("../ub-solr.spcht.json") as json_file:
-            big_bird = json.load(json_file)
-        test1 = SpchtBuilder(big_bird)
-        test1.repository = test1._importSpcht(big_bird)
-        test_model = QStandardItemModel()
-        test_model.setHorizontalHeaderLabels(["Name", "Source", "Field", "Predicate", "URI", "Mandatory", "Sub_nodes", "Sub_data"])
-        bi_screen = test1.displaySpcht()
-        for big_i, (parent, group) in enumerate(bi_screen.items()):
+    def actImportSpcht(self):
+        path_To_File, type = QtWidgets.QFileDialog.getOpenFileName(self, i18n['act_open_spcht'], "../",
+                                                                   "Spcht-Json File (*.spcht.json);;Json File (*.json);;Every file (*.*)")
+        if not path_To_File:
+            return
+        python_data = local_tools.load_from_json(path_To_File)
+        if not python_data:
+            return
+
+        self.spcht_builder= SpchtBuilder(python_data)
+        self.mthFillNodeView(self.spcht_builder.displaySpcht())
+
+    def mthFillNodeView(self, builder_display_data):
+        floating_model = QStandardItemModel()
+        floating_model.setHorizontalHeaderLabels([x['header'] for x in self.node_headers])
+        for big_i, (parent, group) in enumerate(builder_display_data.items()):
             top_node = QStandardItem(parent)
             for i, each in enumerate(group):
-                for index, key in headers.items():
-                    element = QStandardItem(each[key])
+                for index, key in enumerate(self.node_headers):
+                    element = QStandardItem(each.get(key['key'], ""))
                     element.setEditable(False)
                     top_node.setChild(i, index, element)
-            test_model.setItem(big_i, 0, top_node)
+            floating_model.setItem(big_i, 0, top_node)
             top_node.setEditable(False)
-        self.explorer_node_treeview.setModel(test_model)
-        self.spcht_builder = test1
+        self.explorer_node_treeview.setModel(floating_model)
+        self.explorer_node_treeview.expandAll()
 
     def displayNodeDetails(self):
         indizes = self.explorer_node_treeview.selectedIndexes()

@@ -112,6 +112,46 @@
     "en": "replaces the removed part from 'cut' with this content",
     "de": "ersetzt den entfernten Teil von 'cut' mit diesem Wert"
   },
+  "col_name": {
+    "en": "Name",
+    "de": "Name"
+  },
+  "col_source": {
+    "en": "Source",
+    "de": "Quelle"
+  },
+  "col_field": {
+    "en": "Datafield",
+    "de": "Datenfield"
+  },
+  "col_predicate": {
+    "en": "Predicate",
+    "de": "Prädikat"
+  },
+  "col_type": {
+    "en": "URI/Literal",
+    "de": "URI/Literal"
+  },
+  "col_mandatory": {
+    "en": "Mandatory",
+    "de": "Pflichtfeld"
+  },
+  "col_sub_nodes": {
+    "en": "Sub-nodes",
+    "de": "Unterknoten"
+  },
+  "col_sub_data": {
+    "en": "Sub-data",
+    "de": "Unterdaten"
+  },
+  "col_comment": {
+    "en": "Comments",
+    "de": "Kommentare"
+  },
+  "act_open_spcht": {
+    "en": "Choose a Spcht.json File for further processing",
+    "de": "Wählen Sie eine spcht.json Datei zur weitern Verarbeitung"
+  },
   "tab_general": {
     "en": "General",
     "de": "Allgemein"
@@ -153,11 +193,28 @@
     "de": "Objekte"
   },
   "generic_info": {
-    "en": "Info"
+    "en": "Info",
+    "de": "INFO"
   },
   "generic_comments": {
     "en": "Comments",
     "de": "Kommentare"
+  },
+  "generic_add": {
+    "en": "Add",
+    "de": "Hinzufügen"
+  },
+  "generic_import": {
+    "en": "Import",
+    "de": "Importieren"
+  },
+  "generic_export": {
+    "en": "Export",
+    "de": "Exportieren"
+  },
+  "generic_compile": {
+    "en": "Compile",
+    "de": "Zu einer Datei"
   },
   "ex_c&p": {
     "en": "",

@@ -20,8 +20,9 @@
 # along with Solr2Triplestore Tool.  If not, see <http://www.gnu.org/licenses/>.
 #
 # @license GPL-3.0-only <https://www.gnu.org/licenses/gpl-3.0.en.html>
-
+import re
 from collections import defaultdict
+import random
 import SpchtConstants
 import SpchtErrors
 import uuid
@@ -73,13 +74,15 @@ class SpchtNodeGroup:
 
 class SpchtBuilder:
 
-    def __init__(self, import_dict = None, unique_names=None):
+    def __init__(self, import_dict=None, unique_names=None):
         self._repository = {}
         self._root = SimpleSpchtNode(":ROOT:", parent=":ROOT:")
         if unique_names is None:
             self._names = UniqueNameGenerator(SpchtConstants.RANDOM_NAMES)
         else:
             self._names = UniqueNameGenerator(unique_names)
+        if import_dict:
+            self._importSpcht(import_dict)
         # self._names = UniqueNameGenerator(["Kaladin", "Yasnah", "Shallan", "Adolin", "Dalinar", "Roshone", "Teft", "Skar", "Rock", "Sylphrena", "Pattern", "Vasher", "Zahel", "Azure", "Vivianna", "Siri", "Susebron", "Kelsier", "Marsh", "Sazed", "Harmony", "Odium", "Rayse", "Tanavast"])
 
     @property
@@ -165,7 +168,7 @@ class SpchtBuilder:
 
     def displaySpcht(self):
         # gives a reprensentation for SpchtCheckerGui
-        curated_keys = ["name", "source", "field", "type", "mandatory", "sub_nodes", "sub_data", "predicate"]
+        curated_keys = ["name", "source", "field", "type", "mandatory", "sub_nodes", "sub_data", "predicate", "comment"]
         grouped_dict = defaultdict(list)
         for node, each in self._repository.items():
             curated_data = {key: each.get(key, "") for key in curated_keys}
@@ -173,10 +176,11 @@ class SpchtBuilder:
         return grouped_dict
 
     def _importSpcht(self, spcht: dict):
+        self._repository = {}
+        self._names.reset()
         if 'nodes' not in spcht:
             raise SpchtErrors.ParsingError("Cannot read SpchtDict, lack of 'nodes'")
-        temp_spcht = self._recursiveSpchtImport(spcht['nodes'])
-        return temp_spcht
+        self._repository = self._recursiveSpchtImport(spcht['nodes'])
 
     def _recursiveSpchtImport(self, spcht_nodes: list, parent=":MAIN:"):
         temp_spcht = {}
@@ -202,6 +206,13 @@ class SpchtBuilder:
                         temp_spcht.update(list_of_one)
                     else:
                         new_node[key] = node[key]
+            # comments:
+            comments = ""
+            for key in node.keys():
+                if re.search(r"^(comment)\w*$", key):
+                    comments += node[key] + "\n"
+            if comments.strip() != "":
+                new_node['comment'] = comments[:-1]
             temp_spcht[name] = new_node
         return temp_spcht
 
@@ -211,9 +222,14 @@ class SpchtBuilder:
 
 
 class UniqueNameGenerator:
-    def __init__(self, names: list):
+    def __init__(self, names: list, shuffle=False):
         self._current_index = 0
         self._names = names
+        if shuffle:
+            self.shuffle()
+
+    def __iter__(self):
+        return UniqueNameGeneratorIterator(self)
 
     def giveName(self):
         if self._current_index < len(self._names):
@@ -222,6 +238,25 @@ class UniqueNameGenerator:
         else:
             return uuid.uuid4().hex
 
+    def shuffle(self):
+        self.reset()
+        random.shuffle(self._names)
+
     def reset(self):
         self._current_index = 0
+
+
+class UniqueNameGeneratorIterator:
+    def __init__(self, UNG: UniqueNameGenerator):
+        self._UNG = UNG
+        self._index = 0
+
+    def __next__(self):
+        if self._index < (len(self._UNG._names)):
+            result = self._UNG._names[self._index]
+            self._index += 1
+            return result
+        raise StopIteration
+
+
 
