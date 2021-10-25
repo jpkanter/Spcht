@@ -26,6 +26,7 @@ import logging
 import os
 import re
 import sys
+import copy
 from io import StringIO
 from datetime import datetime
 from pathlib import Path
@@ -125,6 +126,8 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         self.data_cache = None
         self.spcht_builder = None
         self.active_spcht_node = None
+        self.active_data = None
+        self.active_data_index = 0
 
         # * Event Binds
         self.setup_event_binds()
@@ -145,6 +148,7 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         self.btn_tree_collapse.clicked.connect(self.treeview_main_spcht_data.collapseAll)
         self.btn_change_main.clicked.connect(self.act_change_main_view_to_creator)
         self.toogleTriState(0)
+        # self.explorer_data_file_path.doubleClicked.connect(self.act_data_load_dialogue)  # line edit does not emit events :/
         self.explorer_data_load_button.clicked.connect(self.act_data_load_dialogue)
         self.explorer_field_filter.textChanged[str].connect(self.fct_start_delayed_field_change)
         self.input_timer.timeout.connect(self.fct_exec_delayed_field_change)
@@ -153,8 +157,14 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
 
         #self.explorer_center_search_button.clicked.connect(self.test_button)
         self.explorer_node_import_btn.clicked.connect(self.actImportSpcht)
-        self.explorer_center_search_button.clicked.connect(self.computeSpcht)
-        self.explorer_node_treeview.doubleClicked.connect(self.displayNodeDetails)
+        self.explorer_center_search_button.clicked.connect(self.mthComputeSpcht)
+        self.explorer_node_treeview.doubleClicked.connect(self.mthDisplayNodeDetails)
+
+        self.explorer_center_search_button.clicked.connect(lambda: self.actFindDataCache(self.explorer_linetext_search.text()))
+        self.explorer_left_button.clicked.connect(lambda: self.actFindDataCache("-1"))
+        self.explorer_leftleft_button.clicked.connect(lambda: self.actFindDataCache("-10"))
+        self.explorer_right_button.clicked.connect(lambda: self.actFindDataCache("+1"))
+        self.explorer_rightright_button.clicked.connect(lambda: self.actFindDataCache("+10"))
         #self.explorer_tree_spcht_view.selectionModel().selectionChanged.connect(self.fct_explorer_spcht_change)
         #self.spcht_tree_model.itemChanged.connect(self.fct_explorer_spcht_change)
 
@@ -313,7 +323,11 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
 
         self.explorer_data_file_path.setText(path_to_file)
         self.data_cache = handle_variants(data)
-        self.fct_fill_explorer(self.data_cache)
+        if len(self.data_cache):
+            self.active_data = self.data_cache[0]
+            self.active_data_index = 0
+            self.explorer_linetext_search.setPlaceholderText(f"{1} / {len(self.data_cache)}")
+            self.fct_fill_explorer(self.data_cache)
 
     def btn_clk_loadtestdata(self):
         path_To_File, type = QtWidgets.QFileDialog.getOpenFileName(self, "Open sample data", "../",
@@ -338,7 +352,7 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         self.btn_act_loadtestdata(self.str_testdata_filepath.displayText(), self.linetext_subject_prefix.displayText())
         # its probably bad style to directly use interface element text
 
-    def btn_act_loadtestdata(self, filename, graph):
+    def btn_act_loadtestdata(self, filename, subject):
         debug_dict = {}  # TODO: loading of definitions
         basePath = Path(filename)
         descriPath = os.path.join(f"{basePath.parent}", f"{basePath.stem}.descri{basePath.suffix}")
@@ -384,7 +398,7 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
             i += 1
             self.processBar.setValue(i)
             try:
-                temp = self.taube.process_data(entry, graph)
+                temp = self.taube.process_data(entry, subject)
             except Exception as e:  # probably an AttributeError but i actually cant know, so we cast the WIDE net
                 self.progressMode(False)
                 self.write_status(f"SPCHT interpreting encountered an exception {e}")
@@ -434,7 +448,7 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
             self.btn_load_spcht_file.setDisabled(False)
             self.bottomStack.setCurrentIndex(0)
 
-    def fct_explorer_spcht_change(self):
+    def actExplorerSpchtChange(self):
         index = self.spcht_tree_model.index(0, 0)
         element = self.spcht_tree_model.itemFromIndex(index)
         logging.debug(str(self.spcht_tree_model.data(index)))
@@ -512,16 +526,45 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
             print(dlg.getData())
 
     def actImportSpcht(self):
-        path_To_File, type = QtWidgets.QFileDialog.getOpenFileName(self, i18n['act_open_spcht'], "../",
+        path_To_File, file_type = QtWidgets.QFileDialog.getOpenFileName(self, i18n['act_open_spcht'], "../",
                                                                    "Spcht-Json File (*.spcht.json);;Json File (*.json);;Every file (*.*)")
         if not path_To_File:
             return
         python_data = local_tools.load_from_json(path_To_File)
         if not python_data:
             return
-
-        self.spcht_builder= SpchtBuilder(python_data)
+        self.explorer_node_spcht_filepath.setText(path_To_File)
+        self.spcht_builder = SpchtBuilder(python_data)
         self.mthFillNodeView(self.spcht_builder.displaySpcht())
+
+    def actFindDataCache(self, findString):
+        if not self.data_cache:
+            self.explorer_linetext_search.setPlaceholderText("No data loaded yet")
+        print(f"{findString=}, {self.active_data_index=}")
+        if findString == "+1" or findString == "+10":
+            findString = str(self.active_data_index +1 + int(findString[1:]))  # this is so dirty
+        elif findString == "-10" or findString == "-1":
+            findString = str(self.active_data_index + 1 - int(findString[1:]))  # this is so dirty
+        if re.search(r"^\w*:\w+$", findString):  # search string
+            key, value = findString.split(":")
+            if key.strip() != "":  # key: value search
+                pass
+            else:  # value only search
+                pass
+        elif SpchtUtility.is_int(findString):
+            number = int(findString)
+            temp_len = len(self.data_cache)
+            if number <= 0:
+                number = 1
+                self.active_data = self.data_cache[number-1]
+            elif number > temp_len:
+                number = temp_len+1
+            self.active_data = self.data_cache[number - 1]
+            self.active_data_index = number-1
+            self.explorer_linetext_search.setPlaceholderText(f"{number} / {len(self.data_cache)+1}")
+            self.explorer_linetext_search.setText("")
+        self.mthComputeSpcht()
+        print(f"{findString=}, {self.active_data_index=}")
 
     def mthFillNodeView(self, builder_display_data):
         floating_model = QStandardItemModel()
@@ -538,11 +581,11 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         self.explorer_node_treeview.setModel(floating_model)
         self.explorer_node_treeview.expandAll()
 
-    def displayNodeDetails(self):
+    def mthDisplayNodeDetails(self):
         indizes = self.explorer_node_treeview.selectedIndexes()
         if not indizes:
             return
-        item = indizes[0]
+        item = indizes[0] # name of the node, should better be unique
         nodeName = item.model().itemFromIndex(item).text()
         if nodeName in self.spcht_builder.repository:
             self.active_spcht_node = self.spcht_builder.compileNode(nodeName)
@@ -568,8 +611,8 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
             if index >= 0:
                 self.exp_tab_node_source.setCurrentIndex(index)
 
-    def computeSpcht(self):
-        if not self.data_cache or not self.active_spcht_node:
+    def mthComputeSpcht(self):
+        if not self.active_data or not self.active_spcht_node:
             return
         fake_spcht = {
             "id_source": "dict",
@@ -579,7 +622,7 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         habicht = Spcht()
         habicht._DESCRI = fake_spcht
         used_fields = habicht.get_node_fields()
-        element0 = self.data_cache[0]
+        element0 = copy.copy(self.active_data)
         if "fullrecord" in element0:
             element0.pop("fullrecord")
         self.explorer_filtered_data.setRowCount(len(used_fields))
@@ -602,6 +645,7 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
             self.explorer_spcht_result.setText(lines)
         else:
             self.explorer_spcht_result.setText("::NORESULT::")
+
 
 if __name__ == "__main__":
     thisApp = QtWidgets.QApplication(sys.argv)

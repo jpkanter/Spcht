@@ -23,7 +23,7 @@
 
 from PySide2.QtGui import QStandardItemModel, QStandardItem, QFontDatabase, QIcon
 from PySide2.QtWidgets import *
-from PySide2 import QtCore
+from PySide2 import QtCore, QtWidgets
 
 import SpchtCheckerGui_i18n
 import SpchtConstants
@@ -42,7 +42,7 @@ class SpchtMainWindow(object):
 
         # * Window Setup
         MainWindow.setBaseSize(1280, 720)
-        MainWindow.setMinimumSize(720, 480)
+        MainWindow.setMinimumSize(1440, 960)
         MainWindow.setWindowTitle(i18n['window_title'])
         MainWindow.setWindowFlags(QtCore.Qt.WindowMinimizeButtonHint & QtCore.Qt.WindowMaximizeButtonHint)
 
@@ -199,6 +199,11 @@ class SpchtMainWindow(object):
         self.central_widget.addWidget(self.explorer)
 
     def create_explorer_layout(self):
+        policy_minimum_expanding = QSizePolicy()
+        policy_minimum_expanding.Policy = QSizePolicy.MinimumExpanding
+        policy_expanding = QSizePolicy()
+        policy_expanding.Policy = QSizePolicy.Expanding
+
         self.explorer = QWidget()
         self.explore_main_vertical = QVBoxLayout(self.explorer)
 
@@ -225,43 +230,50 @@ class SpchtMainWindow(object):
         self.explorer_mid_nav_dummy = QWidget()
         self.explorer_mid_nav_dummy.setMaximumWidth(400)
         self.explorer_mid_nav_dummy.setLayout(self.explorer_middle_nav_layout)
-
-        self.explorer_left_horizontal_spacer = QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum)
-        self.explorer_right_horizontal_spacer = QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum)
+        #self.explorer_left_horizontal_spacer = QSpacerItem(0, 0, QSizePolicy.Expanding, QSizePolicy.Minimum)
+        #self.explorer_right_horizontal_spacer = QSpacerItem(0, 0, QSizePolicy.Expanding, QSizePolicy.Minimum)
         self.explorer_leftleft_button = QPushButton("<<")
         self.explorer_left_button = QPushButton("<")
         self.explorer_rightright_button = QPushButton(">>")
         self.explorer_right_button = QPushButton(">")
         self.explorer_bottom_center_layout = QVBoxLayout()
-        self.explorer_linetext_search = QLineEdit(parent=self.explorer)
+        self.explorer_middle_nav_layout.setContentsMargins(0, 0, 0, 0)
+        self.explorer_linetext_search = QLineEdit(parent=self.explorer, Alignment=QtCore.Qt.AlignCenter)
         self.explorer_center_search_button = QPushButton(i18n['find'])
         self.explorer_bottom_center_layout.addWidget(self.explorer_linetext_search)
         self.explorer_bottom_center_layout.addWidget(self.explorer_center_search_button)
-        SpchtMainWindow.set_max_size(25, 70,
-                                     self.explorer_leftleft_button,
-                                     self.explorer_right_button,
-                                     self.explorer_left_button,
-                                     self.explorer_rightright_button)
-        SpchtMainWindow.set_max_size(200, 20,
-                                     self.explorer_linetext_search,
-                                     self.explorer_center_search_button)
+        SpchtMainWindow.massSetProperty(self.explorer_leftleft_button,
+                                        self.explorer_right_button,
+                                        self.explorer_left_button,
+                                        self.explorer_rightright_button,
+                                        maximumWidth=75,
+                                        minimumSize=(25, 70))
+        SpchtMainWindow.massSetProperty(self.explorer_linetext_search,
+                                        self.explorer_center_search_button,
+                                        maximumWidth=400,
+                                        minimumSize=(200, 30))
+        self.explorer_linetext_search.setSizePolicy(policy_minimum_expanding)
 
-        self.explorer_middle_nav_layout.addItem(self.explorer_left_horizontal_spacer)
+        #self.explorer_middle_nav_layout.addItem(self.explorer_left_horizontal_spacer)
+        #self.explorer_middle_nav_layout.addStretch()
         self.explorer_middle_nav_layout.addWidget(self.explorer_leftleft_button)
         self.explorer_middle_nav_layout.addWidget(self.explorer_left_button)
         self.explorer_middle_nav_layout.addLayout(self.explorer_bottom_center_layout)
         self.explorer_middle_nav_layout.addWidget(self.explorer_right_button)
         self.explorer_middle_nav_layout.addWidget(self.explorer_rightright_button)
-        self.explorer_middle_nav_layout.addItem(self.explorer_right_horizontal_spacer)
+        #self.explorer_middle_nav_layout.addStretch()
+        #self.explorer_middle_nav_layout.addItem(self.explorer_right_horizontal_spacer)
 
         # self.explore_main_vertical.addLayout(self.explorer_bottom_layout)
 
         self.explorer_toolbox = QToolBox()
         self.explorer_toolbox.setMinimumWidth(800)
         self.explorer_filtered_data = QTableWidget()
-        self.explorer_filtered_data.setMaximumWidth(400)
         self.explorer_spcht_result = QTextEdit()
-        self.explorer_spcht_result.setMaximumWidth(400)
+        SpchtMainWindow.massSetProperty(self.explorer_spcht_result,
+                                        self.explorer_filtered_data,
+                                        maximumWidth=400,
+                                        minimumWidth=200)
         ver_layout_19 = QVBoxLayout()
         ver_layout_19.addWidget(self.explorer_filtered_data)
         #ver_layout_19.addLayout(self.explorer_middle_nav_layout)
@@ -290,8 +302,12 @@ class SpchtMainWindow(object):
         self.explorer_node_import_btn = QPushButton(i18n['generic_import'], MaximumWidth=150)
         self.explorer_node_export_btn = QPushButton(i18n['generic_export'], MaximumWidth=150)
         self.explorer_node_compile_btn = QPushButton(i18n['generic_compile'], MaximumWidth=150)
+        self.explorer_node_spcht_filepath = QLabel("", sizePolicy=policy_expanding)
+        self.explorer_node_spcht_filepath.setSizePolicy(policy_expanding)
+        self.explorer_node_spcht_filepath.setMaximumWidth(9999)
         hor_layour_22.addWidget(self.explorer_node_add_btn)
-        hor_layour_22.addStretch(0)
+        hor_layour_22.addWidget(self.explorer_node_spcht_filepath)
+        #hor_layour_22.addStretch(0)
         hor_layour_22.addWidget(self.explorer_node_import_btn)
         hor_layour_22.addWidget(self.explorer_node_export_btn)
         hor_layour_22.addWidget(self.explorer_node_compile_btn)
@@ -386,6 +402,61 @@ class SpchtMainWindow(object):
                 if height:
                     each.setMaximumHeight(height)
 
+    @staticmethod
+    def massSetProperty(*widgets, **properties):
+        """
+        Sets properties for all widgets to the same, currently supports:
+
+        * QPushButton
+        * QLineEdit
+        * QTableWidget
+        * QTextEdit
+
+        And Properties:
+
+        * maximumWidth
+        * maximumHeight
+        * minimumHeight
+        * miniumWidth
+        * sizePolicy
+        * alignment
+        * disabled (will always set True, Parameter doesnt matter)
+        * enabled (will always set True)
+        :param widgets: A QT Widget
+        :type widgets: QPushButton or QLineEdit
+        :param properties: selected properties
+        :type properties: int or QSizePolicy or bool or tuple
+        :return: nothing
+        :rtype: None
+        """
+        for each in widgets:
+            if isinstance(each, (QPushButton, QLineEdit, QTableWidget, QTextEdit)):
+                if 'maximumHeight' in properties:
+                    each.setMaximumHeight(properties['maximumHeight'])
+                if 'maximumWidth' in properties:
+                    each.setMaximumWidth(properties['maximumWidth'])
+                if 'maximumSize' in properties:
+                    each.setMaximumSize(*properties['maximumSize'])
+                if 'minimumHeight' in properties:
+                    each.setMinimumHeight(properties['minimumHeight'])
+                if 'minimumWidth' in properties:
+                    each.setMinimumWidth(properties['minimumWidth'])
+                if 'minimumSize' in properties:
+                    each.setMinimumSize(*properties['minimumSize'])
+                if 'fixedHeight' in properties:
+                    each.setFixedHeight(properties['fixedHeight'])
+                if 'fixedWidth' in properties:
+                    each.setFixedWidth(properties['FixedWidth'])
+                if 'fixedSize' in properties:
+                    each.setFixedSize(*properties['fixedSize'])
+                if 'sizePolicy' in properties:
+                    each.setSizePolicy(properties['sizePolicy'])
+                if 'alignment' in properties:
+                    each.setAlignment(properties['alignment'])
+                if 'disabled' in properties:
+                    each.setDisabled(True)
+                if 'enabled' in properties:
+                    each.setEnabled(True)
 
 class ListDialogue(QDialog):
     def __init__(self, title:str, main_message:str, headers=[],init_data=None, parent=None):
