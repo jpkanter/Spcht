@@ -168,7 +168,7 @@ class SpchtBuilder:
 
     def displaySpcht(self):
         # gives a reprensentation for SpchtCheckerGui
-        curated_keys = ["name", "source", "field", "type", "mandatory", "sub_nodes", "sub_data", "predicate", "comment"]
+        curated_keys = ["name", "source", "field", "type", "mandatory", "sub_nodes", "sub_data", "predicate", "fallback", "comment"]
         grouped_dict = defaultdict(list)
         for node, each in self._repository.items():
             curated_data = {key: each.get(key, "") for key in curated_keys}

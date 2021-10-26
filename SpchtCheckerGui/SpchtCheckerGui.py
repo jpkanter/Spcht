@@ -116,6 +116,7 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
                     {'key': "mandatory", 'header': i18n['col_mandatory']},
                     {'key': "sub_nodes", 'header': i18n['col_sub_nodes']},
                     {'key': "sub_data", 'header': i18n['col_sub_data']},
+                    {'key': "fallback", 'header': i18n['col_fallback']},
                     {'key': "comment", 'header': i18n['col_comment']}]
 
     def __init__(self, parent=None):
@@ -161,6 +162,7 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         self.explorer_node_treeview.doubleClicked.connect(self.mthDisplayNodeDetails)
 
         self.explorer_center_search_button.clicked.connect(lambda: self.actFindDataCache(self.explorer_linetext_search.text()))
+        self.explorer_linetext_search.returnPressed.connect(lambda: self.actFindDataCache(self.explorer_linetext_search.text()))
         self.explorer_left_button.clicked.connect(lambda: self.actFindDataCache("-1"))
         self.explorer_leftleft_button.clicked.connect(lambda: self.actFindDataCache("-10"))
         self.explorer_right_button.clicked.connect(lambda: self.actFindDataCache("+1"))
@@ -537,34 +539,43 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         self.spcht_builder = SpchtBuilder(python_data)
         self.mthFillNodeView(self.spcht_builder.displaySpcht())
 
-    def actFindDataCache(self, findString):
+    def actFindDataCache(self, find_string):
         if not self.data_cache:
             self.explorer_linetext_search.setPlaceholderText("No data loaded yet")
-        print(f"{findString=}, {self.active_data_index=}")
-        if findString == "+1" or findString == "+10":
-            findString = str(self.active_data_index +1 + int(findString[1:]))  # this is so dirty
-        elif findString == "-10" or findString == "-1":
-            findString = str(self.active_data_index + 1 - int(findString[1:]))  # this is so dirty
-        if re.search(r"^\w*:\w+$", findString):  # search string
-            key, value = findString.split(":")
+        if find_string == "+1" or find_string == "+10":
+            find_string = str(self.active_data_index + 1 + int(find_string[1:]))  # this is so dirty
+        elif find_string == "-10" or find_string == "-1":
+            find_string = str(self.active_data_index + 1 - int(find_string[1:]))  # this is so dirty
+        if re.search(r"^\w*:\w+$", find_string):  # search string
+            key, value = find_string.split(":")
+            key = key.strip()
+            value = value.strip()
             if key.strip() != "":  # key: value search
-                pass
+                print(f"key:value - - - {key=}, {value=}")
+                for _, repo in enumerate(self.data_cache):
+                    if key in repo:
+                        if repo[key] == value:
+                            print("value in repo")
+                            self.active_data = self.data_cache[_]
+                            self.active_data_index = _
+                            self.explorer_linetext_search.setPlaceholderText(f"{_ + 1} / {len(self.data_cache)}")
+                            self.explorer_linetext_search.setText("")
+                            break
             else:  # value only search
                 pass
-        elif SpchtUtility.is_int(findString):
-            number = int(findString)
+        elif SpchtUtility.is_int(find_string):
+            number = int(find_string) - 1
             temp_len = len(self.data_cache)
             if number <= 0:
-                number = 1
-                self.active_data = self.data_cache[number-1]
-            elif number > temp_len:
-                number = temp_len+1
-            self.active_data = self.data_cache[number - 1]
-            self.active_data_index = number-1
-            self.explorer_linetext_search.setPlaceholderText(f"{number} / {len(self.data_cache)+1}")
+                number = 0 # first index
+                self.active_data = self.data_cache[number]
+            elif number >= temp_len:
+                number = temp_len-1 # last index
+            self.active_data = self.data_cache[number]
+            self.active_data_index = number
+            self.explorer_linetext_search.setPlaceholderText(f"{number+1} / {len(self.data_cache)}")
             self.explorer_linetext_search.setText("")
         self.mthComputeSpcht()
-        print(f"{findString=}, {self.active_data_index=}")
 
     def mthFillNodeView(self, builder_display_data):
         floating_model = QStandardItemModel()
@@ -621,22 +632,36 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         }
         habicht = Spcht()
         habicht._DESCRI = fake_spcht
-        used_fields = habicht.get_node_fields()
+
+        habicht.default_fields = []
+        used_fields = habicht.get_node_fields2()
         element0 = copy.copy(self.active_data)
         if "fullrecord" in element0:
             element0.pop("fullrecord")
+        habicht._raw_dict = element0
+        habicht._m21_dict = SpchtUtility.marc2list(copy.copy(self.active_data).get('fullrecord'))
         self.explorer_filtered_data.setRowCount(len(used_fields))
         self.explorer_filtered_data.setColumnCount(2)
         self.explorer_filtered_data.setHorizontalHeaderLabels(["Key", "Value"])
         for i, key in enumerate(used_fields):
+            if key == "fullrecord":
+                continue
             self.explorer_filtered_data.setItem(i, 0, QTableWidgetItem(key))
             if key in element0:
                 self.explorer_filtered_data.setItem(i, 1, QTableWidgetItem(str(element0[key])))
+            elif re.search(r"^[0-9]{1,3}:\w+$", key):  # filter for marc
+                value = habicht.extract_dictmarc_value({'source': 'marc', 'field': key}, raw=True)
+                self.explorer_filtered_data.setItem(i, 1, QTableWidgetItem(str(value)))
+            elif re.search(r"^((\w*)>)*\w+$", key):  # source tree
+                try:
+                    value = habicht.extract_dictmarc_value({'source': 'tree', 'field': key}, raw=True)
+                except TypeError as e:
+                    print(f"TypeErorr: {e}")
+                self.explorer_filtered_data.setItem(i, 1, QTableWidgetItem(str(value)))
             else:
                 self.explorer_filtered_data.setItem(i, 1, QTableWidgetItem("::MISSING::"))
         self.explorer_filtered_data.resizeColumnToContents(0)
         self.explorer_filtered_data.horizontalHeader().setStretchLastSection(True)
-        habicht._raw_dict = element0
         processsing_results = habicht._recursion_node(self.active_spcht_node)
         if processsing_results:
             lines = ""

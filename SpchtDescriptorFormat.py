@@ -1140,6 +1140,7 @@ class Spcht:
         :param dict sub_dict: a spcht node describing the data source
         :param str dict_field: name of the field in sub_dict, usually this is just 'field'
         :param dict dict_tree: total alternative set of data that is not the class data
+        :param bool raw: If True there will a pure str/int/float value instead of a SpchtThird as a result
         :return: A list of values, might be empty
         :rtype: list of SpchtThird
         """
@@ -1236,6 +1237,78 @@ class Spcht:
                 the_list += temp_list
         return sorted(set(the_list))
 
+    def get_node_fields2(self) -> list:
+        """
+            Returns a list of all the fields that might be used in processing of the data, this includes all
+            alternatives, fallbacks and joined_field keys with source dictionary,
+            **this also incudes Marc21 fields**
+
+            :return: a list of strings
+            :rtype: list[str]
+        """
+        if not self:  # requires initiated SPCHT Load
+            self.debug_print("list_of_dict_fields requires loaded SPCHT")
+            return []
+
+        the_list = []
+        the_list.extend(self.default_fields)
+        the_list.append(self._DESCRI['id_field'])
+        if 'id_fallback' in self._DESCRI:
+            temp_list = Spcht.get_node_fields_recursion(self._DESCRI['id_fallback'], True)
+            if temp_list:
+                the_list += temp_list
+        for node in self._DESCRI['nodes']:
+            temp_list = Spcht.get_node_fields_recursion(node, True)
+            if temp_list:
+                the_list += temp_list
+        return sorted(set(the_list))
+
+    @staticmethod
+    def get_node_fields_recursion(sub_dict: dict, get_marc=False) -> list:
+        """
+        Traverses the given node recursivly to find all usage of fields
+
+        This method is static instead of beeing inside SpchtUtility cause it shares close and specific functionality with
+        the SpchtDescriptor Core function
+
+        :param dict sub_dict: a Spcht Node
+        :param get_marc: if True this will also get marc fields, further processes need to handle those as there is no distinction between dict, tree and marc
+        :return: a list of used data fields
+        :rtype: list
+        """
+        part_list = []
+        if sub_dict['source'] == "dict" or sub_dict['source'] == "tree" or get_marc:
+            if 'static_field' not in sub_dict:
+                part_list.append(sub_dict['field'])
+            if 'alternatives' in sub_dict:
+                part_list.extend(sub_dict['alternatives'])
+            if 'joined_field' in sub_dict:
+                part_list.append(sub_dict['joined_field'])
+            if 'insert_add_fields' in sub_dict:
+                for each in sub_dict['insert_add_fields']:
+                    part_list.append(each['field'])
+            if 'if_field' in sub_dict:
+                part_list.append(sub_dict['if_field'])
+            if 'append_uuid_object_fields' in sub_dict:
+                part_list += sub_dict['append_uuid_object_fields']
+            if 'append_uuid_predicate_fields' in sub_dict:
+                part_list += sub_dict['append_uuid_predicate_fields']
+        if 'fallback' in sub_dict:
+            temp_list = Spcht.get_node_fields_recursion(sub_dict['fallback'], get_marc)
+            if temp_list:
+                part_list += temp_list
+        if 'sub_node' in sub_dict:
+            for child_node in sub_dict['sub_node']:
+                temp_list = Spcht.get_node_fields_recursion(child_node, get_marc)
+                if temp_list:
+                    part_list += temp_list
+        if 'sub_data' in sub_dict:
+            for child_node in sub_dict['sub_data']:
+                temp_list = Spcht.get_node_fields_recursion(child_node, get_marc)
+                if temp_list:
+                    part_list += temp_list
+        return part_list
+
     def get_node_predicates(self):
         """
             Returns a list of all different predicates that could be mapped by the loaded spcht file. As for get_node_fields
@@ -1280,50 +1353,6 @@ class Spcht:
                 part_list += temp_list
         return part_list
 
-    @staticmethod
-    def get_node_fields_recursion(sub_dict: dict) -> list:
-        """
-        Traverses the given node recursivly to find all usage of fields
-
-        This method is static instead of beeing inside SpchtUtility cause it shares close and specific functionality with
-        the SpchtDescriptor Core function
-
-        :param dict sub_dict: a Spcht Node
-        :return: a list of used data fields
-        :rtype: list
-        """
-        part_list = []
-        if sub_dict['source'] == "dict" or sub_dict['source'] == "tree":
-            if not 'static_field' in sub_dict:
-                part_list.append(sub_dict['field'])
-            if 'alternatives' in sub_dict:
-                part_list += sub_dict['alternatives']
-            if 'joined_field' in sub_dict:
-                part_list.append(sub_dict['joined_field'])
-            if 'insert_add_fields' in sub_dict:
-                for each in sub_dict['insert_add_fields']:
-                    part_list.append(each['field'])
-            if 'if_field' in sub_dict:
-                part_list.append(sub_dict['if_field'])
-            if 'append_uuid_object_fields' in sub_dict:
-                part_list += sub_dict['append_uuid_object_fields']
-            if 'append_uuid_predicate_fields' in sub_dict:
-                part_list += sub_dict['append_uuid_predicate_fields']
-        if 'fallback' in sub_dict:
-            temp_list = Spcht.get_node_fields_recursion(sub_dict['fallback'])
-            if temp_list:
-                part_list += temp_list
-        if 'sub_node' in sub_dict:
-            for child_node in sub_dict['sub_node']:
-                temp_list = Spcht.get_node_fields_recursion(child_node)
-                if temp_list:
-                    part_list += temp_list
-        if 'sub_data' in sub_dict:
-            for child_node in sub_dict['sub_data']:
-                temp_list = Spcht.get_node_fields_recursion(child_node)
-                if temp_list:
-                    part_list += temp_list
-        return part_list
 
 class SpchtIterator:
     def __init__(self, spcht: Spcht):
