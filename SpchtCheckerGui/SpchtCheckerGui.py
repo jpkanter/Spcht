@@ -27,6 +27,7 @@ import os
 import re
 import sys
 import copy
+import time
 from io import StringIO
 from datetime import datetime
 from pathlib import Path
@@ -139,6 +140,9 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
 
         self.center()
 
+        # * Savegames
+        self.lineeditstyle = self.exp_tab_node_field.styleSheet()  # this is probably a horrible idea
+
     def setup_event_binds(self):
         self.btn_load_spcht_file.clicked.connect(self.btn_spcht_load_dialogue)
         self.btn_load_spcht_retry.clicked.connect(self.btn_spcht_load_retry)
@@ -151,14 +155,13 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         self.toogleTriState(0)
         # self.explorer_data_file_path.doubleClicked.connect(self.act_data_load_dialogue)  # line edit does not emit events :/
         self.explorer_data_load_button.clicked.connect(self.act_data_load_dialogue)
-        self.explorer_field_filter.textChanged[str].connect(self.fct_start_delayed_field_change)
-        self.input_timer.timeout.connect(self.fct_exec_delayed_field_change)
-        self.explorer_field_filter.returnPressed.connect(self.fct_exec_delayed_field_change)
-        self.explorer_filter_behaviour.stateChanged.connect(self.fct_exec_delayed_field_change)
+        self.explorer_field_filter.textChanged[str].connect(self.actExecDelayedFieldChange)
+        self.input_timer.timeout.connect(self.mthExecDelayedFieldChange)
+        self.explorer_field_filter.returnPressed.connect(self.mthExecDelayedFieldChange)
+        self.explorer_filter_behaviour.stateChanged.connect(self.mthExecDelayedFieldChange)
 
         #self.explorer_center_search_button.clicked.connect(self.test_button)
         self.explorer_node_import_btn.clicked.connect(self.actImportSpcht)
-        self.explorer_center_search_button.clicked.connect(self.mthComputeSpcht)
         self.explorer_node_treeview.doubleClicked.connect(self.mthDisplayNodeDetails)
 
         self.explorer_center_search_button.clicked.connect(lambda: self.actFindDataCache(self.explorer_linetext_search.text()))
@@ -169,6 +172,11 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         self.explorer_rightright_button.clicked.connect(lambda: self.actFindDataCache("+10"))
         #self.explorer_tree_spcht_view.selectionModel().selectionChanged.connect(self.fct_explorer_spcht_change)
         #self.spcht_tree_model.itemChanged.connect(self.fct_explorer_spcht_change)
+
+        # * Spcht Node Edit Tab
+        self.spcht_timer.timeout.connect(self.mthCreateTempSpcht)
+        self.exp_tab_node_name.textChanged[str].connect(self.actDelayedSpchtComputing)
+        self.exp_tab_node_field.textChanged[str].connect(self.actDelayedSpchtComputing)
 
     def center(self):
         center = QScreen.availableGeometry(QApplication.primaryScreen()).center()
@@ -330,6 +338,37 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
             self.active_data_index = 0
             self.explorer_linetext_search.setPlaceholderText(f"{1} / {len(self.data_cache)}")
             self.fct_fill_explorer(self.data_cache)
+            temp_model = QStandardItemModel()
+            [temp_model.appendRow(QStandardItem(x)) for x in self.mthGatherAvailableFields(marc21=True)]
+            self.field_completer.setModel(temp_model)
+
+    def mthGatherAvailableFields(self, data=None, marc21=False):
+        if not data:
+            data = self.data_cache
+        if not data:
+            return []
+        all_fields = []
+        for _, block in enumerate(data):
+            for key in block.keys():
+                all_fields.append(key)
+            if 'fullrecord' in block and marc21:
+                temp_marc = SpchtUtility.marc2list(block['fullrecord'])
+                for main_key, top_value in temp_marc.items():
+                    if isinstance(top_value, list):
+                        for param_list in top_value:
+                            for sub_key in param_list:
+                                all_fields.append(f"{main_key}:{sub_key}")
+                                all_fields.append(f"{main_key:03d}:{sub_key}")
+                    elif isinstance(top_value, dict):
+                        for sub_key in top_value:
+                            all_fields.append(f"{main_key}:{sub_key}")
+                            all_fields.append(f"{main_key:03d}:{sub_key}")  # i think this is faster than if-ing my way through
+            if _ > 100:
+                # ? having halt conditions like this always seems arbitary but i really struggle to imagine how much more
+                # ? unique keys one hopes to get after 100 entries. On my fairly beefy machine the processing for 500
+                # ? entries was 3,01 seconds, for 10K it was around 46 seconds. The 600ms for 100 seems acceptable
+                break
+        return list(set(all_fields))
 
     def btn_clk_loadtestdata(self):
         path_To_File, type = QtWidgets.QFileDialog.getOpenFileName(self, "Open sample data", "../",
@@ -475,11 +514,11 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
                 error += f"\n{e}"
                 self.explorer_spcht_result.insertPlainText(error)
 
-    def fct_start_delayed_field_change(self):
+    def actExecDelayedFieldChange(self):
         if self.data_cache:
             self.input_timer.start(2000)
 
-    def fct_exec_delayed_field_change(self):
+    def mthExecDelayedFieldChange(self):
         if self.data_cache:
             filtering = self.explorer_field_filter.text()
             self.fct_fill_explorer(self.data_cache, filtering)
@@ -621,14 +660,17 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
             index = self.exp_tab_node_source.findText(n.get('source', "dict"), QtCore.Qt.MatchFixedString)
             if index >= 0:
                 self.exp_tab_node_source.setCurrentIndex(index)
+            self.mthComputeSpcht()
 
-    def mthComputeSpcht(self):
-        if not self.active_data or not self.active_spcht_node:
+    def mthComputeSpcht(self, spcht_descriptor=None):
+        if not spcht_descriptor:
+            spcht_descriptor = self.active_spcht_node
+        if not self.active_data or not spcht_descriptor:
             return
         fake_spcht = {
             "id_source": "dict",
             "id_field": "id",
-            "nodes": [self.active_spcht_node]
+            "nodes": [spcht_descriptor]
         }
         habicht = Spcht()
         habicht._DESCRI = fake_spcht
@@ -651,13 +693,18 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
                 self.explorer_filtered_data.setItem(i, 1, QTableWidgetItem(str(element0[key])))
             elif re.search(r"^[0-9]{1,3}:\w+$", key):  # filter for marc
                 value = habicht.extract_dictmarc_value({'source': 'marc', 'field': key}, raw=True)
-                self.explorer_filtered_data.setItem(i, 1, QTableWidgetItem(str(value)))
-            elif re.search(r"^((\w*)>)*\w+$", key):  # source tree
+                if value:
+                    self.explorer_filtered_data.setItem(i, 1, QTableWidgetItem(str(value)))
+                self.explorer_filtered_data.setItem(i, 1, QTableWidgetItem("::MISSING::"))
+            elif re.search(r"^((\w*)>)+\w+$", key):  # source tree, contains at least one 'word' + '>', otherwise it might be dict
                 try:
                     value = habicht.extract_dictmarc_value({'source': 'tree', 'field': key}, raw=True)
+                    if value:
+                        self.explorer_filtered_data.setItem(i, 1, QTableWidgetItem(str(value)))
+                    else:
+                        self.explorer_filtered_data.setItem(i, 1, QTableWidgetItem("::MISSING::"))
                 except TypeError as e:
                     print(f"TypeErorr: {e}")
-                self.explorer_filtered_data.setItem(i, 1, QTableWidgetItem(str(value)))
             else:
                 self.explorer_filtered_data.setItem(i, 1, QTableWidgetItem("::MISSING::"))
         self.explorer_filtered_data.resizeColumnToContents(0)
@@ -670,6 +717,39 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
             self.explorer_spcht_result.setText(lines)
         else:
             self.explorer_spcht_result.setText("::NORESULT::")
+
+    def actDelayedSpchtComputing(self):
+        if self.active_data:
+            self.spcht_timer.start(1000)
+
+    def mthCreateTempSpcht(self):
+        if self.active_spcht_node:
+            temp = self.mthNodeFormsToSpcht(self.active_spcht_node)
+            if temp:
+                self.active_spcht_node = temp
+                self.mthComputeSpcht()
+
+    def mthNodeFormsToSpcht(self, source_node=None):
+        raw_node = {'required': 'optional'}  # legacy bullshit i thought that was more important in the past
+        if source_node:
+            raw_node = copy.copy(source_node)
+        line_edits = {"name": self.exp_tab_node_name,
+                     "field": self.exp_tab_node_field,
+                     "tag": self.exp_tab_node_tag,
+                     "prepend": self.exp_tab_node_prepend,
+                     "append": self.exp_tab_node_append,
+                     "match": self.exp_tab_node_match,
+                     "cut": self.exp_tab_node_cut,
+                     "replace": self.exp_tab_node_replace}
+        # self.exp_tab_node_field.setStyleSheet("border: 1px solid red; border-radius: 2px")
+        for key, widget in line_edits.items():
+            value = str(widget.text()).strip()
+            if value != "":
+                raw_node[key] = value
+        print(raw_node)
+        if SpchtUtility.is_dictkey(raw_node, 'field', 'source', 'mandatory'):  # minimum viable node
+            return raw_node
+        return {}
 
 
 if __name__ == "__main__":

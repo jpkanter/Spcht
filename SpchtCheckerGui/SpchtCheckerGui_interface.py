@@ -39,6 +39,7 @@ class SpchtMainWindow(object):
         self.FIXEDFONT.setPointSize(10)
         self.input_timer = QtCore.QTimer()
         self.input_timer.setSingleShot(True)
+        self.spcht_timer = QtCore.QTimer(SingleShot=True)
 
         # * Window Setup
         MainWindow.setBaseSize(1280, 720)
@@ -203,6 +204,8 @@ class SpchtMainWindow(object):
         policy_minimum_expanding.Policy = QSizePolicy.MinimumExpanding
         policy_expanding = QSizePolicy()
         policy_expanding.Policy = QSizePolicy.Expanding
+        self.field_completer = QCompleter(["id", "name", "title"])
+        self.field_completer.setCaseSensitivity(QtCore.Qt.CaseSensitive)
 
         self.explorer = QWidget()
         self.explore_main_vertical = QVBoxLayout(self.explorer)
@@ -329,7 +332,7 @@ class SpchtMainWindow(object):
         exp_tab_form_general.addRow(exp_tab1_label11, self.exp_tab_node_name)
         # line 1
         exp_tab1_label16 = QLabel(i18n['node_field'])
-        self.exp_tab_node_field = QLineEdit(PlaceholderText=i18n['node_field_placeholder'])
+        self.exp_tab_node_field = QLineEdit(PlaceholderText=i18n['node_field_placeholder'], Completer=self.field_completer)
         exp_tab_form_general.addRow(exp_tab1_label16, self.exp_tab_node_field)
         # line 1
         exp_tab1_label17 = QLabel(i18n['node_source'])
