@@ -153,8 +153,8 @@
     "de": "Wählen Sie eine spcht.json Datei zur weitern Verarbeitung"
   },
   "tab_general": {
-    "en": "General",
-    "de": "Allgemein"
+    "en": "             General             ",
+    "de": "             Allgemein             "
   },
   "tab_simpletext": {
     "en": "Text transformation",

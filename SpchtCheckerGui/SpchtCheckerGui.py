@@ -38,6 +38,7 @@ from PySide2 import QtWidgets, QtCore
 
 from dateutil.relativedelta import relativedelta
 
+import SpchtConstants
 import SpchtErrors
 import local_tools
 from SpchtBuilder import SpchtBuilder
@@ -177,6 +178,14 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         self.spcht_timer.timeout.connect(self.mthCreateTempSpcht)
         self.exp_tab_node_name.textChanged[str].connect(self.actDelayedSpchtComputing)
         self.exp_tab_node_field.textChanged[str].connect(self.actDelayedSpchtComputing)
+        self.exp_tab_node_tag.textChanged[str].connect(self.actDelayedSpchtComputing)
+        self.exp_tab_node_append.textChanged[str].connect(self.actDelayedSpchtComputing)
+        self.exp_tab_node_prepend.textChanged[str].connect(self.actDelayedSpchtComputing)
+        self.exp_tab_node_match.textChanged[str].connect(self.actDelayedSpchtComputing)
+        self.exp_tab_node_cut.textChanged[str].connect(self.actDelayedSpchtComputing)
+        self.exp_tab_node_replace.textChanged[str].connect(self.actDelayedSpchtComputing)
+        self.exp_tab_node_uri.stateChanged.connect(self.actDelayedSpchtComputing)
+        self.exp_tab_node_mandatory.stateChanged.connect(self.actDelayedSpchtComputing)
 
     def center(self):
         center = QScreen.availableGeometry(QApplication.primaryScreen()).center()
@@ -643,6 +652,7 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
             self.exp_tab_node_name.setText(n.get('name', ""))
             self.exp_tab_node_field.setText(n.get('field', ""))
             self.exp_tab_node_tag.setText(n.get('tag', ""))
+            self.exp_tab_node_predicate.setText(n.get('predicate', ""))
             self.exp_tab_node_comment.setText(n.get('comment', ""))
             self.exp_tab_node_prepend.setText(n.get('prepend', ""))
             self.exp_tab_node_append.setText(n.get('append', ""))
@@ -734,20 +744,54 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         if source_node:
             raw_node = copy.copy(source_node)
         line_edits = {"name": self.exp_tab_node_name,
-                     "field": self.exp_tab_node_field,
-                     "tag": self.exp_tab_node_tag,
-                     "prepend": self.exp_tab_node_prepend,
-                     "append": self.exp_tab_node_append,
-                     "match": self.exp_tab_node_match,
-                     "cut": self.exp_tab_node_cut,
-                     "replace": self.exp_tab_node_replace}
+                      "field": self.exp_tab_node_field,
+                      "tag": self.exp_tab_node_tag,
+                      "prepend": self.exp_tab_node_prepend,
+                      "append": self.exp_tab_node_append,
+                      "match": self.exp_tab_node_match,
+                      "cut": self.exp_tab_node_cut,
+                      "replace": self.exp_tab_node_replace,
+                      "if_value": self.exp_tab_node_if_value,
+                      "if_field": self.exp_tab_node_if_field}
+        drop_downs = {"source": self.exp_tab_node_source,
+                      "if_condition": self.exp_tab_node_if_condition}
+        check_boxes = {"required": {
+                        "widget": self.exp_tab_node_mandatory,
+                        False: "optional",
+                        True: "mandatory"},
+                       "uri": {
+                           "widget": self.exp_tab_node_uri,
+                           False: False,  # duh
+                           True: True
+                       }}
         # self.exp_tab_node_field.setStyleSheet("border: 1px solid red; border-radius: 2px")
         for key, widget in line_edits.items():
             value = str(widget.text()).strip()
             if value != "":
                 raw_node[key] = value
-        print(raw_node)
-        if SpchtUtility.is_dictkey(raw_node, 'field', 'source', 'mandatory'):  # minimum viable node
+            else:
+                raw_node.pop(key, None)
+        for key, widget in drop_downs.items():
+            value = str(widget.currentText()).strip()
+            if value != "":
+                raw_node[key] = value
+            else:
+                raw_node.pop(key, None)
+        if raw_node['if_value'] or raw_node['if_field']:
+            if not raw_node['if_value'] or not raw_node['if_field'] or not raw_node['if_condition'] in SpchtConstants.SPCHT_BOOL_OPS:
+                raw_node.pop('if_value', None)
+                raw_node.pop('if_field', None)
+                raw_node.pop('if_condition', None)
+        # ? comments handling
+        comments = self.exp_tab_node_comment.toPlainText()
+        lines = comments.split("\n")
+        if lines[0].strip() != "":
+            raw_node['comment'] = lines[0].strip()
+        for i in range(1, len(lines)):
+            raw_node[f'comment{i}'] = lines[i]
+        for key, details in check_boxes.items():
+            raw_node[key] = details[details['widget'].isChecked()]
+        if SpchtUtility.is_dictkey(raw_node, 'field', 'source', 'required'):  # minimum viable node
             return raw_node
         return {}
 

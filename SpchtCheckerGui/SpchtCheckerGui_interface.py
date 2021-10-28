@@ -351,6 +351,10 @@ class SpchtMainWindow(object):
         exp_tab1_label15 = QLabel(i18n['node_tag'])
         self.exp_tab_node_tag = QLineEdit(PlaceholderText=i18n['node_tag_placeholder'])
         exp_tab_form_general.addRow(exp_tab1_label15, self.exp_tab_node_tag)
+        #line 5
+        exp_tab1_label18 = QLabel(i18n['node_predicate'])
+        self.exp_tab_node_predicate = QLineEdit(PlaceholderText=i18n['node_predicate_placeholder'])
+        exp_tab_form_general.addRow(exp_tab1_label18, self.exp_tab_node_predicate)
         #line 6
         exp_tab1_label12 = QLabel(i18n['node_comment'])
         self.exp_tab_node_comment = QTextEdit()
@@ -380,10 +384,29 @@ class SpchtMainWindow(object):
         self.exp_tab_node_match = QLineEdit(PlaceholderText=i18n['node_match_placeholder'])
         exp_tab_form_simpletext.addRow(exp_tab1_label25, self.exp_tab_node_match)
 
+        # * if tab
+        self.exp_tab_if = QWidget()
+        exp_tab_form_if = QFormLayout(self.exp_tab_if)
+        # line 1
+        exp_tab_label_31 = QLabel(i18n['node_if_field'])
+        self.exp_tab_node_if_field = QLineEdit(PlaceholderText=i18n['node_if_field'])
+        exp_tab_form_if.addRow(exp_tab_label_31, self.exp_tab_node_if_field)
+        # line 2
+        exp_tab_label_32 = QLabel(i18n['node_if_condition'])
+        self.exp_tab_node_if_condition = QComboBox(placeholderText=i18n['node_if_comparator'])
+        self.exp_tab_node_if_condition.addItems(set([x for x in SpchtConstants.SPCHT_BOOL_OPS.values()]))
+        self.exp_tab_node_if_condition.setCurrentIndex(0)
+        exp_tab_form_if.addRow(exp_tab_label_32, self.exp_tab_node_if_condition)
+        # line 3
+        exp_tab_label_33 = QLabel(i18n['node_if_value'])
+        self.exp_tab_node_if_value = QLineEdit(PlaceholderText=i18n['node_if_value'])
+        exp_tab_form_if.addRow(exp_tab_label_31, self.exp_tab_node_if_value)
+
 
         # ! End of Tab Widgets, adding content
         self.explorer_tabview.addTab(self.exp_tab_general, i18n['tab_general'])
         self.explorer_tabview.addTab(self.exp_tab_simpletext, i18n['tab_simpletext'])
+        self.explorer_tabview.addTab(self.exp_tab_if, i18n['tab_if'])
 
         self.explorer_toolbox_page2 = QWidget(self.explorer_tabview)
 
