@@ -430,14 +430,15 @@ class Spcht:
             try:
                 node_dict['fallback'] = self._load_ref_node(node_dict['fallback'], base_path)  # ! there it is again, the cursed recursion thing
             except Exception as e:
-                raise e  # basically lowers the exception by one level
+                raise e  # basically lowers the exception by one level  # 10/2021 the fuck does this? past me is confusing
         if 'mapping_settings' in node_dict and node_dict['mapping_settings'].get('$ref') is not None:
             file_path = node_dict['mapping_settings']['$ref']  # ? does it always has to be a relative path?
             self.debug_print("Reference:", colored(file_path, "green"))
             try:
-                map_dict = self.load_json(os.path.normpath(os.path.join(base_path, file_path)))
+                file_place = os.path.normpath(os.path.join(base_path, file_path))
+                map_dict = self.load_json(file_place)
                 if not map_dict:
-                    raise SpchtErrors.OperationalError("Could not load referenced node")
+                    raise SpchtErrors.OperationalError(f"Could not load referenced node {file_place}")
             except FileNotFoundError:
                 self.debug_print("Reference File not found")
                 raise FileNotFoundError(f"Reference File not found: '{file_path}'")
@@ -466,10 +467,12 @@ class Spcht:
                 raise TypeError("Structure of loaded joned_map_reference is not a dictionary")
             node_dict['joined_map'] = node_dict.get('joned_map', {})
             for key, value in map_dict.items():
+                # 10/2021: after introducing json-schema its questionable whether i should check such things or not
+                # because i could easily do this with a two liner: one = map_dict :: one.update(node_dict['joined_map']
                 if not isinstance(value, (str, int, float)):
                     self.debug_print("spcht_map")
                     raise TypeError("Value of joined_map is not a string, integer or float")
-                if not isinstance(key, (str, int, float)):  # is that even possible in json?
+                if not isinstance(key, (str, int, float)):  # is that even possible in json? --- its all 'numbers' dear younger self
                     self.debug_print("spcht_map")
                     raise TypeError("Key of joined_map is not a string, integer or float")
                 node_dict['joined_map'][key] = node_dict['joined_map'].get(key, value)   # ? not replacing existing keys

@@ -130,10 +130,12 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         self.spcht_builder = None
         self.active_spcht_node = None
         self.active_data = None
+        self.active_data_tables = {}
         self.active_data_index = 0
 
         # * Event Binds
         self.setup_event_binds()
+        self.setupNodeTabConstants()
 
         # various
         self.console.insertPlainText(time_log(f"Init done, program started"))
@@ -143,6 +145,35 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
 
         # * Savegames
         self.lineeditstyle = self.exp_tab_node_field.styleSheet()  # this is probably a horrible idea
+
+    def setupNodeTabConstants(self):
+        self.LINE_EDITS = {"name": self.exp_tab_node_name,
+                      "field": self.exp_tab_node_field,
+                      "tag": self.exp_tab_node_tag,
+                      "prepend": self.exp_tab_node_prepend,
+                      "append": self.exp_tab_node_append,
+                      "match": self.exp_tab_node_match,
+                      "cut": self.exp_tab_node_cut,
+                      "replace": self.exp_tab_node_replace,
+                      "if_value": self.exp_tab_node_if_value,
+                      "if_field": self.exp_tab_node_if_field}
+        self.COMBOBOX = {"source": self.exp_tab_node_source,
+                      "if_condition": self.exp_tab_node_if_condition}
+        self.CHECKBOX = {"required": {
+                            "widget": self.exp_tab_node_mandatory,
+                            False: "optional",
+                            True: "mandatory"
+                        },
+                        "uri": {
+                            "widget": self.exp_tab_node_uri,
+                            False: False,  # duh
+                            True: True
+                        }
+                        }
+        self.CLEARONLY = [
+            {'mth': "line", 'widget': self.exp_tab_node_mapping_preview},
+            {'mth': "line", 'widget': self.exp_tab_node_mapping_ref_path}
+        ]
 
     def setup_event_binds(self):
         self.btn_load_spcht_file.clicked.connect(self.btn_spcht_load_dialogue)
@@ -186,6 +217,7 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         self.exp_tab_node_replace.textChanged[str].connect(self.actDelayedSpchtComputing)
         self.exp_tab_node_uri.stateChanged.connect(self.actDelayedSpchtComputing)
         self.exp_tab_node_mandatory.stateChanged.connect(self.actDelayedSpchtComputing)
+        self.exp_tab_node_mapping_btn.clicked.connect(self.actMappingInput)
 
     def center(self):
         center = QScreen.availableGeometry(QApplication.primaryScreen()).center()
@@ -584,7 +616,7 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         if not python_data:
             return
         self.explorer_node_spcht_filepath.setText(path_To_File)
-        self.spcht_builder = SpchtBuilder(python_data)
+        self.spcht_builder = SpchtBuilder(python_data, spcht_base_path=str(Path(path_To_File).parent))
         self.mthFillNodeView(self.spcht_builder.displaySpcht())
 
     def actFindDataCache(self, find_string):
@@ -599,11 +631,9 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
             key = key.strip()
             value = value.strip()
             if key.strip() != "":  # key: value search
-                print(f"key:value - - - {key=}, {value=}")
                 for _, repo in enumerate(self.data_cache):
                     if key in repo:
                         if repo[key] == value:
-                            print("value in repo")
                             self.active_data = self.data_cache[_]
                             self.active_data_index = _
                             self.explorer_linetext_search.setPlaceholderText(f"{_ + 1} / {len(self.data_cache)}")
@@ -640,6 +670,29 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         self.explorer_node_treeview.setModel(floating_model)
         self.explorer_node_treeview.expandAll()
 
+    def mthSetSpchtTabView(self, SpchtNode=None):
+        if not SpchtNode:
+            SpchtNode = {}  # PEP no likey when setting to immutable as default
+        for key, widget in self.LINE_EDITS.items():
+            widget.setText(SpchtNode.get(key, ""))
+        for key, widget in self.COMBOBOX.items():
+            index = widget.findText(SpchtNode.get(key, ""), QtCore.Qt.MatchFixedString)
+            if index > 0:
+                widget.setCurrentIndex(index)
+            else:
+                widget.setCurrentIndex(0)
+        for key, details in self.CHECKBOX.items():
+            if not SpchtNode.get(key, False):
+                details['widget'].setChecked(0)
+            else:
+                details['widget'].setChecked(0)
+                for k, v in details.items():
+                    if v == SpchtNode.get(key, None):
+                        details['widget'].setChecked(k)
+        for details in self.CLEARONLY:  # i think i can solve this with a lambda somehow
+            if details['mth'] == "line":
+                details['widget'].setText("")
+
     def mthDisplayNodeDetails(self):
         indizes = self.explorer_node_treeview.selectedIndexes()
         if not indizes:
@@ -648,33 +701,12 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         nodeName = item.model().itemFromIndex(item).text()
         if nodeName in self.spcht_builder.repository:
             self.active_spcht_node = self.spcht_builder.compileNode(nodeName)
-            n = self.spcht_builder.repository[nodeName]
-            self.exp_tab_node_name.setText(n.get('name', ""))
-            self.exp_tab_node_field.setText(n.get('field', ""))
-            self.exp_tab_node_tag.setText(n.get('tag', ""))
-            self.exp_tab_node_predicate.setText(n.get('predicate', ""))
-            self.exp_tab_node_comment.setText(n.get('comment', ""))
-            self.exp_tab_node_prepend.setText(n.get('prepend', ""))
-            self.exp_tab_node_append.setText(n.get('append', ""))
-            self.exp_tab_node_cut.setText(n.get('cut', ""))
-            self.exp_tab_node_replace.setText(n.get('replace', ""))
-            self.exp_tab_node_match.setText(n.get('match', ""))
-            if n.get('mandatory', "optional") == "mandatory":
-                self.exp_tab_node_mandatory.setChecked(1)
-            else:
-                self.exp_tab_node_mandatory.setChecked(0)
-            if n.get('uri', "literal") == "uri":
-                self.exp_tab_node_uri.setChecked(1)
-            else:
-                self.exp_tab_node_uri.setChecked(0)
-            index = self.exp_tab_node_source.findText(n.get('source', "dict"), QtCore.Qt.MatchFixedString)
-            if index >= 0:
-                self.exp_tab_node_source.setCurrentIndex(index)
+            self.mthSetSpchtTabView(self.active_spcht_node)
             self.mthComputeSpcht()
 
     def mthComputeSpcht(self, spcht_descriptor=None):
         if not spcht_descriptor:
-            spcht_descriptor = self.active_spcht_node
+            spcht_descriptor = self.spcht_builder.compileNodeReference(self.active_spcht_node)
         if not self.active_data or not spcht_descriptor:
             return
         fake_spcht = {
@@ -683,8 +715,18 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
             "nodes": [spcht_descriptor]
         }
         habicht = Spcht()
+        """
+        # * try to load references
+        try:
+            base_path = Path(self.explorer_node_spcht_filepath.text())
+            spcht_descriptor = habicht._load_ref_node(spcht_descriptor, str(base_path.parent))  # good ol' tradition of using internal methods
+        except FileNotFoundError as e:
+            self.console.insertPlainText(e)
+        except TypeError as e:
+            self.console.insertPlainText(e)
+        print(spcht_descriptor)
+        """
         habicht._DESCRI = fake_spcht
-
         habicht.default_fields = []
         used_fields = habicht.get_node_fields2()
         element0 = copy.copy(self.active_data)
@@ -695,7 +737,7 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         self.explorer_filtered_data.setRowCount(len(used_fields))
         self.explorer_filtered_data.setColumnCount(2)
         self.explorer_filtered_data.setHorizontalHeaderLabels(["Key", "Value"])
-        for i, key in enumerate(used_fields):
+        for i, key in enumerate(used_fields):  # lists all used fields
             if key == "fullrecord":
                 continue
             self.explorer_filtered_data.setItem(i, 0, QTableWidgetItem(key))
@@ -743,42 +785,22 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         raw_node = {'required': 'optional'}  # legacy bullshit i thought that was more important in the past
         if source_node:
             raw_node = copy.copy(source_node)
-        line_edits = {"name": self.exp_tab_node_name,
-                      "field": self.exp_tab_node_field,
-                      "tag": self.exp_tab_node_tag,
-                      "prepend": self.exp_tab_node_prepend,
-                      "append": self.exp_tab_node_append,
-                      "match": self.exp_tab_node_match,
-                      "cut": self.exp_tab_node_cut,
-                      "replace": self.exp_tab_node_replace,
-                      "if_value": self.exp_tab_node_if_value,
-                      "if_field": self.exp_tab_node_if_field}
-        drop_downs = {"source": self.exp_tab_node_source,
-                      "if_condition": self.exp_tab_node_if_condition}
-        check_boxes = {"required": {
-                        "widget": self.exp_tab_node_mandatory,
-                        False: "optional",
-                        True: "mandatory"},
-                       "uri": {
-                           "widget": self.exp_tab_node_uri,
-                           False: False,  # duh
-                           True: True
-                       }}
         # self.exp_tab_node_field.setStyleSheet("border: 1px solid red; border-radius: 2px")
-        for key, widget in line_edits.items():
+        for key, widget in self.LINE_EDITS.items():
             value = str(widget.text()).strip()
             if value != "":
                 raw_node[key] = value
             else:
                 raw_node.pop(key, None)
-        for key, widget in drop_downs.items():
+        for key, widget in self.COMBOBOX.items():
             value = str(widget.currentText()).strip()
             if value != "":
                 raw_node[key] = value
             else:
                 raw_node.pop(key, None)
-        if raw_node['if_value'] or raw_node['if_field']:
-            if not raw_node['if_value'] or not raw_node['if_field'] or not raw_node['if_condition'] in SpchtConstants.SPCHT_BOOL_OPS:
+        if 'if_value' in raw_node or 'if_field' in raw_node:
+            if 'if_value' not in raw_node or not 'if_field' not in raw_node or not raw_node['if_condition'] in SpchtConstants.SPCHT_BOOL_OPS:
+                # * i would be really curious how to achieve the condition not being on the approved list
                 raw_node.pop('if_value', None)
                 raw_node.pop('if_field', None)
                 raw_node.pop('if_condition', None)
@@ -789,11 +811,26 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
             raw_node['comment'] = lines[0].strip()
         for i in range(1, len(lines)):
             raw_node[f'comment{i}'] = lines[i]
-        for key, details in check_boxes.items():
+        for key, details in self.CHECKBOX.items():
             raw_node[key] = details[details['widget'].isChecked()]
         if SpchtUtility.is_dictkey(raw_node, 'field', 'source', 'required'):  # minimum viable node
             return raw_node
         return {}
+
+    def actMappingInput(self):
+        if not self.active_spcht_node:
+            return
+        compiled_mappings = {}
+        if 'mapping' in self.active_spcht_node:
+            compiled_mappings.update(self.active_spcht_node['mapping'])
+        dlg = ListDialogue(i18n['dialogue_mapping_title'],
+                           i18n['dialogue_mapping_text'],
+                           [i18n['generic_key'], i18n['generic_value']],
+                           compiled_mappings,
+                           self)
+        if dlg.exec_():
+            print(dlg.getData())
+
 
 
 if __name__ == "__main__":

@@ -20,13 +20,17 @@
 # along with Solr2Triplestore Tool.  If not, see <http://www.gnu.org/licenses/>.
 #
 # @license GPL-3.0-only <https://www.gnu.org/licenses/gpl-3.0.en.html>
+import logging
 import re
+import os
 from collections import defaultdict
 import random
 import SpchtConstants
 import SpchtErrors
 import uuid
 import copy
+
+import local_tools
 
 RESERVED_NAMES = [":MAIN:", ":UNUSED:", ":ROOT:"]
 
@@ -74,15 +78,16 @@ class SpchtNodeGroup:
 
 class SpchtBuilder:
 
-    def __init__(self, import_dict=None, unique_names=None):
+    def __init__(self, import_dict=None, unique_names=None, spcht_base_path=None):
         self._repository = {}
         self._root = SimpleSpchtNode(":ROOT:", parent=":ROOT:")
+        self._references = {}
         if unique_names is None:
             self._names = UniqueNameGenerator(SpchtConstants.RANDOM_NAMES)
         else:
             self._names = UniqueNameGenerator(unique_names)
         if import_dict:
-            self._importSpcht(import_dict)
+            self._importSpcht(import_dict, spcht_base_path)
         # self._names = UniqueNameGenerator(["Kaladin", "Yasnah", "Shallan", "Adolin", "Dalinar", "Roshone", "Teft", "Skar", "Rock", "Sylphrena", "Pattern", "Vasher", "Zahel", "Azure", "Vivianna", "Siri", "Susebron", "Kelsier", "Marsh", "Sazed", "Harmony", "Odium", "Rayse", "Tanavast"])
 
     @property
@@ -175,14 +180,14 @@ class SpchtBuilder:
             grouped_dict[each.parent].append(curated_data)
         return grouped_dict
 
-    def _importSpcht(self, spcht: dict):
+    def _importSpcht(self, spcht: dict, base_path=None):
         self._repository = {}
         self._names.reset()
         if 'nodes' not in spcht:
             raise SpchtErrors.ParsingError("Cannot read SpchtDict, lack of 'nodes'")
-        self._repository = self._recursiveSpchtImport(spcht['nodes'])
+        self._repository = self._recursiveSpchtImport(spcht['nodes'], base_path)
 
-    def _recursiveSpchtImport(self, spcht_nodes: list, parent=":MAIN:"):
+    def _recursiveSpchtImport(self, spcht_nodes: list, base_path, parent=":MAIN:"):
         temp_spcht = {}
         for node in spcht_nodes:
             if 'name' not in node:
@@ -197,15 +202,28 @@ class SpchtBuilder:
                     if key in SpchtConstants.BUILDER_LIST_REFERENCE:
                         new_group = self._names.giveName()
                         new_node[key] = new_group
-                        temp_spcht.update(self._recursiveSpchtImport(node[key], parent=new_group))
+                        temp_spcht.update(self._recursiveSpchtImport(node[key], base_path, parent=new_group))
                     elif key in SpchtConstants.BUILDER_SINGLE_REFERENCE:
-                        list_of_one = self._recursiveSpchtImport([node[key]], parent=name)
+                        list_of_one = self._recursiveSpchtImport([node[key]], base_path, parent=name)
                         for each in list_of_one:
                             new_node[key] = each
                             break
                         temp_spcht.update(list_of_one)
                     else:
                         new_node[key] = node[key]
+                        rel_path = None
+                        if key == 'mapping_settings' and base_path:
+                            if '$ref' in node[key]:
+                                rel_path = node[key]['$ref']
+                        elif key == 'joined_map_ref' and base_path:
+                            rel_path = node[key]
+                        try:  # no base path no good
+                            if rel_path:
+                                keyvalue = local_tools.load_from_json(os.path.normpath(os.path.join(base_path, rel_path)))
+                                if keyvalue:
+                                    self._references[rel_path] = keyvalue
+                        except FileNotFoundError:
+                            logging.warning(f"Could not load additional data of reference: {node[key]}")
             # comments:
             comments = ""
             for key in node.keys():
@@ -215,6 +233,39 @@ class SpchtBuilder:
                 new_node['comment'] = comments[:-1]
             temp_spcht[name] = new_node
         return temp_spcht
+
+    def compileNodeReference(self, node):
+        """Uses the solved referenced inside the spcht builder to resolve the relative file paths provided by the
+        given node. This works with arbitary nodes and is not limited to the Nodes inside the builder
+        """
+        node2 = copy.deepcopy(node)
+        if 'mapping_settings' in node and '$ref' in node['mapping_settings']:
+            map0 = node.get('mapping', {})
+            map1 = self.resolveReference(node['mapping_settings']['$ref'])
+            map1.update(map0)
+            node2['mapping'] = map1
+        if 'joined_map_ref' in node:
+            map0 = node.get('joined_map', {})
+            map1 = self.resolveReference(node['joined_map_ref'])
+            map1.update(map0)
+            node2['joined_map'] = map1
+        for key in SpchtConstants.BUILDER_LIST_REFERENCE:
+            if key in node:
+                node2[key] = []
+                for subnode in node[key]:
+                    node2[key].append(self.compileNodeReference(subnode))
+        for key in SpchtConstants.BUILDER_SINGLE_REFERENCE:
+            if key in node:
+                node2[key] = self.compileNodeReference(node[key])
+        return node2
+
+    def resolveReference(self, rel_path: str):
+        """
+        Tries to resolve a relative file path of the Spcht file by using data loaded in the intial import
+        only works if a base folder was provided when building the Spcht from the original dictionary
+        :param str rel_path: relative path to the file, used as dictionary key
+        """
+        return copy.copy(self._references.get(rel_path, {}))
 
     def uniqueness_check(self):
         # checks if everything is in order for after import

@@ -327,86 +327,114 @@ class SpchtMainWindow(object):
         exp_tab_form_general = QFormLayout(self.exp_tab_general)
 
         # line 1
-        exp_tab1_label11 = QLabel(i18n['node_name'])
         self.exp_tab_node_name = QLineEdit(PlaceholderText=i18n['node_name_placeholder'])
-        exp_tab_form_general.addRow(exp_tab1_label11, self.exp_tab_node_name)
+        exp_tab_form_general.addRow(i18n['node_name'], self.exp_tab_node_name)
         # line 1
-        exp_tab1_label16 = QLabel(i18n['node_field'])
         self.exp_tab_node_field = QLineEdit(PlaceholderText=i18n['node_field_placeholder'], Completer=self.field_completer)
-        exp_tab_form_general.addRow(exp_tab1_label16, self.exp_tab_node_field)
+        exp_tab_form_general.addRow(i18n['node_field'], self.exp_tab_node_field)
         # line 1
-        exp_tab1_label17 = QLabel(i18n['node_source'])
         self.exp_tab_node_source = QComboBox(placeholderText=i18n['node_source_placeholder'])
         self.exp_tab_node_source.addItems(SpchtConstants.SOURCES)
-        exp_tab_form_general.addRow(exp_tab1_label17, self.exp_tab_node_source)
+        exp_tab_form_general.addRow(i18n['node_source'], self.exp_tab_node_source)
         # line 2
-        exp_tab1_label13 = QLabel(i18n['node_mandatory'])
         self.exp_tab_node_mandatory = QCheckBox()
-        exp_tab_form_general.addRow(exp_tab1_label13, self.exp_tab_node_mandatory)
+        exp_tab_form_general.addRow(i18n['node_mandatory'], self.exp_tab_node_mandatory)
         # line 3
-        exp_tab1_label14 = QLabel(i18n['node_uri'])
         self.exp_tab_node_uri = QCheckBox()
-        exp_tab_form_general.addRow(exp_tab1_label14, self.exp_tab_node_uri)
+        exp_tab_form_general.addRow(i18n['node_uri'], self.exp_tab_node_uri)
         # line 4
-        exp_tab1_label15 = QLabel(i18n['node_tag'])
         self.exp_tab_node_tag = QLineEdit(PlaceholderText=i18n['node_tag_placeholder'])
-        exp_tab_form_general.addRow(exp_tab1_label15, self.exp_tab_node_tag)
+        exp_tab_form_general.addRow(i18n['node_tag'], self.exp_tab_node_tag)
         #line 5
-        exp_tab1_label18 = QLabel(i18n['node_predicate'])
         self.exp_tab_node_predicate = QLineEdit(PlaceholderText=i18n['node_predicate_placeholder'])
-        exp_tab_form_general.addRow(exp_tab1_label18, self.exp_tab_node_predicate)
+        exp_tab_form_general.addRow(i18n['node_predicate'], self.exp_tab_node_predicate)
         #line 6
-        exp_tab1_label12 = QLabel(i18n['node_comment'])
         self.exp_tab_node_comment = QTextEdit()
-        exp_tab_form_general.addRow(exp_tab1_label12, self.exp_tab_node_comment)
+        exp_tab_form_general.addRow(i18n['node_comment'], self.exp_tab_node_comment)
 
         # * simple text transformation
         self.exp_tab_simpletext = QWidget()
         exp_tab_form_simpletext = QFormLayout(self.exp_tab_simpletext)
         # line 1
-        exp_tab1_label21 = QLabel(i18n['node_prepend'])
         self.exp_tab_node_prepend = QLineEdit(PlaceholderText=i18n['node_prepend_placeholder'])
-        exp_tab_form_simpletext.addRow(exp_tab1_label21, self.exp_tab_node_prepend)
+        exp_tab_form_simpletext.addRow(i18n['node_prepend'], self.exp_tab_node_prepend)
         # line 2
-        exp_tab1_label22 = QLabel(i18n['node_append'])
         self.exp_tab_node_append = QLineEdit(PlaceholderText=i18n['node_append_placeholder'])
-        exp_tab_form_simpletext.addRow(exp_tab1_label22, self.exp_tab_node_append)
+        exp_tab_form_simpletext.addRow(i18n['node_append'], self.exp_tab_node_append)
         # line 3
-        exp_tab1_label23 = QLabel(i18n['node_cut'])
         self.exp_tab_node_cut = QLineEdit(PlaceholderText=i18n['node_cut_placeholder'])
-        exp_tab_form_simpletext.addRow(exp_tab1_label23, self.exp_tab_node_cut)
+        exp_tab_form_simpletext.addRow(i18n['node_cut'], self.exp_tab_node_cut)
         # line 4
-        exp_tab1_label24 = QLabel(i18n['node_replace'])
         self.exp_tab_node_replace = QLineEdit(PlaceholderText=i18n['node_replace_placeholder'])
-        exp_tab_form_simpletext.addRow(exp_tab1_label24, self.exp_tab_node_replace)
+        exp_tab_form_simpletext.addRow(i18n['node_replace'], self.exp_tab_node_replace)
         # line 4
-        exp_tab1_label25 = QLabel(i18n['node_match'])
         self.exp_tab_node_match = QLineEdit(PlaceholderText=i18n['node_match_placeholder'])
-        exp_tab_form_simpletext.addRow(exp_tab1_label25, self.exp_tab_node_match)
+        exp_tab_form_simpletext.addRow(i18n['node_match'], self.exp_tab_node_match)
 
         # * if tab
         self.exp_tab_if = QWidget()
         exp_tab_form_if = QFormLayout(self.exp_tab_if)
         # line 1
-        exp_tab_label_31 = QLabel(i18n['node_if_field'])
         self.exp_tab_node_if_field = QLineEdit(PlaceholderText=i18n['node_if_field'])
-        exp_tab_form_if.addRow(exp_tab_label_31, self.exp_tab_node_if_field)
+        exp_tab_form_if.addRow(i18n['node_if_field'], self.exp_tab_node_if_field)
         # line 2
-        exp_tab_label_32 = QLabel(i18n['node_if_condition'])
         self.exp_tab_node_if_condition = QComboBox(placeholderText=i18n['node_if_comparator'])
         self.exp_tab_node_if_condition.addItems(set([x for x in SpchtConstants.SPCHT_BOOL_OPS.values()]))
         self.exp_tab_node_if_condition.setCurrentIndex(0)
-        exp_tab_form_if.addRow(exp_tab_label_32, self.exp_tab_node_if_condition)
+        exp_tab_form_if.addRow(i18n['node_if_condition'], self.exp_tab_node_if_condition)
         # line 3
-        exp_tab_label_33 = QLabel(i18n['node_if_value'])
         self.exp_tab_node_if_value = QLineEdit(PlaceholderText=i18n['node_if_value'])
-        exp_tab_form_if.addRow(exp_tab_label_31, self.exp_tab_node_if_value)
+        exp_tab_form_if.addRow(i18n['node_if_value'], self.exp_tab_node_if_value)
+
+        # * mapping tab
+        self.exp_tab_mapping = QWidget()
+        exp_tab_form_mapping = QGridLayout(self.exp_tab_mapping)
+        exp_tab_form_mapping.setColumnStretch(2, 255)
+        exp_tab_form_mapping.setAlignment(QtCore.Qt.AlignTop)
+        # line 1
+        exp_tabl_label41 = QLabel(i18n['node_mapping'])
+        self.exp_tab_node_mapping_btn = QPushButton(i18n['node_details'])
+        self.exp_tab_node_mapping_preview = QLabel(i18n['node_mapping_preview'])
+        exp_tab_form_mapping.addWidget(exp_tabl_label41, 0, 0)
+        exp_tab_form_mapping.addWidget(self.exp_tab_node_mapping_btn, 0, 1)
+        exp_tab_form_mapping.addWidget(self.exp_tab_node_mapping_preview, 0, 2)
+        # line 2
+        exp_tab_label_42 = QLabel(i18n['node_mapping_ref'])
+        self.exp_tab_node_mapping_ref_btn = QPushButton(i18n['node_mapping_ref_load'])
+        self.exp_tab_node_mapping_ref_path = QLineEdit("", ReadOnly=True)
+        exp_tab_form_mapping.addWidget(exp_tab_label_42, 1, 0)
+        exp_tab_form_mapping.addWidget(self.exp_tab_node_mapping_ref_btn, 1, 1)
+        exp_tab_form_mapping.addWidget(self.exp_tab_node_mapping_ref_path, 1, 2)
+        # line 2
+        exp_tab_label_43 = QLabel(i18n['node_mapping_settings'])
+        exp_tab_form_43 = QFormLayout()
+        exp_tab_form_mapping.addWidget(exp_tab_label_43, 2, 0)
+        exp_tab_form_mapping.itemAtPosition(2, 0).setAlignment(QtCore.Qt.AlignTop)
+        exp_tab_form_mapping.addLayout(exp_tab_form_43, 2, 1, 1, 2)
+        label_431 = QLabel(i18n['node_mapping_default'])
+        label_432 = QLabel(i18n['node_mapping_inherit'])
+        label_433 = QLabel(i18n['node_mapping_casesens'])
+        label_434 = QLabel(i18n['node_mapping_regex'])
+        self.exp_tab_mapping_default = QLineEdit(PlaceholderText=i18n['node_mapping_setting_default_placeholder'])
+        self.exp_tab_mapping_inherit = QCheckBox()
+        self.exp_tab_mapping_casesens = QCheckBox()
+        self.exp_tab_mapping_regex = QCheckBox()
+        exp_tab_form_43.addRow(label_431, self.exp_tab_mapping_default)
+        exp_tab_form_43.addRow(label_432, self.exp_tab_mapping_inherit)
+        exp_tab_form_43.addRow(label_433, self.exp_tab_mapping_casesens)
+        exp_tab_form_43.addRow(label_434, self.exp_tab_mapping_regex)
+        # line X + 1
+        exp_tab_form_mapping.setRowStretch(3, 255)
+        SpchtMainWindow.massSetProperty(self.exp_tab_node_mapping_ref_btn,
+                                        self.exp_tab_node_mapping_btn,
+                                        maximumWidth=200)
 
 
         # ! End of Tab Widgets, adding content
         self.explorer_tabview.addTab(self.exp_tab_general, i18n['tab_general'])
         self.explorer_tabview.addTab(self.exp_tab_simpletext, i18n['tab_simpletext'])
         self.explorer_tabview.addTab(self.exp_tab_if, i18n['tab_if'])
+        self.explorer_tabview.addTab(self.exp_tab_mapping, i18n['tab_mapping'])
 
         self.explorer_toolbox_page2 = QWidget(self.explorer_tabview)
 
@@ -483,6 +511,7 @@ class SpchtMainWindow(object):
                     each.setDisabled(True)
                 if 'enabled' in properties:
                     each.setEnabled(True)
+
 
 class ListDialogue(QDialog):
     def __init__(self, title:str, main_message:str, headers=[],init_data=None, parent=None):
