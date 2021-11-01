@@ -41,6 +41,10 @@ class SpchtMainWindow(object):
         self.input_timer.setSingleShot(True)
         self.spcht_timer = QtCore.QTimer(SingleShot=True)
 
+        self.policy_minimum_expanding = QSizePolicy()
+        self.policy_minimum_expanding.Policy = QSizePolicy.MinimumExpanding
+        self.policy_expanding = QSizePolicy()
+        self.policy_expanding.Policy = QSizePolicy.Expanding
         # * Window Setup
         MainWindow.setBaseSize(1280, 720)
         MainWindow.setMinimumSize(1440, 960)
@@ -55,32 +59,20 @@ class SpchtMainWindow(object):
 
         # left side
         top_file_bar = QHBoxLayout()
-        self.linetext_spcht_filepath = QLineEdit()
-        self.linetext_spcht_filepath.setPlaceholderText(i18n['str_sdf_file_placeholder'])
-        self.linetext_spcht_filepath.setReadOnly(True)
+        self.linetext_spcht_filepath = QLineEdit(PlaceholderText=i18n['str_sdf_file_placeholder'], ReadOnly=True)
         # self.btn_create_spcht = QPushButton(i18n['btn_create_spcht'])
         self.btn_load_spcht_file = QPushButton(i18n['btn_sdf_txt'])
-        self.btn_load_spcht_retry = QPushButton(i18n['generic_retry'])
-        self.btn_load_spcht_retry.setDisabled(True)
+        self.btn_load_spcht_retry = QPushButton(i18n['generic_retry'], Disabled=True)
         top_file_bar.addWidget(self.linetext_spcht_filepath)
         # top_file_bar.addWidget(self.btn_create_spcht)
         top_file_bar.addWidget(self.btn_load_spcht_file)
         top_file_bar.addWidget(self.btn_load_spcht_retry)
 
         bottom_file_bar = QHBoxLayout()
-        self.str_testdata_filepath = QLineEdit()
-        self.str_testdata_filepath.setPlaceholderText(i18n['str_jsonfile_placeholder'])
-        self.str_testdata_filepath.setReadOnly(True)
-        self.linetext_subject_prefix = QLineEdit()
-        self.linetext_subject_prefix.setPlaceholderText(i18n['str_subject_placeholder'])
-        self.linetext_subject_prefix.setReadOnly(True)
-        self.linetext_subject_prefix.setMaximumWidth(250)
-        self.btn_load_testdata_file = QPushButton(i18n['btn_testdata_txt'])
-        self.btn_load_testdata_file.setToolTip(i18n['btn_testdata_tooltip'])
-        self.btn_load_testdata_file.setDisabled(True)
-        self.btn_load_testdata_retry = QPushButton(i18n['generic_retry'])
-        self.btn_load_testdata_retry.setToolTip(i18n['btn_retry_tooltip'])
-        self.btn_load_testdata_retry.setDisabled(True)
+        self.str_testdata_filepath = QLineEdit(PlaceholderText=i18n['str_jsonfile_placeholder'], ReadOnly=True)
+        self.linetext_subject_prefix = QLineEdit(PlaceholderText=i18n['str_subject_placeholder'], ReadOnly=True, MaximumWidth=250)
+        self.btn_load_testdata_file = QPushButton(i18n['btn_testdata_txt'], ToolTip=i18n['btn_testdata_tooltip'], Disabled=True)
+        self.btn_load_testdata_retry = QPushButton(i18n['generic_retry'], ToolTip=i18n['btn_retry_tooltip'], Disabled=True)
         bottom_file_bar.addWidget(self.str_testdata_filepath)
         bottom_file_bar.addWidget(self.linetext_subject_prefix)
         bottom_file_bar.addWidget(self.btn_load_testdata_file)
@@ -89,14 +81,9 @@ class SpchtMainWindow(object):
         # middle part - View 1
         center_layout = QHBoxLayout()
 
-        control_bar_above_treeview = QGridLayout()
-        control_bar_above_treeview.setMargin(0)
-        self.btn_tree_expand = QPushButton(i18n['generic_expandall'])
-        self.btn_tree_expand.setFlat(True)
-        self.btn_tree_expand.setFixedHeight(15)
-        self.btn_tree_collapse = QPushButton(i18n['generic_collapseall'])
-        self.btn_tree_collapse.setFlat(True)
-        self.btn_tree_collapse.setFixedHeight(15)
+        control_bar_above_treeview = QGridLayout(Margin=0)
+        self.btn_tree_expand = QPushButton(i18n['generic_expandall'], Flat=True, FixedHeight=15)
+        self.btn_tree_collapse = QPushButton(i18n['generic_collapseall'], Flat=True, FixedHeight=15)
         self.treeview_main_spcht_data = QTreeView()
         self.spchttree_view_model = QStandardItemModel()
         self.spchttree_view_model.setHorizontalHeaderLabels(
@@ -111,8 +98,7 @@ class SpchtMainWindow(object):
         control_bar_above_treeview.addWidget(self.treeview_main_spcht_data, 1, 0, 1, 3)
 
         label_fields = QLabel("Fields")
-        self.lst_fields = QListView()
-        self.lst_fields.setMaximumWidth(200)
+        self.lst_fields = QListView(MaximumWidth=200)
         self.lst_fields_model = QStandardItemModel()
         self.lst_fields.setModel(self.lst_fields_model)
         fields = QVBoxLayout()
@@ -120,8 +106,7 @@ class SpchtMainWindow(object):
         fields.addWidget(self.lst_fields)
 
         label_graphs = QLabel("Graphs")
-        self.lst_graphs = QListView()
-        self.lst_graphs.setMaximumWidth(300)
+        self.lst_graphs = QListView(MaximumWidth=300)
         self.lst_graphs_model = QStandardItemModel()
         self.lst_graphs.setModel(self.lst_graphs_model)
         graphs = QVBoxLayout()
@@ -133,13 +118,10 @@ class SpchtMainWindow(object):
         center_layout.addLayout(graphs)
 
         # middle part - View 2
-        self.console = QTextEdit()
-        self.console.setReadOnly(True)
-        self.console.setFont(self.FIXEDFONT)
+        self.console = QTextEdit(ReadOnly=True, Font=self.FIXEDFONT)
 
         # middle part - View 3
-        self.txt_tabview = QTextEdit()
-        self.txt_tabview.setReadOnly(True)
+        self.txt_tabview = QTextEdit(ReadOnly=True)
         self.txt_tabview.setFont(self.FIXEDFONT)
         self.tbl_tabview = QTableView()
         self.tbl_tabview.horizontalHeader().setStretchLastSection(True)
@@ -159,15 +141,11 @@ class SpchtMainWindow(object):
         self.bottomStack = QStackedWidget()
         self.bottomStack.setContentsMargins(0, 0, 0, 0)
         self.bottomStack.setMaximumHeight(20)
-        self.btn_tristate = QPushButton()
-        self.btn_tristate.setMaximumWidth(60)
-        self.btn_tristate.setFlat(True)
+        self.btn_tristate = QPushButton(SizePolicy=self.policy_minimum_expanding, Flat=True, MinimumWidth=80)
+        self.btn_tristate.setStyleSheet("text-align: left;")  # crude hack
         self.tristate = 0
-        self.btn_change_main = QPushButton("Checker")
-        self.btn_change_main.setMaximumWidth(60)
-        self.btn_change_main.setFlat(True)
-        self.notifybar = QStatusBar()
-        self.notifybar.setSizeGripEnabled(False)
+        self.btn_change_main = QPushButton(i18n['gui_builder'], MaximumWidth=200, Flat=True)
+        self.notifybar = QStatusBar(SizeGripEnabled=False)
         self.processBar = QProgressBar()
         bottombar = QHBoxLayout()
         bottombar.setContentsMargins(0, 0, 0, 0)
@@ -200,35 +178,16 @@ class SpchtMainWindow(object):
         self.central_widget.addWidget(self.explorer)
 
     def create_explorer_layout(self):
-        policy_minimum_expanding = QSizePolicy()
-        policy_minimum_expanding.Policy = QSizePolicy.MinimumExpanding
-        policy_expanding = QSizePolicy()
-        policy_expanding.Policy = QSizePolicy.Expanding
-        self.field_completer = QCompleter(["id", "name", "title"])
+        self.field_completer = QCompleter()
         self.field_completer.setCaseSensitivity(QtCore.Qt.CaseSensitive)
 
         self.explorer = QWidget()
         self.explore_main_vertical = QVBoxLayout(self.explorer)
 
-        # ? top row explorer
-        self.explorer_top_layout = QHBoxLayout()
-
-        self.explorer_field_filter = QLineEdit()
-        self.explorer_field_filter.setPlaceholderText(i18n['linetext_field_filter_placeholder'])
-        self.explorer_filter_behaviour = QCheckBox(i18n['check_blacklist_behaviour'])
-        self.explorer_filter_behaviour.setChecked(True)
-        self.explorer_field_filter.setText(
-            "spelling, barcode, rvk_path, rvk_path_str_mv, topic_facet, author_facet, institution, spellingShingle")
-        # additional widgets here
-
-        self.explorer_top_layout.addWidget(self.explorer_field_filter)
-        self.explorer_top_layout.addWidget(self.explorer_filter_behaviour)
-        #self.explore_main_vertical.addLayout(self.explorer_top_layout)
-
         # ? right row
         self.explorer_center_layout = QHBoxLayout()
 
-        # ? bottom row
+        # ? navigation of compiled data
         self.explorer_middle_nav_layout = QHBoxLayout()
         self.explorer_mid_nav_dummy = QWidget()
         self.explorer_mid_nav_dummy.setMaximumWidth(400)
@@ -255,7 +214,7 @@ class SpchtMainWindow(object):
                                         self.explorer_center_search_button,
                                         maximumWidth=400,
                                         minimumSize=(200, 30))
-        self.explorer_linetext_search.setSizePolicy(policy_minimum_expanding)
+        self.explorer_linetext_search.setSizePolicy(self.policy_minimum_expanding)
 
         #self.explorer_middle_nav_layout.addItem(self.explorer_left_horizontal_spacer)
         #self.explorer_middle_nav_layout.addStretch()
@@ -269,6 +228,7 @@ class SpchtMainWindow(object):
 
         # self.explore_main_vertical.addLayout(self.explorer_bottom_layout)
 
+        # ? main tool box view
         self.explorer_toolbox = QToolBox()
         self.explorer_toolbox.setMinimumWidth(800)
         self.explorer_filtered_data = QTableWidget()
@@ -284,8 +244,20 @@ class SpchtMainWindow(object):
         ver_layout_19.addWidget(self.explorer_spcht_result)
 
         self.explorer_toolbox_page0 = QWidget()
-        self.explorer_data_file_path = QLineEdit()
-        self.explorer_data_file_path.setReadOnly(True)
+        # ? filter bar
+        self.explorer_top_layout = QHBoxLayout()
+
+        self.explorer_field_filter = QLineEdit()
+        self.explorer_field_filter.setPlaceholderText(i18n['linetext_field_filter_placeholder'])
+        self.explorer_filter_behaviour = QCheckBox(i18n['check_blacklist_behaviour'], Checked=True)
+        self.explorer_field_filter.setText(
+            "spelling, barcode, rvk_path, rvk_path_str_mv, topic_facet, author_facet, institution, spellingShingle")
+        # additional widgets here
+
+        self.explorer_top_layout.addWidget(self.explorer_field_filter)
+        self.explorer_top_layout.addWidget(self.explorer_filter_behaviour)
+        # self.explore_main_vertical.addLayout(self.explorer_top_layout)
+        self.explorer_data_file_path = QLineEdit(ReadOnly=True)
         self.explorer_data_load_button = QPushButton(i18n['generic_load'])
         ver_layout_18 = QVBoxLayout(self.explorer_toolbox_page0)
         hor_layout_20 = QHBoxLayout()
@@ -305,9 +277,8 @@ class SpchtMainWindow(object):
         self.explorer_node_import_btn = QPushButton(i18n['generic_import'], MaximumWidth=150)
         self.explorer_node_export_btn = QPushButton(i18n['generic_export'], MaximumWidth=150)
         self.explorer_node_compile_btn = QPushButton(i18n['generic_compile'], MaximumWidth=150)
-        self.explorer_node_spcht_filepath = QLabel("", sizePolicy=policy_expanding)
-        self.explorer_node_spcht_filepath.setSizePolicy(policy_expanding)
-        self.explorer_node_spcht_filepath.setMaximumWidth(9999)
+        self.mthSpchtBuilderBtnStatus(0)
+        self.explorer_node_spcht_filepath = QLabel("", sizePolicy=self.policy_expanding, MaximumWidth=9999)
         hor_layour_22.addWidget(self.explorer_node_add_btn)
         hor_layour_22.addWidget(self.explorer_node_spcht_filepath)
         #hor_layour_22.addStretch(0)
@@ -375,7 +346,7 @@ class SpchtMainWindow(object):
         self.exp_tab_if = QWidget()
         exp_tab_form_if = QFormLayout(self.exp_tab_if)
         # line 1
-        self.exp_tab_node_if_field = QLineEdit(PlaceholderText=i18n['node_if_field'])
+        self.exp_tab_node_if_field = QLineEdit(PlaceholderText=i18n['node_if_field'], Completer=self.field_completer)
         exp_tab_form_if.addRow(i18n['node_if_field'], self.exp_tab_node_if_field)
         # line 2
         self.exp_tab_node_if_condition = QComboBox(placeholderText=i18n['node_if_comparator'])
@@ -429,6 +400,12 @@ class SpchtMainWindow(object):
                                         self.exp_tab_node_mapping_btn,
                                         maximumWidth=200)
 
+        # bottom status line
+        hor_layout_100 = QHBoxLayout()
+        self.explorer_switch_checker = QPushButton(i18n['gui_checker'], MaximumWidth=150, Flat=True)
+        self.explorer_status_bar = QLabel()
+        hor_layout_100.addWidget(self.explorer_switch_checker)
+        hor_layout_100.addWidget(self.explorer_status_bar)
 
         # ! End of Tab Widgets, adding content
         self.explorer_tabview.addTab(self.exp_tab_general, i18n['tab_general'])
@@ -446,6 +423,7 @@ class SpchtMainWindow(object):
         #self.explorer_center_layout.addWidget(self.explorer_tree_spcht_view)
         self.explorer_center_layout.addLayout(ver_layout_19)
         self.explore_main_vertical.addLayout(self.explorer_center_layout)
+        self.explore_main_vertical.addLayout(hor_layout_100)
 
     @staticmethod
     def set_max_size(width=0, height=0, *args):
@@ -508,9 +486,9 @@ class SpchtMainWindow(object):
                 if 'alignment' in properties:
                     each.setAlignment(properties['alignment'])
                 if 'disabled' in properties:
-                    each.setDisabled(True)
+                    each.setDisabled(properties['disabled'])
                 if 'enabled' in properties:
-                    each.setEnabled(True)
+                    each.setEnabled(properties['enabled'])
 
 
 class ListDialogue(QDialog):
@@ -561,7 +539,6 @@ class ListDialogue(QDialog):
             if isinstance(init_data, list):
                 self.table.setRowCount(len(init_data)+1)
                 for i, each in enumerate(init_data):
-                    print(i)
                     self.table.setItem(i, 0, QTableWidgetItem(each))
             if isinstance(init_data, dict):
                 self.table.setRowCount(len(init_data.keys()) + 1)

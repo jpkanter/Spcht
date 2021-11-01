@@ -169,6 +169,8 @@ class SpchtBuilder:
                 pure_dict[key] = self.compileNode(item)
             else:
                 pure_dict[key] = item
+            if 'predicate' not in pure_dict:
+                pure_dict['predicate'] = "bla"  # find root predicate name
         return pure_dict
 
     def displaySpcht(self):

@@ -326,3 +326,16 @@ def sizeof_fmt(num: int, suffix="B") -> str:
     return f"{num:.1f} Yi{suffix}"
 
 
+def setDeepKey(dictionary, value, *keys):
+    rolling_dict = dictionary
+    for _, key in enumerate(keys):
+        if _ < len(keys)-1:
+            if key in rolling_dict and isinstance(rolling_dict[key], dict):
+                rolling_dict = rolling_dict[key]
+            else:
+                return None
+        else:
+            rolling_dict[key] = value
+    return dictionary
+
+

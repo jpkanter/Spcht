@@ -150,6 +150,7 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         self.LINE_EDITS = {"name": self.exp_tab_node_name,
                       "field": self.exp_tab_node_field,
                       "tag": self.exp_tab_node_tag,
+                      "predicate": self.exp_tab_node_predicate,
                       "prepend": self.exp_tab_node_prepend,
                       "append": self.exp_tab_node_append,
                       "match": self.exp_tab_node_match,
@@ -161,39 +162,45 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
                       "if_condition": self.exp_tab_node_if_condition}
         self.CHECKBOX = {"required": {
                             "widget": self.exp_tab_node_mandatory,
-                            False: "optional",
-                            True: "mandatory"
+                            "bool": {False: "optional", True: "mandatory"}
                         },
-                        "uri": {
+                        "type": {
                             "widget": self.exp_tab_node_uri,
-                            False: False,  # duh
-                            True: True
+                            "bool": {False: "literal", True: "uri"}
                         }
                         }
         self.CLEARONLY = [
             {'mth': "line", 'widget': self.exp_tab_node_mapping_preview},
             {'mth': "line", 'widget': self.exp_tab_node_mapping_ref_path}
         ]
+        self.COMPLEX = [
+            {'type': "line", 'widget': self.exp_tab_node_mapping_ref_path, 'key': 'mapping_settings>$ref'},
+            {'type': "line", 'widget': self.exp_tab_mapping_default, 'key': 'mapping_settings>$default'},
+            {'type': "check", 'widget': self.exp_tab_mapping_inherit, 'key': 'mapping_settings>$inherit', 'bool': {True: True, False: False}},
+            {'type': "check", 'widget': self.exp_tab_mapping_regex, 'key': 'mapping_settings>$regex', 'bool': {True: True, False: False}},
+            {'type': "check", 'widget': self.exp_tab_mapping_casesens, 'key': 'mapping_settings>$casesens', 'bool': {True: True, False: False}}
+        ]
 
     def setup_event_binds(self):
-        self.btn_load_spcht_file.clicked.connect(self.btn_spcht_load_dialogue)
+        self.btn_load_spcht_file.clicked.connect(self.actLoadSpcht)
         self.btn_load_spcht_retry.clicked.connect(self.btn_spcht_load_retry)
         self.btn_tristate.clicked.connect(self.toogleTriState)
-        self.btn_load_testdata_file.clicked.connect(self.btn_clk_loadtestdata)
-        self.btn_load_testdata_retry.clicked.connect(self.btn_clk_loadtestdata_retry)
+        self.btn_load_testdata_file.clicked.connect(lambda: self.actLoadTestData(True))
+        self.btn_load_testdata_retry.clicked.connect(self.actRetryTestdata)
         self.btn_tree_expand.clicked.connect(self.treeview_main_spcht_data.expandAll)
         self.btn_tree_collapse.clicked.connect(self.treeview_main_spcht_data.collapseAll)
-        self.btn_change_main.clicked.connect(self.act_change_main_view_to_creator)
+        self.btn_change_main.clicked.connect(self.actChangeMainView)
+        self.explorer_switch_checker.clicked.connect(self.actChangeMainView)
         self.toogleTriState(0)
         # self.explorer_data_file_path.doubleClicked.connect(self.act_data_load_dialogue)  # line edit does not emit events :/
-        self.explorer_data_load_button.clicked.connect(self.act_data_load_dialogue)
+        self.explorer_data_load_button.clicked.connect(self.actLoadTestData)
         self.explorer_field_filter.textChanged[str].connect(self.actExecDelayedFieldChange)
         self.input_timer.timeout.connect(self.mthExecDelayedFieldChange)
         self.explorer_field_filter.returnPressed.connect(self.mthExecDelayedFieldChange)
         self.explorer_filter_behaviour.stateChanged.connect(self.mthExecDelayedFieldChange)
 
         #self.explorer_center_search_button.clicked.connect(self.test_button)
-        self.explorer_node_import_btn.clicked.connect(self.actImportSpcht)
+        self.explorer_node_import_btn.clicked.connect(self.actLoadSpcht)
         self.explorer_node_treeview.doubleClicked.connect(self.mthDisplayNodeDetails)
 
         self.explorer_center_search_button.clicked.connect(lambda: self.actFindDataCache(self.explorer_linetext_search.text()))
@@ -218,6 +225,10 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         self.exp_tab_node_uri.stateChanged.connect(self.actDelayedSpchtComputing)
         self.exp_tab_node_mandatory.stateChanged.connect(self.actDelayedSpchtComputing)
         self.exp_tab_node_mapping_btn.clicked.connect(self.actMappingInput)
+        self.exp_tab_node_if_field.textChanged[str].connect(self.actDelayedSpchtComputing)
+        self.exp_tab_node_if_value.textChanged[str].connect(self.actDelayedSpchtComputing)
+        self.exp_tab_node_if_condition.currentIndexChanged.connect(self.actDelayedSpchtComputing)
+        self.exp_tab_node_source.currentIndexChanged.connect(self.actDelayedSpchtComputing)
 
     def center(self):
         center = QScreen.availableGeometry(QApplication.primaryScreen()).center()
@@ -231,8 +242,8 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
     def load_spcht(self, path_To_File):
         try:
             with open(path_To_File, "r") as file:
-                testdict = json.load(file)
-                status, output = SpchtUtility.schema_validation(testdict, schema="./SpchtSchema.json")
+                spcht_data = json.load(file)
+                status, output = SpchtUtility.schema_validation(spcht_data, schema="./SpchtSchema.json")
         except json.decoder.JSONDecodeError as e:
             self.console.insertPlainText(time_log(f"JSON Error: {str(e)}"))
             self.write_status("Json error while loading Spcht")
@@ -255,6 +266,10 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
             self.populate_treeview_with_spcht()
             self.populate_text_views()
             self.write_status("Loaded spcht discriptor file")
+            self.mthSpchtBuilderBtnStatus(1)
+            self.explorer_node_spcht_filepath.setText(path_To_File)
+            self.spcht_builder = SpchtBuilder(spcht_data, spcht_base_path=str(Path(path_To_File).parent))
+            self.mthFillNodeView(self.spcht_builder.displaySpcht())
         else:
             self.console.insertPlainText(time_log(f"SPCHT Schema Error: {output}"))
             self.write_status("Loading of spcht failed")
@@ -333,7 +348,7 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
             self.lst_graphs_model.appendRow(tempItem)
 
     def toogleTriState(self, status=0):
-        toggleTexts = ["Console", "View", "Tests", "Explorer"]
+        toggleTexts = ["[1/3] Console", "[2/3] View", "[3/3]Tests", "Explorer"]
         if isinstance(status, bool):  # connect calls as false
             if self.tristate == 2:
                 self.tristate = 0
@@ -345,10 +360,13 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
             self.tristate = self.MainPageLayout.currentIndex()
         self.btn_tristate.setText(toggleTexts[self.tristate])
 
-    def act_change_main_view_to_creator(self):
-        self.central_widget.setCurrentIndex(1)
+    def actChangeMainView(self):
+        if self.central_widget.currentIndex() == 0:
+            self.central_widget.setCurrentIndex(1)
+        else:
+            self.central_widget.setCurrentIndex(0)
 
-    def btn_spcht_load_dialogue(self):
+    def actLoadSpcht(self):
         path_To_File, file_type = QtWidgets.QFileDialog.getOpenFileName(self, "Open spcht descriptor file", "../", "Spcht Json File (*.spcht.json);;Json File (*.json);;Every file (*.*)")
 
         if not path_To_File:
@@ -411,30 +429,57 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
                 break
         return list(set(all_fields))
 
-    def btn_clk_loadtestdata(self):
-        path_To_File, type = QtWidgets.QFileDialog.getOpenFileName(self, "Open sample data", "../",
-                                                                   "Json File (*.json);;Every file (*.*)")
+    def actLoadTestData(self, graph_prompt=False):
+        path_to_file, type = QtWidgets.QFileDialog.getOpenFileName(self, "Open explorable data", "../", "Json File (*.json);;Every file (*.*)")
 
-        if path_To_File == "":
+        if path_to_file == "":
             return None
 
-        graphtext = self.linetext_subject_prefix.displayText()
-        graph, status = QtWidgets.QInputDialog.getText(self, "Insert Subject name",
-                                                    "Insert non-identifier part of the subject that is supposed to be mapped onto",
-                                                    text=graphtext)
-        if status is False or graph.strip() == "":
-            return None
-        if self.btn_act_loadtestdata(path_To_File, graph):
-            self.btn_load_testdata_retry.setDisabled(False)
-            self.str_testdata_filepath.setText(path_To_File)
-            self.linetext_subject_prefix.setText(graph)
+        try:
+            with open(path_to_file, "r") as file:
+                test_data = json.load(file)
+        except FileNotFoundError:
+            self.write_status("Loading of example Data file failed.")
+            return False
+        except json.JSONDecodeError as e:
+            self.write_status(f"Example data contains json errors: {e}")
+            self.console.insertPlainText(time_log(f"JSON Error in Example File: {str(e)}"))
+            return False
+        if test_data:
+            # * legacy checker things:
+            self.str_testdata_filepath.setText(path_to_file)
+            # * explorer stuff
+            self.explorer_data_file_path.setText(path_to_file)
+            self.data_cache = handle_variants(test_data)
+            if len(self.data_cache):
+                self.active_data = self.data_cache[0]
+                self.active_data_index = 0
+                self.explorer_linetext_search.setPlaceholderText(f"{1} / {len(self.data_cache)}")
+                self.fct_fill_explorer(self.data_cache)
+                temp_model = QStandardItemModel()
+                [temp_model.appendRow(QStandardItem(x)) for x in self.mthGatherAvailableFields(marc21=True)]
+                self.field_completer.setModel(temp_model)
+                if self.active_spcht_node:
+                    self.mthCreateTempSpcht()
 
-    def btn_clk_loadtestdata_retry(self):
-        self.load_spcht(self.linetext_spcht_filepath.displayText())
-        self.btn_act_loadtestdata(self.str_testdata_filepath.displayText(), self.linetext_subject_prefix.displayText())
+        if graph_prompt:
+            graphtext = self.linetext_subject_prefix.displayText()
+            graph, status = QtWidgets.QInputDialog.getText(self, "Insert Subject name",
+                                                        "Insert non-identifier part of the subject that is supposed to be mapped onto",
+                                                        text=graphtext)
+            if status is False or graph.strip() == "":
+                return None
+            if self.actProcessTestdata(path_to_file, graph):
+                self.btn_load_testdata_retry.setDisabled(False)
+                self.linetext_subject_prefix.setText(graph)
+
+    def actRetryTestdata(self):
+        if self.data_cache:
+            self.load_spcht(self.linetext_spcht_filepath.displayText())
+            self.actProcessTestdata(self.str_testdata_filepath.displayText(), self.linetext_subject_prefix.displayText())
         # its probably bad style to directly use interface element text
 
-    def btn_act_loadtestdata(self, filename, subject):
+    def actProcessTestdata(self, filename, subject):
         debug_dict = {}  # TODO: loading of definitions
         basePath = Path(filename)
         descriPath = os.path.join(f"{basePath.parent}", f"{basePath.stem}.descri{basePath.suffix}")
@@ -460,19 +505,10 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
             pass  # also okay
         # loading debug data from debug dict if possible
         time_process_start = datetime.now()
-        try:
-            with open(filename, "r") as file:
-                thetestset = json.load(file)
-        except FileNotFoundError:
-            self.write_status("Loading of example Data file failed.")
-            return False
-        except json.JSONDecodeError as e:
-            self.write_status(f"Example data contains json errors: {e}")
-            self.console.insertPlainText(time_log(f"JSON Error in Example File: {str(e)}"))
-            return False
+
         tbl_list = []
         text_list = []
-        thetestset = handle_variants(thetestset)
+        thetestset = handle_variants(self.data_cache)
         self.progressMode(True)
         self.processBar.setMaximum(len(thetestset))
         i = 0
@@ -607,18 +643,6 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         if dlg.exec_():
             print(dlg.getData())
 
-    def actImportSpcht(self):
-        path_To_File, file_type = QtWidgets.QFileDialog.getOpenFileName(self, i18n['act_open_spcht'], "../",
-                                                                   "Spcht-Json File (*.spcht.json);;Json File (*.json);;Every file (*.*)")
-        if not path_To_File:
-            return
-        python_data = local_tools.load_from_json(path_To_File)
-        if not python_data:
-            return
-        self.explorer_node_spcht_filepath.setText(path_To_File)
-        self.spcht_builder = SpchtBuilder(python_data, spcht_base_path=str(Path(path_To_File).parent))
-        self.mthFillNodeView(self.spcht_builder.displaySpcht())
-
     def actFindDataCache(self, find_string):
         if not self.data_cache:
             self.explorer_linetext_search.setPlaceholderText("No data loaded yet")
@@ -653,7 +677,8 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
             self.active_data_index = number
             self.explorer_linetext_search.setPlaceholderText(f"{number+1} / {len(self.data_cache)}")
             self.explorer_linetext_search.setText("")
-        self.mthComputeSpcht()
+        self.mthCreateTempSpcht()
+        #self.mthComputeSpcht()
 
     def mthFillNodeView(self, builder_display_data):
         floating_model = QStandardItemModel()
@@ -670,7 +695,7 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         self.explorer_node_treeview.setModel(floating_model)
         self.explorer_node_treeview.expandAll()
 
-    def mthSetSpchtTabView(self, SpchtNode=None):
+    def mthSetSpchtTabView(self, SpchtNode=None):  # aka NodeToForms
         if not SpchtNode:
             SpchtNode = {}  # PEP no likey when setting to immutable as default
         for key, widget in self.LINE_EDITS.items():
@@ -682,16 +707,30 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
             else:
                 widget.setCurrentIndex(0)
         for key, details in self.CHECKBOX.items():
-            if not SpchtNode.get(key, False):
+            if key not in SpchtNode:
                 details['widget'].setChecked(0)
             else:
-                details['widget'].setChecked(0)
-                for k, v in details.items():
-                    if v == SpchtNode.get(key, None):
-                        details['widget'].setChecked(k)
+                reverse_bool = {value: key for key, value in details['bool'].items()}
+                details['widget'].setChecked(reverse_bool[SpchtNode[key]])
         for details in self.CLEARONLY:  # i think i can solve this with a lambda somehow
             if details['mth'] == "line":
                 details['widget'].setText("")
+        for complex in self.COMPLEX:
+            keys = complex['key'].split(">")
+            if keys:
+                value = SpchtNode
+                for key in keys:
+                    key = key.strip()
+                    if key in value:
+                        value = value[key]
+                    else:
+                        value = None
+                        break
+                if value:
+                    if complex['type'] == "line":
+                        complex['widget'].setText(value)
+                    elif complex['type'] == "check":
+                        complex['widget'].setChecked(complex['bool'][value])
 
     def mthDisplayNodeDetails(self):
         indizes = self.explorer_node_treeview.selectedIndexes()
@@ -703,6 +742,8 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
             self.active_spcht_node = self.spcht_builder.compileNode(nodeName)
             self.mthSetSpchtTabView(self.active_spcht_node)
             self.mthComputeSpcht()
+        self.explorer_tabview.setCurrentIndex(0)
+        self.explorer_toolbox.setCurrentIndex(2)
 
     def mthComputeSpcht(self, spcht_descriptor=None):
         if not spcht_descriptor:
@@ -714,6 +755,7 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
             "id_field": "id",
             "nodes": [spcht_descriptor]
         }
+        self.console.insertPlainText(f"Current Node as compiled dictionary: {spcht_descriptor}")
         habicht = Spcht()
         """
         # * try to load references
@@ -761,7 +803,7 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
                 self.explorer_filtered_data.setItem(i, 1, QTableWidgetItem("::MISSING::"))
         self.explorer_filtered_data.resizeColumnToContents(0)
         self.explorer_filtered_data.horizontalHeader().setStretchLastSection(True)
-        processsing_results = habicht._recursion_node(self.active_spcht_node)
+        processsing_results = habicht._recursion_node(spcht_descriptor)
         if processsing_results:
             lines = ""
             for each in processsing_results:
@@ -798,12 +840,36 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
                 raw_node[key] = value
             else:
                 raw_node.pop(key, None)
+        for key, details in self.CHECKBOX.items():
+            raw_node[key] = details['bool'][details['widget'].isChecked()]
+        for key, data in self.active_data_tables.items():
+            if len(data):
+                raw_node[key] = data
+        for complex in self.COMPLEX:
+            value = None
+            if complex['type'] == "line":
+                value = str(complex['widget'].text()).strip()
+            if complex['type'] == "check":
+                reverse_bool = {value: key for key, value in complex['bool'].items()}
+                value = reverse_bool[complex['widget'].isChecked()]
+            if value:
+                keys = complex['key'].split(">")
+                local_tools.setDeepKey(raw_node, value, *keys)
+        # ? if handling
         if 'if_value' in raw_node or 'if_field' in raw_node:
-            if 'if_value' not in raw_node or not 'if_field' not in raw_node or not raw_node['if_condition'] in SpchtConstants.SPCHT_BOOL_OPS:
-                # * i would be really curious how to achieve the condition not being on the approved list
+            if 'if_value' not in raw_node and raw_node['if_condition'] != "exi":
                 raw_node.pop('if_value', None)
                 raw_node.pop('if_field', None)
                 raw_node.pop('if_condition', None)
+            elif 'if_field' not in raw_node:
+                raw_node.pop('if_value', None)
+                raw_node.pop('if_field', None)
+                raw_node.pop('if_condition', None)
+            elif raw_node['if_condition'] not in SpchtConstants.SPCHT_BOOL_OPS:
+                raw_node.pop('if_value', None)
+                raw_node.pop('if_field', None)
+                raw_node.pop('if_condition', None)
+
         # ? comments handling
         comments = self.exp_tab_node_comment.toPlainText()
         lines = comments.split("\n")
@@ -811,8 +877,6 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
             raw_node['comment'] = lines[0].strip()
         for i in range(1, len(lines)):
             raw_node[f'comment{i}'] = lines[i]
-        for key, details in self.CHECKBOX.items():
-            raw_node[key] = details[details['widget'].isChecked()]
         if SpchtUtility.is_dictkey(raw_node, 'field', 'source', 'required'):  # minimum viable node
             return raw_node
         return {}
@@ -829,8 +893,27 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
                            compiled_mappings,
                            self)
         if dlg.exec_():
-            print(dlg.getData())
+            self.active_data_tables['mapping'] = dlg.getData()
+            self.exp_tab_node_mapping_preview.setText(str(self.active_data_tables['mapping']))
 
+    def mthSpchtBuilderBtnStatus(self, status: int):
+        if status == 0:
+            SpchtChecker.massSetProperty(
+                self.explorer_node_add_btn,
+                self.explorer_node_export_btn,
+                self.explorer_node_compile_btn,
+                disabled=True
+            )
+        elif status == 1:
+            SpchtChecker.massSetProperty(
+                self.explorer_node_add_btn,
+                self.explorer_node_export_btn,
+                self.explorer_node_compile_btn,
+                enabled=True
+            )
+        elif status == 2:  # only export as SpchtBuilder File
+            pass
+            # not yet supported / implemented
 
 
 if __name__ == "__main__":
