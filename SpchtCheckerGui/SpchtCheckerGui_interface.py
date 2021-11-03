@@ -643,10 +643,11 @@ class ListDialogue(QDialog):
 
 
 class JsonDialogue(QDialog):
+    _fixed_font_candidates = [("Iosevka", "Light"), ("Fira Code", "Regular"), ("Hack", "Regular")]
+
     def __init__(self, data, parent=None):
         super().__init__(parent)
-        self.FIXEDFONT = QFontDatabase.systemFont(QFontDatabase.FixedFont)
-        self.FIXEDFONT.setPointSize(10)
+        self.FIXEDFONT = JsonDialogue.tryForFont(10)
         self.setWindowTitle(i18n['json_dia_title'])
         self.setMinimumWidth(400)
         self.setMinimumHeight(600)
@@ -674,6 +675,25 @@ class JsonDialogue(QDialog):
 
         self.buttonBox.accepted.connect(self.accept)
         self.buttonBox.rejected.connect(self.reject)
+
+    @classmethod
+    def tryForFont(cls, size: int):
+        """
+        tries to load one of the specified fonts in the set size
+        :param size: point size of the font in px
+        :type size: int
+        :return: hopefully one of the QFonts, else a fixed font one
+        :rtype: QFont
+        """
+        std_font = QFontDatabase().font("fsdopihfgsjodfgjhsadfkjsdf", "Doomsday", size)
+        # * i am once again questioning my logic here but this seems to work
+        for font, style in JsonDialogue._fixed_font_candidates:
+            a_font = QFontDatabase().font(font, style, size)
+            if a_font != std_font:
+                return a_font
+        backup = QFontDatabase.systemFont(QFontDatabase.FixedFont)
+        backup.setPointSize(size)
+        return backup
 
     def getContent(self):
         return self.editor.toPlainText()
