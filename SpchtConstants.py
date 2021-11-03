@@ -25,6 +25,7 @@ SOURCES = ("dict", "marc", "tree")
 SPCHT_BOOL_OPS = {"equal":"==", "eq":"==","greater":">","gr":">","lesser":"<","ls":"<",
                     "greater_equal":">=","gq":">=", "lesser_equal":"<=","lq":"<=",
                   "unequal":"!=","uq":"!=","=":"==","==":"==","<":"<",">":">","<=":"<=",">=":">=","!=":"!=","exi":"exi"}
+SPCHT_BOOL_NUMBERS = [">", "<", ">=", "<="]
 
 WORK_ORDER_STATUS = ("Freshly created",  # * 0
                      "fetch started",  # *  1
@@ -57,7 +58,7 @@ BUILDER_KEYS = {
     "cut": "str",
     "replace": "str",
     "insert_into": "str",
-    "insert_add_field": "list",
+    "insert_add_fields": "list",
     "if_field": "str",
     "if_value": "str",
     "if_condition": "str",

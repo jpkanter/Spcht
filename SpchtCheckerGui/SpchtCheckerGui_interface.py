@@ -20,8 +20,11 @@
 # along with Solr2Triplestore Tool.  If not, see <http://www.gnu.org/licenses/>.
 #
 # @license GPL-3.0-only <https://www.gnu.org/licenses/gpl-3.0.en.html>
+import json
+import logging
+import sys
 
-from PySide2.QtGui import QStandardItemModel, QStandardItem, QFontDatabase, QIcon
+from PySide2.QtGui import QStandardItemModel, QStandardItem, QFontDatabase, QIcon, QSyntaxHighlighter, QTextCharFormat, QColor, QFont, QTextDocument, QPalette
 from PySide2.QtWidgets import *
 from PySide2 import QtCore, QtWidgets
 
@@ -400,6 +403,15 @@ class SpchtMainWindow(object):
                                         self.exp_tab_node_mapping_btn,
                                         maximumWidth=200)
 
+        # * Michelangelo Tab (i just discovered i cannot write 'miscellaneous' without googling)
+        self.exp_tab_misc = QWidget()
+        exp_tab_form_various = QFormLayout(self.exp_tab_misc)
+        # line 1
+        self.exp_tab_node_display_spcht = QPushButton(i18n['debug_spcht_json'])
+        self.exp_tab_node_display_computed = QPushButton(i18n['debug_computed_json'])
+        exp_tab_form_various.addRow(i18n['debug_node_spcht'], self.exp_tab_node_display_spcht)
+        exp_tab_form_various.addRow(i18n['debug_node_computed'], self.exp_tab_node_display_computed)
+
         # bottom status line
         hor_layout_100 = QHBoxLayout()
         self.explorer_switch_checker = QPushButton(i18n['gui_checker'], MaximumWidth=150, Flat=True)
@@ -412,6 +424,7 @@ class SpchtMainWindow(object):
         self.explorer_tabview.addTab(self.exp_tab_simpletext, i18n['tab_simpletext'])
         self.explorer_tabview.addTab(self.exp_tab_if, i18n['tab_if'])
         self.explorer_tabview.addTab(self.exp_tab_mapping, i18n['tab_mapping'])
+        self.explorer_tabview.addTab(self.exp_tab_misc, i18n['tab_misc'])
 
         self.explorer_toolbox_page2 = QWidget(self.explorer_tabview)
 
@@ -627,3 +640,136 @@ class ListDialogue(QDialog):
             return self.getList()
         else:
             return self.getDictionary()
+
+
+class JsonDialogue(QDialog):
+    def __init__(self, data, parent=None):
+        super().__init__(parent)
+        self.FIXEDFONT = QFontDatabase.systemFont(QFontDatabase.FixedFont)
+        self.FIXEDFONT.setPointSize(10)
+        self.setWindowTitle(i18n['json_dia_title'])
+        self.setMinimumWidth(400)
+        self.setMinimumHeight(600)
+        self.resize(800, 600)
+        QBtn = QDialogButtonBox.Save | QDialogButtonBox.Cancel
+
+        self.buttonBox = QDialogButtonBox(QBtn)
+        self.editor = QPlainTextEdit(Font=self.FIXEDFONT)  # QTextEdit(Font=self.FIXEDFONT)
+        editor_style = QTextCharFormat()
+        bla = self.editor.palette()
+        bla.setColor(QPalette.Window, QColor.fromRgb(251, 241, 199))
+        bla.setColor(QPalette.WindowText, QColor.fromRgb(60, 131, 54))
+        self.editor.setPalette(bla)
+        highlight = JsonHighlighter(self.editor.document())
+
+        self.layout = QVBoxLayout()
+        self.layout.addWidget(self.editor)
+        self.layout.addWidget(self.buttonBox)
+        self.setLayout(self.layout)
+
+        if isinstance(data, str):
+            self.editor.setPlainText(data)
+        elif isinstance(data, (list, dict)):
+            self.editor.setPlainText(json.dumps(data, indent=3))
+
+        self.buttonBox.accepted.connect(self.accept)
+        self.buttonBox.rejected.connect(self.reject)
+
+    def getContent(self):
+        return self.editor.toPlainText()
+
+
+class JsonHighlighter(QSyntaxHighlighter):
+    braces = ['\{', '\}', '\(', '\)', '\[', '\]']
+    bools = ["TRUE", "FALSE", "True", "False", "true", "false"]
+    colons = ["\:", "\,"]
+
+    def __init__(self, parent: QTextDocument, lexer=None):
+        super(JsonHighlighter, self).__init__(parent)
+        self.colors = {}
+        self.colorSchema()
+        self.highlightingRules = []
+
+        qSTYLES = {
+            'bools': self.qformat(214, 93, 14, style='bold'),
+            'braces': self.qformat(124, 111, 100),
+            'string': self.qformat(152, 151, 26),
+            'number': self.qformat(177, 98, 134, style="bold"),
+            'colons': self.qformat(69, 133, 136, style="bold")
+        }
+
+        rules = []
+        rules += [(f'{x}', 0, qSTYLES['braces']) for x in JsonHighlighter.braces]
+        rules += [(f'{x}', 0, qSTYLES['bools']) for x in JsonHighlighter.bools]
+        rules += [(f'{x}', 0, qSTYLES['colons']) for x in JsonHighlighter.colons]
+        rules.append(('[0-9]+', 0, qSTYLES['number']))
+        rules.append(('"([^"]*)"', 0, qSTYLES['string']))
+        self.rules = [(QtCore.QRegExp(pat), index, fmt) for (pat, index, fmt) in rules]
+        # this only really works because the last rule overwrites all the wrongly matched things from before
+
+    def highlightBlock(self, text):
+        for expressions, nth, forma in self.rules:
+            index = expressions.indexIn(text, 0)
+            while index >= 0:
+                index = expressions.pos(nth)
+                length = len(expressions.cap(nth))
+                self.setFormat(index, length, forma)
+                index = expressions.indexIn(text, index + length)
+        self.setCurrentBlockState(0)
+        # self.setFormat(0, 25, self.rules[0][2])
+
+    @staticmethod
+    def qformat(*color, style=''):
+        """Return a QTextCharFormat with the given attributes.
+        """
+        _color = QColor.fromRgb(*color)
+
+        _format = QTextCharFormat()
+        _format.setForeground(_color)
+        if 'bold' in style:
+            _format.setFontWeight(QFont.Bold)
+        if 'italic' in style:
+            _format.setFontItalic(True)
+
+        return _format
+
+    def colorSchema(self):
+        # GruvBox Light
+        # https://github.com/morhetz/gruvbox
+        self.colors['bg'] = QColor.fromRgb(251, 241, 199)
+        self.colors['red'] = QColor.fromRgb(204, 36, 29)
+        self.colors['green'] = QColor.fromRgb(152, 151, 26)
+        self.colors['yellow'] = QColor.fromRgb(215, 153, 33)
+        self.colors['blue'] = QColor.fromRgb(69, 133, 136)
+        self.colors['purple'] = QColor.fromRgb(177, 98, 134)
+        self.colors['fg'] = QColor.fromRgb(60, 131, 54)
+        self.colors['fg0'] = QColor.fromRgb(40, 40, 40)
+        self.colors['gray'] = QColor.fromRgb(124, 111, 100)
+
+
+# Logging directly into Qt Widget Console
+# https://stackoverflow.com/a/66664679
+class QLogHandler(QtCore.QObject, logging.Handler):
+    new_record = QtCore.Signal(object)
+
+    def __init__(self, parent):
+        super().__init__(parent)
+        super(logging.Handler).__init__()
+        formatter = Formatter('%(asctime)s|%(levelname)s|%(message)s|', '%d/%m/%Y %H:%M:%S')
+        self.setFormatter(formatter)
+
+    def emit(self, record):
+        msg = self.format(record)
+        self.new_record.emit(msg) # <---- emit signal here
+
+
+class Formatter(logging.Formatter):
+    def formatException(self, ei):
+        result = super(Formatter, self).formatException(ei)
+        return result
+
+    def format(self, record):
+        s = super(Formatter, self).format(record)
+        if record.exc_text:
+            s = s.replace('\n', '')
+        return s

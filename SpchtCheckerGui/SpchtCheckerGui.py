@@ -45,18 +45,17 @@ from SpchtBuilder import SpchtBuilder
 from SpchtDescriptorFormat import Spcht, SpchtThird, SpchtTriple
 
 import SpchtUtility
-from SpchtCheckerGui_interface import SpchtMainWindow, ListDialogue
+from SpchtCheckerGui_interface import SpchtMainWindow, ListDialogue, JsonDialogue, QLogHandler
 from SpchtCheckerGui_i18n import Spcht_i18n
 i18n = Spcht_i18n("./GuiLanguage.json")
 
 
 logging.basicConfig(level=logging.DEBUG)
 
-
 # Windows Stuff for Building under Windows
 try:
     from PySide2.QtWinExtras import QtWin
-    myappid = 'UBL.SPCHT.checkerGui.0.4'
+    myappid = 'UBL.SPCHT.checkerGui.0.8'
     QtWin.setCurrentProcessExplicitAppUserModelID(myappid)
 except ImportError:
     pass
@@ -140,6 +139,7 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         # various
         self.console.insertPlainText(time_log(f"Init done, program started"))
         self.console.insertPlainText(f"Working Directory: {os.getcwd()}")
+        # self.setupLogging()  # plan was to get logging into the console widget but i am too stupid
 
         self.center()
 
@@ -229,6 +229,16 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         self.exp_tab_node_if_value.textChanged[str].connect(self.actDelayedSpchtComputing)
         self.exp_tab_node_if_condition.currentIndexChanged.connect(self.actDelayedSpchtComputing)
         self.exp_tab_node_source.currentIndexChanged.connect(self.actDelayedSpchtComputing)
+
+        self.exp_tab_node_display_spcht.clicked.connect(lambda: self.actDisplayJson(1))
+        self.exp_tab_node_display_computed.clicked.connect(lambda: self.actDisplayJson(0))
+
+    def setupLogging(self):
+        handler = QLogHandler(self)
+        logging.getLogger(__name__).addHandler(handler)
+        logging.getLogger(__name__).setLevel(logging.DEBUG)
+        handler.new_record.connect(self.console.append)
+        #logging.warning("i think this isnt working at all, sad times")
 
     def center(self):
         center = QScreen.availableGeometry(QApplication.primaryScreen()).center()
@@ -755,7 +765,6 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
             "id_field": "id",
             "nodes": [spcht_descriptor]
         }
-        self.console.insertPlainText(f"Current Node as compiled dictionary: {spcht_descriptor}")
         habicht = Spcht()
         """
         # * try to load references
@@ -820,8 +829,8 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         if self.active_spcht_node:
             temp = self.mthNodeFormsToSpcht(self.active_spcht_node)
             if temp:
-                self.active_spcht_node = temp
-                self.mthComputeSpcht()
+                temp = self.spcht_builder.compileNodeReference(temp)
+                self.mthComputeSpcht(temp)
 
     def mthNodeFormsToSpcht(self, source_node=None):
         raw_node = {'required': 'optional'}  # legacy bullshit i thought that was more important in the past
@@ -869,6 +878,13 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
                 raw_node.pop('if_value', None)
                 raw_node.pop('if_field', None)
                 raw_node.pop('if_condition', None)
+            elif not isinstance(SpchtUtility.if_possible_make_this_numerical(raw_node['if_value']), (int, float)) \
+                    and raw_node['if_condition'] in SpchtConstants.SPCHT_BOOL_NUMBERS:
+                raw_node.pop('if_value', None)
+                raw_node.pop('if_field', None)
+                raw_node.pop('if_condition', None)
+        else:
+            raw_node.pop('if_condition', None)
 
         # ? comments handling
         comments = self.exp_tab_node_comment.toPlainText()
@@ -895,6 +911,17 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         if dlg.exec_():
             self.active_data_tables['mapping'] = dlg.getData()
             self.exp_tab_node_mapping_preview.setText(str(self.active_data_tables['mapping']))
+
+    def actDisplayJson(self, mode=0):
+        if not self.active_spcht_node:
+            return
+        if mode == 1:
+            data = self.active_spcht_node
+        else:
+            data = self.mthNodeFormsToSpcht(self.active_spcht_node)
+        dlg = JsonDialogue(data)
+        if dlg.exec_():
+            print(dlg.getContent())
 
     def mthSpchtBuilderBtnStatus(self, status: int):
         if status == 0:

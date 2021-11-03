@@ -29,6 +29,7 @@ import sys
 import uuid
 from pathlib import Path
 
+import SpchtConstants
 import SpchtUtility
 from SpchtUtility import if_possible_make_this_numerical, insert_list_into_str
 
@@ -1006,11 +1007,10 @@ class Spcht:
             for each in comparator_value:
                 each = if_possible_make_this_numerical(each.content)
                 # ? if we attempt to do this, we just normally get a type error, so why bother?
-                numerical = [">", ">=", "<", "<="]
-                if not isinstance(if_value, (int, float, complex)) and condition in numerical:
+                if not isinstance(if_value, (int, float, complex)) and condition in SpchtConstants.SPCHT_BOOL_NUMBERS:
                     logger.error(f"_handle_if: field '{sub_dict['field']}' has a faulty value<>condition combination that tries to compare non-numbers")
                     raise TypeError("Cannot compared with non-numbers")
-                if not isinstance(each, (int, float, complex)) and condition in numerical:
+                if not isinstance(each, (int, float, complex)) and condition in SpchtConstants.SPCHT_BOOL_NUMBERS:
                     logger.warning(f"_handle_if: field '{sub_dict['field']}' returns at least one value that is a not-number but condition is '{condition}'")
                     continue
                 if condition == "==":
