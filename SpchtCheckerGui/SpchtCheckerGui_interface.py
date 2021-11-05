@@ -38,8 +38,7 @@ i18n = SpchtCheckerGui_i18n.Spcht_i18n("./GuiLanguage.json")
 class SpchtMainWindow(object):
 
     def create_ui(self, MainWindow: QMainWindow):
-        self.FIXEDFONT = QFontDatabase.systemFont(QFontDatabase.FixedFont)
-        self.FIXEDFONT.setPointSize(10)
+        self.FIXEDFONT = self.FIXEDFONT = tryForFont(9)
         self.input_timer = QtCore.QTimer()
         self.input_timer.setSingleShot(True)
         self.spcht_timer = QtCore.QTimer(SingleShot=True)
@@ -357,8 +356,19 @@ class SpchtMainWindow(object):
         self.exp_tab_node_if_condition.setCurrentIndex(0)
         exp_tab_form_if.addRow(i18n['node_if_condition'], self.exp_tab_node_if_condition)
         # line 3
+        fleeting = QFormLayout()
+        floating = QHBoxLayout()
         self.exp_tab_node_if_value = QLineEdit(PlaceholderText=i18n['node_if_value'])
-        exp_tab_form_if.addRow(i18n['node_if_value'], self.exp_tab_node_if_value)
+        self.exp_tab_node_if_many_values = QLineEdit(PlaceholderText=i18n['node_if_many_values'], ReadOnly=True)
+        self.exp_tab_node_if_enter_values = QPushButton(i18n['node_if_enter_btn'])
+        floating.addWidget(self.exp_tab_node_if_enter_values)
+        floating.addWidget(self.exp_tab_node_if_many_values, stretch=255)
+        self.exp_tab_node_if_decider1 = QRadioButton("Single Value")#alignment=QtCore.Qt.AlignHCenter | QtCore.Qt.AlignVCenter
+        self.exp_tab_node_if_decider2 = QRadioButton("Multi Value")
+        fleeting.addRow(self.exp_tab_node_if_decider1, self.exp_tab_node_if_value)
+        fleeting.addRow(self.exp_tab_node_if_decider2, floating)
+        exp_tab_form_if.addRow(QLabel(i18n['node_if_value'], Alignment=QtCore.Qt.AlignTop), fleeting)
+        # line 4
 
         # * mapping tab
         self.exp_tab_mapping = QWidget()
@@ -403,6 +413,23 @@ class SpchtMainWindow(object):
                                         self.exp_tab_node_mapping_btn,
                                         maximumWidth=200)
 
+        # * Inheritance Tab
+        self.exp_tab_inheritance = QWidget()
+        exp_tab_form_inheritance = QFormLayout(self.exp_tab_inheritance)
+        self.exp_tab_node_subdata = QLineEdit(PlaceholderText=i18n['node_subdata_placeholder'])
+        self.exp_tab_node_subnode = QLineEdit(PlaceholderText=i18n['node_subnode_placeholder'])
+        self.exp_tab_node_subnode_of = QComboBox(PlaceholderText=i18n['node_subnode_of_placeholder'])
+        self.exp_tab_node_subdata_of = QComboBox(PlaceholderText=i18n['node_subdata_of_placeholder'])
+        self.exp_tab_node_fallback = QComboBox(PlaceholderText=i18n['node_subfallback_placeholder'])
+        exp_tab_form_inheritance.addRow(i18n['node_subdata'], self.exp_tab_node_subdata)
+        exp_tab_form_inheritance.addRow(i18n['node_subdata_of'], self.exp_tab_node_subdata_of)
+        exp_tab_form_inheritance.addRow(i18n['node_subnode'], self.exp_tab_node_subnode)
+        exp_tab_form_inheritance.addRow(i18n['node_subnode_of'], self.exp_tab_node_subnode_of)
+        exp_tab_form_inheritance.addRow(QLabel(""))
+        exp_tab_form_inheritance.addRow(i18n['node_fallback'], self.exp_tab_node_fallback)
+
+        self.tab_node_insert_add_fields = QLineEdit()
+
         # * Michelangelo Tab (i just discovered i cannot write 'miscellaneous' without googling)
         self.exp_tab_misc = QWidget()
         exp_tab_form_various = QFormLayout(self.exp_tab_misc)
@@ -424,6 +451,7 @@ class SpchtMainWindow(object):
         self.explorer_tabview.addTab(self.exp_tab_simpletext, i18n['tab_simpletext'])
         self.explorer_tabview.addTab(self.exp_tab_if, i18n['tab_if'])
         self.explorer_tabview.addTab(self.exp_tab_mapping, i18n['tab_mapping'])
+        self.explorer_tabview.addTab(self.exp_tab_inheritance, i18n['tab_inheritance'])
         self.explorer_tabview.addTab(self.exp_tab_misc, i18n['tab_misc'])
 
         self.explorer_toolbox_page2 = QWidget(self.explorer_tabview)
@@ -643,11 +671,9 @@ class ListDialogue(QDialog):
 
 
 class JsonDialogue(QDialog):
-    _fixed_font_candidates = [("Iosevka", "Light"), ("Fira Code", "Regular"), ("Hack", "Regular")]
-
     def __init__(self, data, parent=None):
         super().__init__(parent)
-        self.FIXEDFONT = JsonDialogue.tryForFont(10)
+        self.FIXEDFONT = tryForFont(10)
         self.setWindowTitle(i18n['json_dia_title'])
         self.setMinimumWidth(400)
         self.setMinimumHeight(600)
@@ -675,25 +701,6 @@ class JsonDialogue(QDialog):
 
         self.buttonBox.accepted.connect(self.accept)
         self.buttonBox.rejected.connect(self.reject)
-
-    @classmethod
-    def tryForFont(cls, size: int):
-        """
-        tries to load one of the specified fonts in the set size
-        :param size: point size of the font in px
-        :type size: int
-        :return: hopefully one of the QFonts, else a fixed font one
-        :rtype: QFont
-        """
-        std_font = QFontDatabase().font("fsdopihfgsjodfgjhsadfkjsdf", "Doomsday", size)
-        # * i am once again questioning my logic here but this seems to work
-        for font, style in JsonDialogue._fixed_font_candidates:
-            a_font = QFontDatabase().font(font, style, size)
-            if a_font != std_font:
-                return a_font
-        backup = QFontDatabase.systemFont(QFontDatabase.FixedFont)
-        backup.setPointSize(size)
-        return backup
 
     def getContent(self):
         return self.editor.toPlainText()
@@ -793,3 +800,24 @@ class Formatter(logging.Formatter):
         if record.exc_text:
             s = s.replace('\n', '')
         return s
+
+
+def tryForFont(size: int):
+    """
+    tries to load one of the specified fonts in the set size
+    :param size: point size of the font in px
+    :type size: int
+    :return: hopefully one of the QFonts, else a fixed font one
+    :rtype: QFont
+    """
+    _fixed_font_candidates = [("Iosevka", "Light"), ("Fira Code", "Regular"), ("Hack", "Regular")]
+    std_font = QFontDatabase().font("fsdopihfgsjodfgjhsadfkjsdf", "Doomsday", size)
+    # * i am once again questioning my logic here but this seems to work
+    for font, style in _fixed_font_candidates:
+        a_font = QFontDatabase().font(font, style, size)
+        if a_font != std_font:
+            return a_font
+    backup = QFontDatabase.systemFont(QFontDatabase.FixedFont)
+    backup.setPointSize(size)
+    return backup
+

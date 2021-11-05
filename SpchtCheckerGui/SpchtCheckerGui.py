@@ -157,9 +157,15 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
                       "cut": self.exp_tab_node_cut,
                       "replace": self.exp_tab_node_replace,
                       "if_value": self.exp_tab_node_if_value,
-                      "if_field": self.exp_tab_node_if_field}
-        self.COMBOBOX = {"source": self.exp_tab_node_source,
-                      "if_condition": self.exp_tab_node_if_condition}
+                      "if_field": self.exp_tab_node_if_field,
+                      "sub_data": self.exp_tab_node_subdata,
+                      "sub_nodes": self.exp_tab_node_subnode}
+        self.COMBOBOX = [{'key': "source", 'widget': self.exp_tab_node_source},
+                         {'key': "if_condition", 'widget': self.exp_tab_node_if_condition},
+                         {'key': "parent", 'widget': self.exp_tab_node_subdata_of},
+                         {'key': "parent", 'widget': self.exp_tab_node_subnode_of},
+                         {'key': "parent", 'widget': self.exp_tab_node_fallback}
+                         ]
         self.CHECKBOX = {"required": {
                             "widget": self.exp_tab_node_mandatory,
                             "bool": {False: "optional", True: "mandatory"}
@@ -178,7 +184,17 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
             {'type': "line", 'widget': self.exp_tab_mapping_default, 'key': 'mapping_settings>$default'},
             {'type': "check", 'widget': self.exp_tab_mapping_inherit, 'key': 'mapping_settings>$inherit', 'bool': {True: True, False: False}},
             {'type': "check", 'widget': self.exp_tab_mapping_regex, 'key': 'mapping_settings>$regex', 'bool': {True: True, False: False}},
-            {'type': "check", 'widget': self.exp_tab_mapping_casesens, 'key': 'mapping_settings>$casesens', 'bool': {True: True, False: False}}
+            {'type': "check", 'widget': self.exp_tab_mapping_casesens, 'key': 'mapping_settings>$casesens', 'bool': {True: True, False: False}},
+        ]
+        self.FILL = [
+            {'type': "combo", 'widget': self.exp_tab_node_subdata_of, 'fct': "getSubdataParents"},
+            {'type': "combo", 'widget': self.exp_tab_node_subnode_of, 'fct': "getSubnodeParents"},
+            {'type': "combo", 'widget': self.exp_tab_node_fallback, 'fct': "getSolidParents"}
+        ]
+        self.dialogue = [
+            {'key': "if_value", 'data': "list", 'widget': self.exp_tab_node_if_many_values},
+            {'key': "insert_add_fields", 'data': "listdict", 'widget': self.tab_node_insert_add_fields},
+            {'key': "mapping", 'data': "dict", 'widget': self.exp_tab_node_mapping_preview}
         ]
 
     def setup_event_binds(self):
@@ -230,6 +246,10 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         self.exp_tab_node_if_condition.currentIndexChanged.connect(self.actDelayedSpchtComputing)
         self.exp_tab_node_source.currentIndexChanged.connect(self.actDelayedSpchtComputing)
 
+        self.exp_tab_node_fallback.currentIndexChanged.connect(lambda: self.actSetNodeParent(self.exp_tab_node_fallback))
+        self.exp_tab_node_subdata_of.currentIndexChanged.connect(lambda: self.actSetNodeParent(self.exp_tab_node_subdata_of))
+        self.exp_tab_node_subnode_of.currentIndexChanged.connect(lambda: self.actSetNodeParent(self.exp_tab_node_subnode_of))
+
         self.exp_tab_node_display_spcht.clicked.connect(lambda: self.actDisplayJson(1))
         self.exp_tab_node_display_computed.clicked.connect(lambda: self.actDisplayJson(0))
 
@@ -279,6 +299,10 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
             self.mthSpchtBuilderBtnStatus(1)
             self.explorer_node_spcht_filepath.setText(path_To_File)
             self.spcht_builder = SpchtBuilder(spcht_data, spcht_base_path=str(Path(path_To_File).parent))
+            # ? debug - spchtbuilder to console
+            self.console.append("All SpchtBuilder Entries\n")
+            for key, entry in self.spcht_builder.repository.items():
+                self.console.append(f"{key} - {str([f'{k}={v}' for k, v in entry.properties.items()])}\n")
             self.mthFillNodeView(self.spcht_builder.displaySpcht())
         else:
             self.console.insertPlainText(time_log(f"SPCHT Schema Error: {output}"))
@@ -386,31 +410,6 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         self.linetext_spcht_filepath.setText(path_To_File)
         self.load_spcht(path_To_File)
 
-    def act_data_load_dialogue(self):
-        path_to_file, typus = QtWidgets.QFileDialog.getOpenFileName(self, "Open explorable data", "../", "Json File (*.json);;Every file (*.*)")
-
-        if not path_to_file:
-            return None
-
-        try:
-            with open(path_to_file, "r") as potential_file:
-                data = json.load(potential_file)
-        except FileNotFoundError:
-            return None
-        except json.JSONDecodeError:
-            return None
-
-        self.explorer_data_file_path.setText(path_to_file)
-        self.data_cache = handle_variants(data)
-        if len(self.data_cache):
-            self.active_data = self.data_cache[0]
-            self.active_data_index = 0
-            self.explorer_linetext_search.setPlaceholderText(f"{1} / {len(self.data_cache)}")
-            self.fct_fill_explorer(self.data_cache)
-            temp_model = QStandardItemModel()
-            [temp_model.appendRow(QStandardItem(x)) for x in self.mthGatherAvailableFields(marc21=True)]
-            self.field_completer.setModel(temp_model)
-
     def mthGatherAvailableFields(self, data=None, marc21=False):
         if not data:
             data = self.data_cache
@@ -433,9 +432,9 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
                             all_fields.append(f"{main_key}:{sub_key}")
                             all_fields.append(f"{main_key:03d}:{sub_key}")  # i think this is faster than if-ing my way through
             if _ > 100:
-                # ? having halt conditions like this always seems arbitary but i really struggle to imagine how much more
+                # ? having halt conditions like this always seems arbitrary but i really struggle to imagine how much more
                 # ? unique keys one hopes to get after 100 entries. On my fairly beefy machine the processing for 500
-                # ? entries was 3,01 seconds, for 10K it was around 46 seconds. The 600ms for 100 seems acceptable
+                # ? entries was 3,01 seconds, for 10K it was around 46 seconds. The 600ms for 100 seem acceptable
                 break
         return list(set(all_fields))
 
@@ -708,25 +707,40 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
     def mthSetSpchtTabView(self, SpchtNode=None):  # aka NodeToForms
         if not SpchtNode:
             SpchtNode = {}  # PEP no likey when setting to immutable as default
+
+        # ? fills combo boxes with dynamic data
+        for fill in self.FILL:
+            if fill['type'] == "combo":
+                gaseous = QStandardItemModel()
+                gaseous.appendRow(QStandardItem(""))
+                data = getattr(self.spcht_builder, fill['fct'])()
+                for each in data:
+                    gaseous.appendRow(QStandardItem(each))
+                fill['widget'].setModel(gaseous)
+        # ? simple data that is just an arbitrary string
         for key, widget in self.LINE_EDITS.items():
-            widget.setText(SpchtNode.get(key, ""))
-        for key, widget in self.COMBOBOX.items():
-            index = widget.findText(SpchtNode.get(key, ""), QtCore.Qt.MatchFixedString)
+            value = SpchtNode.get(key, "")
+            if isinstance(value, (int, float, str)):
+                widget.setText(value)
+        for y in self.COMBOBOX:
+            index = y['widget'].findText(SpchtNode.get(y['key'], ""), QtCore.Qt.MatchFixedString)
             if index > 0:
-                widget.setCurrentIndex(index)
+                y['widget'].setCurrentIndex(index)
             else:
-                widget.setCurrentIndex(0)
+                y['widget'].setCurrentIndex(0)
+        # ? some checkbox items that are filled with either true/false by logic outlined in data
         for key, details in self.CHECKBOX.items():
             if key not in SpchtNode:
                 details['widget'].setChecked(0)
             else:
                 reverse_bool = {value: key for key, value in details['bool'].items()}
                 details['widget'].setChecked(reverse_bool[SpchtNode[key]])
-        for details in self.CLEARONLY:  # i think i can solve this with a lambda somehow
+        # ? just clears all the fields that do not get assigned a value by default
+        for details in self.CLEARONLY:
             if details['mth'] == "line":
                 details['widget'].setText("")
-        for complex in self.COMPLEX:
-            keys = complex['key'].split(">")
+        for cplx in self.COMPLEX:
+            keys = cplx['key'].split(">")
             if keys:
                 value = SpchtNode
                 for key in keys:
@@ -737,10 +751,11 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
                         value = None
                         break
                 if value:
-                    if complex['type'] == "line":
-                        complex['widget'].setText(value)
-                    elif complex['type'] == "check":
-                        complex['widget'].setChecked(complex['bool'][value])
+                    if cplx['type'] == "line":
+                        cplx['widget'].setText(value)
+                    elif cplx['type'] == "check":
+                        cplx['widget'].setChecked(cplx['bool'][value])
+
 
     def mthDisplayNodeDetails(self):
         indizes = self.explorer_node_treeview.selectedIndexes()
@@ -750,7 +765,7 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         nodeName = item.model().itemFromIndex(item).text()
         if nodeName in self.spcht_builder.repository:
             self.active_spcht_node = self.spcht_builder.compileNode(nodeName)
-            self.mthSetSpchtTabView(self.active_spcht_node)
+            self.mthSetSpchtTabView(self.spcht_builder[nodeName].properties)
             self.mthComputeSpcht()
         self.explorer_tabview.setCurrentIndex(0)
         self.explorer_toolbox.setCurrentIndex(2)
@@ -766,17 +781,6 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
             "nodes": [spcht_descriptor]
         }
         habicht = Spcht()
-        """
-        # * try to load references
-        try:
-            base_path = Path(self.explorer_node_spcht_filepath.text())
-            spcht_descriptor = habicht._load_ref_node(spcht_descriptor, str(base_path.parent))  # good ol' tradition of using internal methods
-        except FileNotFoundError as e:
-            self.console.insertPlainText(e)
-        except TypeError as e:
-            self.console.insertPlainText(e)
-        print(spcht_descriptor)
-        """
         habicht._DESCRI = fake_spcht
         habicht.default_fields = []
         used_fields = habicht.get_node_fields2()
@@ -812,14 +816,19 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
                 self.explorer_filtered_data.setItem(i, 1, QTableWidgetItem("::MISSING::"))
         self.explorer_filtered_data.resizeColumnToContents(0)
         self.explorer_filtered_data.horizontalHeader().setStretchLastSection(True)
-        processsing_results = habicht._recursion_node(spcht_descriptor)
+        self.explorer_spcht_result.setText("")
+        try:
+            processsing_results = habicht._recursion_node(spcht_descriptor)
+        except SpchtErrors.DataError as e:
+            processsing_results = ""
+            self.explorer_spcht_result.setText(f"SpchtError.DataError: {e}\n")
         if processsing_results:
             lines = ""
             for each in processsing_results:
                 lines += f"{each.predicate} - {each.sobject}\n"
             self.explorer_spcht_result.setText(lines)
         else:
-            self.explorer_spcht_result.setText("::NORESULT::")
+            self.explorer_spcht_result.append("::NORESULT::")
 
     def actDelayedSpchtComputing(self):
         if self.active_data:
@@ -843,12 +852,13 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
                 raw_node[key] = value
             else:
                 raw_node.pop(key, None)
-        for key, widget in self.COMBOBOX.items():
-            value = str(widget.currentText()).strip()
+        for y in self.COMBOBOX:
+            # this is a lil' bit dangerous with parent as it has 3 widgets that uses it
+            value = str(y['widget'].currentText()).strip()
             if value != "":
-                raw_node[key] = value
+                raw_node[y['key']] = value
             else:
-                raw_node.pop(key, None)
+                raw_node.pop(y['key'], None)
         for key, details in self.CHECKBOX.items():
             raw_node[key] = details['bool'][details['widget'].isChecked()]
         for key, data in self.active_data_tables.items():
@@ -878,11 +888,12 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
                 raw_node.pop('if_value', None)
                 raw_node.pop('if_field', None)
                 raw_node.pop('if_condition', None)
-            elif not isinstance(SpchtUtility.if_possible_make_this_numerical(raw_node['if_value']), (int, float)) \
-                    and raw_node['if_condition'] in SpchtConstants.SPCHT_BOOL_NUMBERS:
-                raw_node.pop('if_value', None)
-                raw_node.pop('if_field', None)
-                raw_node.pop('if_condition', None)
+            elif 'if_value' in raw_node:
+                if not isinstance(raw_node['if_value'], list):
+                    if not isinstance(SpchtUtility.if_possible_make_this_numerical(raw_node['if_value']), (int, float)) and raw_node['if_condition'] in SpchtConstants.SPCHT_BOOL_NUMBERS:
+                        raw_node.pop('if_value', None)
+                        raw_node.pop('if_field', None)
+                        raw_node.pop('if_condition', None)
         else:
             raw_node.pop('if_condition', None)
 
@@ -922,6 +933,30 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         dlg = JsonDialogue(data)
         if dlg.exec_():
             print(dlg.getContent())
+
+    def actSetNodeParent(self, widget: QWidget):
+        """
+        Sets currfent parent and unsets the other two widgets, this method can probably be solved better
+        :param widget:
+        :type widget:
+        :return: nothing
+        :rtype: None
+        """
+        # ! TODO: something not right, only works for last entry / fallback
+        value = str(widget.currentText()).strip()
+        if value != "":
+            for y in self.COMBOBOX:
+                if y['key'] == "parent":
+                    y['widget'].currentIndexChanged.disconnect()
+                    y['widget'].setCurrentIndex(0)
+            index = widget.findText(value, QtCore.Qt.MatchFixedString)
+            if index > 0:
+                widget.setCurrentIndex(index)
+            else:
+                widget.setCurrentIndex(0)
+        for z in self.COMBOBOX:
+            if z['key'] == "parent":
+                z['widget'].currentIndexChanged.connect(lambda: self.actSetNodeParent(z['widget']))
 
     def mthSpchtBuilderBtnStatus(self, status: int):
         if status == 0:

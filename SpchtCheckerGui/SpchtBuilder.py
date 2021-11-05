@@ -39,7 +39,7 @@ class SimpleSpchtNode:
 
     def __init__(self, name: str, parent=":UNUSED:", import_dict=None):
         self.properties = dict()
-        self.properties['name'] = name  # TODO: should probably make sure this is actual a possible
+        self.properties['name'] = name  # TODO: should probably make sure this is actual possible
         self.parent = parent
         # using this as a dictionary proxy for now
 
@@ -68,6 +68,15 @@ class SimpleSpchtNode:
         if key != "name":
             if key in self.properties:
                 del self.properties[key]
+
+    @property
+    def parent(self):
+        return self._parent
+
+    @parent.setter
+    def parent(self, parent: str):
+        self._parent = parent
+        self.properties['parent'] = parent
 
 
 class SpchtNodeGroup:
@@ -170,8 +179,29 @@ class SpchtBuilder:
             else:
                 pure_dict[key] = item
             if 'predicate' not in pure_dict:
-                pure_dict['predicate'] = "bla"  # find root predicate name
+                pure_dict['predicate'] = self.inheritPredicate(name)  # find root predicate name
         return pure_dict
+
+    def inheritPredicate(self, sub_node_name: str):
+        """
+        Sub-Nodes are not required to have the predicate redefined as those get inherited from the parent,
+        fallbacks for example wont have a predicate but can inherit one from their ancestors
+
+        This will fail horribly when used on something that actually has no parent in its chain
+        :param sub_node_name: unique name of that sub_node
+        :type sub_node_name: str
+        :return: a predicate
+        :rtype: str
+        """
+        try:
+            if 'predicate' not in self._repository[sub_node_name].properties:
+                return self.inheritPredicate(self._repository[sub_node_name].parent)
+            else:
+                return self._repository[sub_node_name]['predicate']
+        except KeyError as e:
+            print(self._repository.get(sub_node_name))
+            logging.warning(f"Could not inherit predicate for {sub_node_name} - {e}")
+            return ""
 
     def displaySpcht(self):
         # gives a reprensentation for SpchtCheckerGui
@@ -268,6 +298,36 @@ class SpchtBuilder:
         :param str rel_path: relative path to the file, used as dictionary key
         """
         return copy.copy(self._references.get(rel_path, {}))
+
+    def getSolidParents(self):
+        names = []
+        for node in self._repository.keys():
+            names.append(node)
+        return names
+
+    def getSubdataParents(self):
+        names = []
+        for node in self._repository.values():
+            if 'sub_nodes' in node.properties:
+                names.append(node.properties['sub_nodes'])
+        return names
+
+    def getSubnodeParents(self):
+        names = []
+        for node in self._repository.values():
+            if 'sub_data' in node.properties:
+                names.append(node.properties['sub_data'])
+        return names
+
+    def getAllParents(self):
+        names = []
+        for key, node in self._repository.items():
+            if 'sub_data' in node.properties:
+                names.append(node.properties['sub_data'])
+            if 'sub_nodes' in node.properties:
+                names.append(node.properties['sub_nodes'])
+            names.append(key)
+        return names
 
     def uniqueness_check(self):
         # checks if everything is in order for after import
