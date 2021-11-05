@@ -42,7 +42,7 @@ import SpchtConstants
 import SpchtErrors
 import local_tools
 from SpchtBuilder import SpchtBuilder
-from SpchtDescriptorFormat import Spcht, SpchtThird, SpchtTriple
+from SpchtCore import Spcht, SpchtThird, SpchtTriple
 
 import SpchtUtility
 from SpchtCheckerGui_interface import SpchtMainWindow, ListDialogue, JsonDialogue, QLogHandler

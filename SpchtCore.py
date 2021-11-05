@@ -1007,8 +1007,6 @@ class Spcht:
             for each in comparator_value:
                 each = if_possible_make_this_numerical(each.content)
                 # ? if we attempt to do this, we just normally get a type error, so why bother?
-                print(each, type(each))
-                print(if_value, type(if_value))
                 if not isinstance(if_value, (int, float, complex)) and condition in SpchtConstants.SPCHT_BOOL_NUMBERS:
                     logger.error(f"_handle_if: field '{sub_dict['field']}' has a faulty value<>condition combination that tries to compare non-numbers")
                     raise TypeError("Cannot compared with non-numbers")

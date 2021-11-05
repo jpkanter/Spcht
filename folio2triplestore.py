@@ -33,7 +33,7 @@ import traceback
 import SpchtUtility
 import WorkOrder
 
-from SpchtDescriptorFormat import Spcht, SpchtTriple, SpchtThird
+from SpchtCore import Spcht, SpchtTriple, SpchtThird
 from local_tools import sizeof_fmt
 from foliotools.foliotools import additional_remote_data, part1_folio_workings, grab, find, create_single_location, create_hash, check_location_changes, check_opening_changes, create_location_node, sparql_delete_node_plus1
 

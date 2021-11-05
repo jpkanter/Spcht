@@ -38,7 +38,7 @@ try:
 except ModuleNotFoundError:
     def colored(text, *args, **kwargs):
         return text  # throws args away returns non colored text
-from SpchtDescriptorFormat import Spcht
+from SpchtCore import Spcht
 
 __VERSION__ = "0.8"
 

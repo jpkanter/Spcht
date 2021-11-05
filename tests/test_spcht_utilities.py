@@ -24,7 +24,7 @@ import json
 import unittest
 
 import SpchtUtility
-from SpchtDescriptorFormat import Spcht, SpchtThird, SpchtTriple
+from SpchtCore import Spcht, SpchtThird, SpchtTriple
 from SpchtUtility import list_wrapper, insert_list_into_str, is_dictkey, list_has_elements, all_variants, match_positions, fill_var
 
 

@@ -20,7 +20,7 @@
 import json
 import unittest
 import copy
-from SpchtDescriptorFormat import SpchtNode
+from SpchtCore import SpchtNode
 import SpchtUtility
 
 import logging
