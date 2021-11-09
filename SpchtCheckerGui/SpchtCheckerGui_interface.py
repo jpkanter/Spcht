@@ -275,10 +275,12 @@ class SpchtMainWindow(object):
         self.explorer_toolbox_page1 = QWidget()
         ver_layout_23 = QVBoxLayout(self.explorer_toolbox_page1)
         hor_layour_22 = QHBoxLayout()
-        self.explorer_node_add_btn = QPushButton(i18n['generic_add'], MaximumWidth=150)
-        self.explorer_node_import_btn = QPushButton(i18n['generic_import'], MaximumWidth=150)
-        self.explorer_node_export_btn = QPushButton(i18n['generic_export'], MaximumWidth=150)
-        self.explorer_node_compile_btn = QPushButton(i18n['generic_compile'], MaximumWidth=150)
+        self.explorer_node_add_btn = QPushButton(i18n['generic_add'], FixedWidth=150)
+        self.explorer_node_import_btn = QPushButton(i18n['generic_import'], FixedWidth=150)
+        self.explorer_node_export_btn = QPushButton(i18n['generic_export'], FixedWidth=150)
+        self.explorer_node_load_btn = QPushButton(i18n['generic_load'], FixedWidth=150)
+        self.explorer_node_save_btn = QPushButton(i18n['generic_save'], FixedWidth=150)
+        self.explorer_node_compile_btn = QPushButton(i18n['generic_compile'], FixedWidth=150)
         self.mthSpchtBuilderBtnStatus(0)
         self.explorer_node_spcht_filepath = QLabel("", sizePolicy=self.policy_expanding, MaximumWidth=9999)
         hor_layour_22.addWidget(self.explorer_node_add_btn)
@@ -286,11 +288,17 @@ class SpchtMainWindow(object):
         #hor_layour_22.addStretch(0)
         hor_layour_22.addWidget(self.explorer_node_import_btn)
         hor_layour_22.addWidget(self.explorer_node_export_btn)
-        hor_layour_22.addWidget(self.explorer_node_compile_btn)
+        #hor_layour_22.addWidget(self.explorer_node_compile_btn)
+        hor_layour_23 = QHBoxLayout()
+        hor_layour_23.addStretch(255)
+        hor_layour_23.addWidget(self.explorer_node_load_btn)
+        hor_layour_23.addWidget(self.explorer_node_save_btn)
+        hor_layour_23.addWidget(self.explorer_node_compile_btn)
 
         self.explorer_node_treeview = QTreeView()
         ver_layout_23.addWidget(self.explorer_node_treeview, 1)
         ver_layout_23.addLayout(hor_layour_22)
+        ver_layout_23.addLayout(hor_layour_23)
 
         self.explorer_tabview = QTabWidget()
         self.explorer_tabview.setTabShape(QTabWidget.Rounded)
@@ -359,11 +367,11 @@ class SpchtMainWindow(object):
         fleeting = QFormLayout()
         floating = QHBoxLayout()
         self.exp_tab_node_if_value = QLineEdit(PlaceholderText=i18n['node_if_value'])
-        self.exp_tab_node_if_many_values = QLineEdit(PlaceholderText=i18n['node_if_many_values'], ReadOnly=True)
-        self.exp_tab_node_if_enter_values = QPushButton(i18n['node_if_enter_btn'])
+        self.exp_tab_node_if_many_values = QLineEdit(PlaceholderText=i18n['node_if_many_values'], ReadOnly=True, Disabled=True)
+        self.exp_tab_node_if_enter_values = QPushButton(i18n['node_if_enter_btn'], Disabled=True)
         floating.addWidget(self.exp_tab_node_if_enter_values)
         floating.addWidget(self.exp_tab_node_if_many_values, stretch=255)
-        self.exp_tab_node_if_decider1 = QRadioButton("Single Value")#alignment=QtCore.Qt.AlignHCenter | QtCore.Qt.AlignVCenter
+        self.exp_tab_node_if_decider1 = QRadioButton("Single Value", checked=True)#alignment=QtCore.Qt.AlignHCenter | QtCore.Qt.AlignVCenter
         self.exp_tab_node_if_decider2 = QRadioButton("Multi Value")
         fleeting.addRow(self.exp_tab_node_if_decider1, self.exp_tab_node_if_value)
         fleeting.addRow(self.exp_tab_node_if_decider2, floating)
@@ -643,9 +651,9 @@ class ListDialogue(QDialog):
         model = self.table.model()
         data = []
         for row in range(model.rowCount()):
-            cell_data = model.index(row, 0)
+            cell_data = model.data(model.index(row, 0))
             if cell_data:  # for some reasons Python 3.8 cannot combine those with an and, weird
-                if content := str(model.data(cell_data)).strip() != "":
+                if (content := str(cell_data).strip()) != "":
                     data.append(content)
         return data
 

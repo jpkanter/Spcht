@@ -339,3 +339,39 @@ def setDeepKey(dictionary, value, *keys):
     return dictionary
 
 
+def convert_to_base_type(input: str, json_mode=False):
+    """
+    Totally dumb function that does nothing else as to try to convert a string to some basic type
+
+    * 'False' | 'True' -> Bool
+    * 123456789 -> int
+    * 1.23456789 -> float
+    * everything else -> str
+
+    :param input:
+    :type input: str
+    :param json_mode: in json an all lowercase true/false is the boolean expression
+    :type json_mode: bool
+    :return:
+    :rtype:
+    """
+    try:
+        return int(input)
+    except ValueError:
+        pass
+    try:
+        return float(input)
+    except ValueError:
+        pass
+    if json_mode:
+        if input.strip() == "false":
+            return False
+        elif input.strip() == "true":
+            return True
+    else:
+        if input.strip() == "False":
+            return False
+        elif input.strip() == "True":
+            return True
+    return input
+

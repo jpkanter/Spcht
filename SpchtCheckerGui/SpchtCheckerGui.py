@@ -133,6 +133,7 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         self.active_data_index = 0
 
         # * Event Binds
+        self.surpress_comboevent = None
         self.setup_event_binds()
         self.setupNodeTabConstants()
 
@@ -177,7 +178,9 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
                         }
         self.CLEARONLY = [
             {'mth': "line", 'widget': self.exp_tab_node_mapping_preview},
-            {'mth': "line", 'widget': self.exp_tab_node_mapping_ref_path}
+            {'mth': "line", 'widget': self.exp_tab_node_mapping_ref_path},
+            {'mth': "line", 'widget': self.exp_tab_node_if_many_values},
+            {'mth': "text", 'widget': self.exp_tab_node_comment}
         ]
         self.COMPLEX = [
             {'type': "line", 'widget': self.exp_tab_node_mapping_ref_path, 'key': 'mapping_settings>$ref'},
@@ -249,6 +252,9 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         self.exp_tab_node_fallback.currentIndexChanged.connect(lambda: self.actSetNodeParent(self.exp_tab_node_fallback))
         self.exp_tab_node_subdata_of.currentIndexChanged.connect(lambda: self.actSetNodeParent(self.exp_tab_node_subdata_of))
         self.exp_tab_node_subnode_of.currentIndexChanged.connect(lambda: self.actSetNodeParent(self.exp_tab_node_subnode_of))
+
+        self.exp_tab_node_if_decider1.toggled.connect(self.actChangeIfValue)
+        self.exp_tab_node_if_enter_values.clicked.connect(self.actChooseIfValues)
 
         self.exp_tab_node_display_spcht.clicked.connect(lambda: self.actDisplayJson(1))
         self.exp_tab_node_display_computed.clicked.connect(lambda: self.actDisplayJson(0))
@@ -708,6 +714,14 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         if not SpchtNode:
             SpchtNode = {}  # PEP no likey when setting to immutable as default
 
+        # ? just clears all the fields that do not get assigned a value by default
+        for details in self.CLEARONLY:
+            if details['mth'] == "line":
+                details['widget'].setText("")
+            if details['mth'] == "text":
+                details['widget'].setText("")
+            self.exp_tab_node_if_decider1.setChecked(True)
+
         # ? fills combo boxes with dynamic data
         for fill in self.FILL:
             if fill['type'] == "combo":
@@ -720,8 +734,8 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         # ? simple data that is just an arbitrary string
         for key, widget in self.LINE_EDITS.items():
             value = SpchtNode.get(key, "")
-            if isinstance(value, (int, float, str)):
-                widget.setText(value)
+            if isinstance(value, (int, float, str, bool)):
+                widget.setText(str(value))
         for y in self.COMBOBOX:
             index = y['widget'].findText(SpchtNode.get(y['key'], ""), QtCore.Qt.MatchFixedString)
             if index > 0:
@@ -735,10 +749,6 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
             else:
                 reverse_bool = {value: key for key, value in details['bool'].items()}
                 details['widget'].setChecked(reverse_bool[SpchtNode[key]])
-        # ? just clears all the fields that do not get assigned a value by default
-        for details in self.CLEARONLY:
-            if details['mth'] == "line":
-                details['widget'].setText("")
         for cplx in self.COMPLEX:
             keys = cplx['key'].split(">")
             if keys:
@@ -755,7 +765,17 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
                         cplx['widget'].setText(value)
                     elif cplx['type'] == "check":
                         cplx['widget'].setChecked(cplx['bool'][value])
-
+        # ? manual configured things
+        if 'if_value' in SpchtNode and isinstance(SpchtNode['if_value'], list):
+            self.active_data_tables['if_value'] = SpchtNode['if_value']
+            self.exp_tab_node_if_many_values.setText(str(self.active_data_tables['if_value']))
+            self.exp_tab_node_if_decider2.setChecked(True)
+        # * comments
+        if 'comment' in SpchtNode:
+            self.exp_tab_node_comment.append(str(SpchtNode['comment']))
+        for key in SpchtNode.keys():
+            if re.match(r"^(comment)\\w*$", key):
+                self.exp_tab_node_comment.append(str(SpchtNode[key]))
 
     def mthDisplayNodeDetails(self):
         indizes = self.explorer_node_treeview.selectedIndexes()
@@ -875,6 +895,8 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
                 keys = complex['key'].split(">")
                 local_tools.setDeepKey(raw_node, value, *keys)
         # ? if handling
+        if self.exp_tab_node_if_decider2.isChecked():  # single value mode:
+            raw_node['if_value'] = self.active_data_tables.get('if_value', [])
         if 'if_value' in raw_node or 'if_field' in raw_node:
             if 'if_value' not in raw_node and raw_node['if_condition'] != "exi":
                 raw_node.pop('if_value', None)
@@ -890,13 +912,13 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
                 raw_node.pop('if_condition', None)
             elif 'if_value' in raw_node:
                 if not isinstance(raw_node['if_value'], list):
+                    raw_node['if_value'] = local_tools.convert_to_base_type(raw_node['if_value'])
                     if not isinstance(SpchtUtility.if_possible_make_this_numerical(raw_node['if_value']), (int, float)) and raw_node['if_condition'] in SpchtConstants.SPCHT_BOOL_NUMBERS:
                         raw_node.pop('if_value', None)
                         raw_node.pop('if_field', None)
                         raw_node.pop('if_condition', None)
         else:
             raw_node.pop('if_condition', None)
-
         # ? comments handling
         comments = self.exp_tab_node_comment.toPlainText()
         lines = comments.split("\n")
@@ -942,21 +964,18 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         :return: nothing
         :rtype: None
         """
+        if not self.surpress_comboevent:
+            return
         # ! TODO: something not right, only works for last entry / fallback
         value = str(widget.currentText()).strip()
         if value != "":
-            for y in self.COMBOBOX:
-                if y['key'] == "parent":
-                    y['widget'].currentIndexChanged.disconnect()
-                    y['widget'].setCurrentIndex(0)
+            self.surpress_comboevent = True
             index = widget.findText(value, QtCore.Qt.MatchFixedString)
             if index > 0:
                 widget.setCurrentIndex(index)
             else:
                 widget.setCurrentIndex(0)
-        for z in self.COMBOBOX:
-            if z['key'] == "parent":
-                z['widget'].currentIndexChanged.connect(lambda: self.actSetNodeParent(z['widget']))
+            self.surpress_comboevent = False
 
     def mthSpchtBuilderBtnStatus(self, status: int):
         if status == 0:
@@ -976,6 +995,26 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         elif status == 2:  # only export as SpchtBuilder File
             pass
             # not yet supported / implemented
+
+    def actChangeIfValue(self):
+        if self.exp_tab_node_if_decider1.isChecked():
+            self.exp_tab_node_if_many_values.setDisabled(True)
+            self.exp_tab_node_if_enter_values.setDisabled(True)
+            self.exp_tab_node_if_value.setDisabled(False)
+        else:
+            self.exp_tab_node_if_many_values.setDisabled(False)
+            self.exp_tab_node_if_enter_values.setDisabled(False)
+            self.exp_tab_node_if_value.setDisabled(True)
+
+    def actChooseIfValues(self):
+        dlg = ListDialogue(i18n['dialogue_if_values_title'],
+                           i18n['dialogue_if_values_trext'],
+                           [i18n['generic_value']],
+                           self.active_data_tables.get('if_value'),
+                           self)
+        if dlg.exec_():
+            self.active_data_tables['if_value'] = dlg.getData()
+            self.exp_tab_node_if_many_values.setText(str(self.active_data_tables['if_value']))
 
 
 if __name__ == "__main__":
