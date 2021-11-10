@@ -133,7 +133,7 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         self.active_data_index = 0
 
         # * Event Binds
-        self.surpress_comboevent = None
+        self.surpress_comboevent = False
         self.setup_event_binds()
         self.setupNodeTabConstants()
 
@@ -165,8 +165,7 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
                          {'key': "if_condition", 'widget': self.exp_tab_node_if_condition},
                          {'key': "parent", 'widget': self.exp_tab_node_subdata_of},
                          {'key': "parent", 'widget': self.exp_tab_node_subnode_of},
-                         {'key': "parent", 'widget': self.exp_tab_node_fallback}
-                         ]
+                         {'key': "parent", 'widget': self.exp_tab_node_fallback}]
         self.CHECKBOX = {"required": {
                             "widget": self.exp_tab_node_mandatory,
                             "bool": {False: "optional", True: "mandatory"}
@@ -235,7 +234,9 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         self.spcht_timer.timeout.connect(self.mthCreateTempSpcht)
         self.exp_tab_node_name.textChanged[str].connect(self.actDelayedSpchtComputing)
         self.exp_tab_node_field.textChanged[str].connect(self.actDelayedSpchtComputing)
+        self.exp_tab_node_source.currentIndexChanged.connect(self.actDelayedSpchtComputing)
         self.exp_tab_node_tag.textChanged[str].connect(self.actDelayedSpchtComputing)
+        self.exp_tab_node_predicate.textChanged[str].connect(self.actDelayedSpchtComputing)
         self.exp_tab_node_append.textChanged[str].connect(self.actDelayedSpchtComputing)
         self.exp_tab_node_prepend.textChanged[str].connect(self.actDelayedSpchtComputing)
         self.exp_tab_node_match.textChanged[str].connect(self.actDelayedSpchtComputing)
@@ -246,8 +247,10 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         self.exp_tab_node_mapping_btn.clicked.connect(self.actMappingInput)
         self.exp_tab_node_if_field.textChanged[str].connect(self.actDelayedSpchtComputing)
         self.exp_tab_node_if_value.textChanged[str].connect(self.actDelayedSpchtComputing)
+        self.exp_tab_node_if_many_values.textChanged[str].connect(self.actDelayedSpchtComputing)
         self.exp_tab_node_if_condition.currentIndexChanged.connect(self.actDelayedSpchtComputing)
-        self.exp_tab_node_source.currentIndexChanged.connect(self.actDelayedSpchtComputing)
+        self.exp_tab_node_if_decider1.toggled.connect(self.actDelayedSpchtComputing)
+        self.exp_tab_node_if_decider2.toggled.connect(self.actDelayedSpchtComputing)
 
         self.exp_tab_node_fallback.currentIndexChanged.connect(lambda: self.actSetNodeParent(self.exp_tab_node_fallback))
         self.exp_tab_node_subdata_of.currentIndexChanged.connect(lambda: self.actSetNodeParent(self.exp_tab_node_subdata_of))
@@ -771,11 +774,7 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
             self.exp_tab_node_if_many_values.setText(str(self.active_data_tables['if_value']))
             self.exp_tab_node_if_decider2.setChecked(True)
         # * comments
-        if 'comment' in SpchtNode:
-            self.exp_tab_node_comment.append(str(SpchtNode['comment']))
-        for key in SpchtNode.keys():
-            if re.match(r"^(comment)\\w*$", key):
-                self.exp_tab_node_comment.append(str(SpchtNode[key]))
+        self.exp_tab_node_comment.setText(SpchtNode.get('comment', ""))
 
     def mthDisplayNodeDetails(self):
         indizes = self.explorer_node_treeview.selectedIndexes()
@@ -842,6 +841,9 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         except SpchtErrors.DataError as e:
             processsing_results = ""
             self.explorer_spcht_result.setText(f"SpchtError.DataError: {e}\n")
+        except TypeError as e:
+            processsing_results = ""
+            self.explorer_spcht_result.setText(f"TypeError: {e}\n")
         if processsing_results:
             lines = ""
             for each in processsing_results:
@@ -964,12 +966,15 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         :return: nothing
         :rtype: None
         """
-        if not self.surpress_comboevent:
+        if self.surpress_comboevent:
             return
         # ! TODO: something not right, only works for last entry / fallback
         value = str(widget.currentText()).strip()
         if value != "":
             self.surpress_comboevent = True
+            for entry in self.COMBOBOX:
+                if entry['key'] == "parent":
+                    entry['widget'].setCurrentIndex(0)
             index = widget.findText(value, QtCore.Qt.MatchFixedString)
             if index > 0:
                 widget.setCurrentIndex(index)

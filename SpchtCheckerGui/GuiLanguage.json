@@ -152,6 +152,10 @@
     "en": "Choose a Spcht.json File for further processing",
     "de": "Wählen Sie eine spcht.json Datei zur weitern Verarbeitung"
   },
+  "parent_note": {
+    "en": "Either subnode, subdata or fallback are technically the same property of a spchtnode that describes its realationship to another node",
+    "de": "Sowohl 'subnode', 'subdata' als auch 'fallback' beschreiben die selbe Sache, eine Beziehung zu einem anderen Knoten und sind technisch gesehen die gleiche Eigenschaft"
+  },
   "tab_general": {
     "en": "             General             ",
     "de": "             Allgemein             "

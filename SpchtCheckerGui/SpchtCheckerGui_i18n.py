@@ -22,7 +22,8 @@
 # @license GPL-3.0-only <https://www.gnu.org/licenses/gpl-3.0.en.html>
 
 import json
-
+import re
+from collections import defaultdict
 import logging
 
 logger = logging.getLogger(__name__)
@@ -93,3 +94,64 @@ class Spcht_i18n:
                 self.__repository[key] = value[self.__language]
             elif self.__default_language in value:
                 self.__repository[key] = value[self.__default_language]
+
+    @staticmethod
+    def export_csv(language_file: str, csv_file: str, separator=";"):
+        """
+        Exports an already loaded dictionary to a csv file
+        :param str language_file: the current, working language file
+        :param str csv_file: a yet to be created csv file path
+        :param str separator: seperator symbol used in writing the csv file
+        :return: True if everything went alright, False and a log file entry if something went wrong
+        :rtype: bool
+        """
+        # yes, there is a library for csv writing, i acknowledge that
+        try:
+            with open(language_file, "r") as languages:
+                pure_data = json.load(languages)
+        except FileNotFoundError:
+            logger.error(f"Could not find language file '{language_file}' for export to csv")
+            return False
+        except json.JSONDecodeError as e:
+            logger.error(f"While trying to export, reading in the language file {language_file} failed with a json error {e}")
+            return False
+        try:
+            with open(csv_file, "w") as csv:
+                languages = defaultdict(int)
+                for each in pure_data.values():
+                    for key in each:
+                        languages[key] += 1
+                print(str(dict(languages)))
+                fixed_order = set(languages.keys())
+                csv.write(f"{separator}{';'.join(fixed_order)}\n")
+                for key, item in pure_data.items():
+                    csv.write(f"{key}")
+                    for lang in fixed_order:
+                        csv.write(f"{separator}{item.get(lang, '')}")
+                    csv.write("\n")
+        except FileExistsError as e:
+            logger.error(f"File already exists, cannot overwrite '{csv_file}' - {e}")
+            return False
+        return True
+
+    @staticmethod
+    def import_csv(csv_file: str, language_file: str, seperator=";"):
+        try:
+            with open(csv_file, "r") as csv:
+                all_lines = csv.readlines()
+        except FileNotFoundError:
+            logger.error(f"Cannot find designated file {csv_file}")
+            return False
+        lang = {(_): re.sub(r"(\n$)|(\r$)|(\n\r$)", "", x) for _, x in enumerate(all_lines[0].split(seperator)) if _ > 0}
+        print(lang)
+        translation = defaultdict(dict)
+        # every element except the first as a dictionary
+        for _, line in enumerate(all_lines):
+            if _ == 0:  # this construct seems like something i could do better
+                continue
+            data = line.split(seperator)
+            for i, each in enumerate(data):
+                if i == 0:
+                    continue
+                translation[data[0]][lang[i]] = re.sub(r"(\n$)|(\r$)|(\n\r$)", "", each)
+        print(translation)

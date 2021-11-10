@@ -20,6 +20,7 @@
 # along with Solr2Triplestore Tool.  If not, see <http://www.gnu.org/licenses/>.
 #
 # @license GPL-3.0-only <https://www.gnu.org/licenses/gpl-3.0.en.html>
+import datetime
 import logging
 import re
 import os
@@ -152,6 +153,18 @@ class SpchtBuilder:
             if node.parent == parent:
                 children.append(copy.copy(node))
         return children
+
+    def exportDict(self):
+        a = dict()
+        b = dict()
+        b['::ROOT::'] = self._root.properties
+        b['::ROOT::']['parent'] = self._root.parent
+        for key in self._repository:
+            b[key] = self._repository[key]
+            b[key]['parent'] = self._repository[key].parent
+        a['nodes'] = b
+        a['meta'] = {'created': datetime.date.today()}
+        a['orphan'] = []  # nodes that have no parents
 
     def createSpcht(self):
         # exports an actual Spcht dictionary

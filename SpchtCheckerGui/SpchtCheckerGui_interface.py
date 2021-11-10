@@ -426,7 +426,7 @@ class SpchtMainWindow(object):
         exp_tab_form_inheritance = QFormLayout(self.exp_tab_inheritance)
         self.exp_tab_node_subdata = QLineEdit(PlaceholderText=i18n['node_subdata_placeholder'])
         self.exp_tab_node_subnode = QLineEdit(PlaceholderText=i18n['node_subnode_placeholder'])
-        self.exp_tab_node_subnode_of = QComboBox(PlaceholderText=i18n['node_subnode_of_placeholder'])
+        self.exp_tab_node_subnode_of = QComboBox(PlaceholderText=i18n['node_subnode_of_placeholder'], ToolTip=i18n['parent_note'])
         self.exp_tab_node_subdata_of = QComboBox(PlaceholderText=i18n['node_subdata_of_placeholder'])
         self.exp_tab_node_fallback = QComboBox(PlaceholderText=i18n['node_subfallback_placeholder'])
         exp_tab_form_inheritance.addRow(i18n['node_subdata'], self.exp_tab_node_subdata)
