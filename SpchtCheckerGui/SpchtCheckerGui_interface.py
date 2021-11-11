@@ -32,7 +32,7 @@ import SpchtCheckerGui_i18n
 import SpchtConstants
 
 # ! import language stuff
-i18n = SpchtCheckerGui_i18n.Spcht_i18n("./GuiLanguage.json")
+i18n = SpchtCheckerGui_i18n.Spcht_i18n("./GuiLanguage.json", language='de')
 
 
 class SpchtMainWindow(object):
@@ -444,8 +444,10 @@ class SpchtMainWindow(object):
         # line 1
         self.exp_tab_node_display_spcht = QPushButton(i18n['debug_spcht_json'])
         self.exp_tab_node_display_computed = QPushButton(i18n['debug_computed_json'])
+        self.exp_tab_node_save_node = QPushButton("Save changes")
         exp_tab_form_various.addRow(i18n['debug_node_spcht'], self.exp_tab_node_display_spcht)
         exp_tab_form_various.addRow(i18n['debug_node_computed'], self.exp_tab_node_display_computed)
+        exp_tab_form_various.addRow(i18n['debug_node_save'], self.exp_tab_node_save_node)
 
         # bottom status line
         hor_layout_100 = QHBoxLayout()

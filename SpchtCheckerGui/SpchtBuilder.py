@@ -156,15 +156,16 @@ class SpchtBuilder:
 
     def exportDict(self):
         a = dict()
+        a['meta'] = {'created': datetime.date.today().isoformat()}
         b = dict()
         b['::ROOT::'] = self._root.properties
         b['::ROOT::']['parent'] = self._root.parent
         for key in self._repository:
-            b[key] = self._repository[key]
+            b[key] = self._repository[key].properties
             b[key]['parent'] = self._repository[key].parent
         a['nodes'] = b
-        a['meta'] = {'created': datetime.date.today()}
-        a['orphan'] = []  # nodes that have no parents
+        a['references'] = self._references  # all referenced data that could be loaded
+        return a
 
     def createSpcht(self):
         # exports an actual Spcht dictionary

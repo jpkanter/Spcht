@@ -27,6 +27,7 @@ import os
 import re
 import sys
 import copy
+import codecs
 import time
 from io import StringIO
 from datetime import datetime
@@ -41,13 +42,13 @@ from dateutil.relativedelta import relativedelta
 import SpchtConstants
 import SpchtErrors
 import local_tools
-from SpchtBuilder import SpchtBuilder
+from SpchtBuilder import SpchtBuilder, SimpleSpchtNode
 from SpchtCore import Spcht, SpchtThird, SpchtTriple
 
 import SpchtUtility
 from SpchtCheckerGui_interface import SpchtMainWindow, ListDialogue, JsonDialogue, QLogHandler
 from SpchtCheckerGui_i18n import Spcht_i18n
-i18n = Spcht_i18n("./GuiLanguage.json")
+i18n = Spcht_i18n("./GuiLanguage.json", language='de')
 
 
 logging.basicConfig(level=logging.DEBUG)
@@ -219,6 +220,7 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
 
         #self.explorer_center_search_button.clicked.connect(self.test_button)
         self.explorer_node_import_btn.clicked.connect(self.actLoadSpcht)
+        self.explorer_node_save_btn.clicked.connect(self.actSaveSpchtBuilder)
         self.explorer_node_treeview.doubleClicked.connect(self.mthDisplayNodeDetails)
 
         self.explorer_center_search_button.clicked.connect(lambda: self.actFindDataCache(self.explorer_linetext_search.text()))
@@ -261,6 +263,7 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
 
         self.exp_tab_node_display_spcht.clicked.connect(lambda: self.actDisplayJson(1))
         self.exp_tab_node_display_computed.clicked.connect(lambda: self.actDisplayJson(0))
+        self.exp_tab_node_save_node.clicked.connect(self.saveBuilderNode)
 
     def setupLogging(self):
         handler = QLogHandler(self)
@@ -988,6 +991,7 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
                 self.explorer_node_add_btn,
                 self.explorer_node_export_btn,
                 self.explorer_node_compile_btn,
+                self.explorer_node_save_btn,
                 disabled=True
             )
         elif status == 1:
@@ -995,6 +999,7 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
                 self.explorer_node_add_btn,
                 self.explorer_node_export_btn,
                 self.explorer_node_compile_btn,
+                self.explorer_node_save_btn,
                 enabled=True
             )
         elif status == 2:  # only export as SpchtBuilder File
@@ -1020,6 +1025,30 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         if dlg.exec_():
             self.active_data_tables['if_value'] = dlg.getData()
             self.exp_tab_node_if_many_values.setText(str(self.active_data_tables['if_value']))
+
+    def actSaveSpchtBuilder(self):
+        if not self.spcht_builder:
+            return
+        path_To_File, file_type = QtWidgets.QFileDialog.getSaveFileName(self, i18n['dlg_save_spchtbuilder'], "./",
+                                                                        "Spcht Json File (*.spchtbuilder.json);;Json File (*.json);;Every file (*.*)")
+        if path_To_File:
+            try:
+                with codecs.open(path_To_File, "w", encoding='utf-8') as save_game:
+                    json.dump(self.spcht_builder.exportDict(), save_game, indent=3, ensure_ascii=False)
+            except FileExistsError:
+                logging.warning(f"Cannot overwrite file {path_To_File}")
+
+    def saveBuilderNode(self):
+        if not self.active_spcht_node:
+            return
+        new_node = self.mthNodeFormsToSpcht(self.active_spcht_node)
+        if new_node:
+            smp_node = SimpleSpchtNode(new_node['name'])
+            smp_node.properties = new_node
+            smp_node.parent = new_node.get('parent', ":MAIN:")
+
+            self.spcht_builder.modify(self.active_spcht_node['name'], smp_node)
+            self.mthFillNodeView(self.spcht_builder.displaySpcht())
 
 
 if __name__ == "__main__":

@@ -23,6 +23,7 @@
 
 import json
 import re
+import codecs
 from collections import defaultdict
 import logging
 
@@ -137,7 +138,7 @@ class Spcht_i18n:
     @staticmethod
     def import_csv(csv_file: str, language_file: str, seperator=";"):
         try:
-            with open(csv_file, "r") as csv:
+            with codecs.open(csv_file, "r", encoding="utf-8") as csv:
                 all_lines = csv.readlines()
         except FileNotFoundError:
             logger.error(f"Cannot find designated file {csv_file}")
@@ -154,4 +155,8 @@ class Spcht_i18n:
                 if i == 0:
                     continue
                 translation[data[0]][lang[i]] = re.sub(r"(\n$)|(\r$)|(\n\r$)", "", each)
-        print(translation)
+        try:
+            with codecs.open(language_file, "w", encoding='utf-8') as languages:
+                json.dump(translation, languages, indent=3, ensure_ascii=False)
+        except FileExistsError:
+            logger.warning(f"File {language_file} already exists and cannot be overwritten")
