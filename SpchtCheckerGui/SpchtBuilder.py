@@ -70,6 +70,14 @@ class SimpleSpchtNode:
             if key in self.properties:
                 del self.properties[key]
 
+    def __iter__(self):
+        """
+        Mirrors the iterable functionality of properties to external use
+        :return:
+        :rtype:
+        """
+        return self.properties.__iter__()
+
     @property
     def parent(self):
         return self._parent
@@ -223,6 +231,12 @@ class SpchtBuilder:
         grouped_dict = defaultdict(list)
         for node, each in self._repository.items():
             curated_data = {key: each.get(key, "") for key in curated_keys}
+            # tech usage:
+            techs = []
+            for tech in SpchtConstants.BUILDER_SPCHT_TECH:
+                if tech in each:
+                    techs.append(tech)
+            curated_data['tech'] = ", ".join(techs)
             grouped_dict[each.parent].append(curated_data)
         return grouped_dict
 

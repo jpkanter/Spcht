@@ -71,6 +71,10 @@ BUILDER_KEYS = {
     "append_uuid_predicate_fields": "list",
     "append_uuid_object_fields": "list"
 }
+# distinction between different functions Spcht uses
+BUILDER_SPCHT_TECH = ['alternatives', 'mapping', 'joined_map', 'match', 'append', 'prepend',
+                      'cut', 'replace', 'insert_into', 'if_field', 'fallback', 'sub_nodes',
+                      'sub_data', 'tag', 'static_field', 'append_uuid_object_fields']
 # all keys that reference another node
 BUILDER_REFERENCING_KEYS = ["sub_nodes", "sub_data", "fallback"]
 BUILDER_SINGLE_REFERENCE = ["fallback"]

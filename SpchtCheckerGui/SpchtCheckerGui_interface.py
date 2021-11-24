@@ -445,9 +445,11 @@ class SpchtMainWindow(object):
         self.exp_tab_node_display_spcht = QPushButton(i18n['debug_spcht_json'])
         self.exp_tab_node_display_computed = QPushButton(i18n['debug_computed_json'])
         self.exp_tab_node_save_node = QPushButton("Save changes")
+        self.exp_tab_node_testlock = QPushButton("Lock Up")
         exp_tab_form_various.addRow(i18n['debug_node_spcht'], self.exp_tab_node_display_spcht)
         exp_tab_form_various.addRow(i18n['debug_node_computed'], self.exp_tab_node_display_computed)
         exp_tab_form_various.addRow(i18n['debug_node_save'], self.exp_tab_node_save_node)
+        exp_tab_form_various.addRow(i18n['debug_node_lock'], self.exp_tab_node_testlock)
 
         # bottom status line
         hor_layout_100 = QHBoxLayout()
@@ -715,6 +717,38 @@ class JsonDialogue(QDialog):
     def getContent(self):
         return self.editor.toPlainText()
 
+class FernmeldeAmt(QtCore.QObject):
+    up = QtCore.Signal()
+    down = QtCore.Signal()
+    check = QtCore.Signal()
+    uncheck = QtCore.Signal()
+
+class MoveUpDownWidget(QWidget):
+
+    def __init__(self, label, parent=None):
+        super(MoveUpDownWidget, self).__init__()
+        self.c = FernmeldeAmt()
+        self.check = QCheckBox(label)
+        self.up = QPushButton("↑")
+        self.down = QPushButton("↓")
+        SpchtMainWindow.massSetProperty(self.up, self.down, maximumWidth=30, maximumHeight=20)
+
+        layout = QHBoxLayout()
+        layout.setSpacing(5)
+        layout.setContentsMargins(7, 0, 7, 0)
+        layout.addWidget(self.check)
+        layout.addSpacing(1)
+        layout.addWidget(self.up)
+        layout.addWidget(self.down)
+        self.setLayout(layout)
+        self.down.clicked.connect(self.downE)
+        self.up.clicked.connect(self.upE)
+
+    def downE(self, event):
+        self.c.down.emit()
+
+    def upE(self, event):
+        self.c.up.emit()
 
 class JsonHighlighter(QSyntaxHighlighter):
     braces = ['\{', '\}', '\(', '\)', '\[', '\]']

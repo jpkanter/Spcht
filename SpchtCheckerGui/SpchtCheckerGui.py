@@ -35,7 +35,7 @@ from pathlib import Path
 
 from PySide2.QtGui import QStandardItemModel, QStandardItem, QFontDatabase, QIcon, QScreen
 from PySide2.QtWidgets import *
-from PySide2 import QtWidgets, QtCore
+from PySide2 import QtWidgets, QtCore, Qt
 
 from dateutil.relativedelta import relativedelta
 
@@ -46,7 +46,7 @@ from SpchtBuilder import SpchtBuilder, SimpleSpchtNode
 from SpchtCore import Spcht, SpchtThird, SpchtTriple
 
 import SpchtUtility
-from SpchtCheckerGui_interface import SpchtMainWindow, ListDialogue, JsonDialogue, QLogHandler
+from SpchtCheckerGui_interface import SpchtMainWindow, ListDialogue, JsonDialogue, QLogHandler, MoveUpDownWidget
 from SpchtCheckerGui_i18n import Spcht_i18n
 i18n = Spcht_i18n("./GuiLanguage.json", language='de')
 
@@ -104,8 +104,8 @@ def handle_variants(dictlist: dict or list) -> list:
         if 'response' in dictlist:
             if 'docs' in dictlist['response']:
                 return handle_variants(dictlist['response']['docs'])
-
-    return dictlist  # this will most likely throw an exception, we kinda want that
+    return {}
+    # return dictlist  # this will most likely throw an exception, we kinda want that
 
 
 class SpchtChecker(QMainWindow, SpchtMainWindow):
@@ -119,6 +119,7 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
                     {'key': "sub_nodes", 'header': i18n['col_sub_nodes']},
                     {'key': "sub_data", 'header': i18n['col_sub_data']},
                     {'key': "fallback", 'header': i18n['col_fallback']},
+                    {'key': "tech", 'header': i18n['col_tech']},
                     {'key': "comment", 'header': i18n['col_comment']}]
 
     def __init__(self, parent=None):
@@ -132,6 +133,7 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         self.active_data = None
         self.active_data_tables = {}
         self.active_data_index = 0
+        self.tabview_active_columns = {x['key']: True for x in self.node_headers}
 
         # * Event Binds
         self.surpress_comboevent = False
@@ -265,6 +267,10 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         self.exp_tab_node_display_computed.clicked.connect(lambda: self.actDisplayJson(0))
         self.exp_tab_node_save_node.clicked.connect(self.saveBuilderNode)
 
+        temp_header = self.explorer_node_treeview.header()
+        temp_header.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
+        temp_header.customContextMenuRequested.connect(self.actSpchtTabviewColumnMenu)
+
     def setupLogging(self):
         handler = QLogHandler(self)
         logging.getLogger(__name__).addHandler(handler)
@@ -316,6 +322,7 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
             for key, entry in self.spcht_builder.repository.items():
                 self.console.append(f"{key} - {str([f'{k}={v}' for k, v in entry.properties.items()])}\n")
             self.mthFillNodeView(self.spcht_builder.displaySpcht())
+            self.explorer_toolbox.setCurrentIndex(1)
         else:
             self.console.insertPlainText(time_log(f"SPCHT Schema Error: {output}"))
             self.write_status("Loading of spcht failed")
@@ -467,12 +474,12 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
             self.console.insertPlainText(time_log(f"JSON Error in Example File: {str(e)}"))
             return False
         if test_data:
-            # * legacy checker things:
-            self.str_testdata_filepath.setText(path_to_file)
-            # * explorer stuff
-            self.explorer_data_file_path.setText(path_to_file)
             self.data_cache = handle_variants(test_data)
             if len(self.data_cache):
+                # * legacy checker things:
+                self.str_testdata_filepath.setText(path_to_file)
+                # * explorer stuff
+                self.explorer_data_file_path.setText(path_to_file)
                 self.active_data = self.data_cache[0]
                 self.active_data_index = 0
                 self.explorer_linetext_search.setPlaceholderText(f"{1} / {len(self.data_cache)}")
@@ -482,6 +489,8 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
                 self.field_completer.setModel(temp_model)
                 if self.active_spcht_node:
                     self.mthCreateTempSpcht()
+            else:
+                self.console.insertPlainText(f"Loading of file {path_to_file} failed, most likely an unsupported format")
 
         if graph_prompt:
             graphtext = self.linetext_subject_prefix.displayText()
@@ -715,6 +724,7 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
             top_node.setEditable(False)
         self.explorer_node_treeview.setModel(floating_model)
         self.explorer_node_treeview.expandAll()
+        #self.explorer_node_treeview.setColumnHidden(5, True)
 
     def mthSetSpchtTabView(self, SpchtNode=None):  # aka NodeToForms
         if not SpchtNode:
@@ -771,11 +781,20 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
                         cplx['widget'].setText(value)
                     elif cplx['type'] == "check":
                         cplx['widget'].setChecked(cplx['bool'][value])
+                else:
+                    if cplx['type'] == "line":
+                        cplx['widget'].setText("")
+                    elif cplx['type'] == "check":
+                        cplx['widget'].setChecked(False)
         # ? manual configured things
         if 'if_value' in SpchtNode and isinstance(SpchtNode['if_value'], list):
             self.active_data_tables['if_value'] = SpchtNode['if_value']
             self.exp_tab_node_if_many_values.setText(str(self.active_data_tables['if_value']))
             self.exp_tab_node_if_decider2.setChecked(True)
+        else:
+            self.exp_tab_node_if_decider1.setChecked(True)
+            self.exp_tab_node_if_many_values.setText("")
+
         # * comments
         self.exp_tab_node_comment.setText(SpchtNode.get('comment', ""))
 
@@ -789,6 +808,7 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
             self.active_spcht_node = self.spcht_builder.compileNode(nodeName)
             self.mthSetSpchtTabView(self.spcht_builder[nodeName].properties)
             self.mthComputeSpcht()
+        self.mthLockTabview(False)
         self.explorer_tabview.setCurrentIndex(0)
         self.explorer_toolbox.setCurrentIndex(2)
 
@@ -931,6 +951,10 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
             raw_node['comment'] = lines[0].strip()
         for i in range(1, len(lines)):
             raw_node[f'comment{i}'] = lines[i]
+        # fallback, sub_nodes, sub_data
+        if 'fallback' in raw_node:
+            raw_node['fallback'] = raw_node['fallback']['name']
+        # for some reasons sub_nodes and sub_data is the raw name but fallback not, weird
         if SpchtUtility.is_dictkey(raw_node, 'field', 'source', 'required'):  # minimum viable node
             return raw_node
         return {}
@@ -1046,9 +1070,63 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
             smp_node = SimpleSpchtNode(new_node['name'])
             smp_node.properties = new_node
             smp_node.parent = new_node.get('parent', ":MAIN:")
+            # smp_node['fallback'] = new_node.get('fallback') if new_node['fallback']['name'] else ''
+            # smp_node['sub_nodes'] = new_node.get('sub_nodes') if new_node['sub_nodes']['name'] else ''
+            # smp_node['sub_data'] = new_node.get('sub_data') if new_node['sub_data']['name'] else ''
 
             self.spcht_builder.modify(self.active_spcht_node['name'], smp_node)
             self.mthFillNodeView(self.spcht_builder.displaySpcht())
+            self.explorer_toolbox.setCurrentIndex(1)
+            # resetting interface
+            self.mthLockTabview()
+            self.active_spcht_node = None
+            self.active_data_tables = {}
+
+    def mthLockTabview(self, status=True):
+        if status:
+            self.mthSetSpchtTabView(SpchtNode=None)
+            self.explorer_tabview.setCurrentIndex(0)
+            self.explorer_tabview.setDisabled(True)
+        else:
+            self.explorer_tabview.setDisabled(False)
+
+    def actSpchtTabviewColumnMenu(self, pos):
+        menu = QMenu()
+        Robin = {}
+        for _, each in enumerate(self.node_headers):
+            if each['key'] == "name":
+                continue
+            Robin[_] = QAction(each['header'])
+            Robin[_].setCheckable(True)
+            if self.tabview_active_columns[each['key']]:
+                Robin[_].setChecked(True)
+            print(each['key'])
+            Robin[_].triggered.connect(lambda: self.actToggleTabviewColumn(each['key']))
+            menu.addAction(Robin[_])
+        #menu.popup(self.explorer_node_treeview.mapToGlobal(pos))
+        all_act = QAction(i18n['menu_display_all'])
+        all_act.triggered.connect(self.actDisplayAllTabviewColumns)
+        move = MoveUpDownWidget("Name")
+        test = QWidgetAction(menu)
+
+        test.setDefaultWidget(move)
+        menu.addAction(test)
+        menu.addSeparator()
+        menu.addAction(all_act)
+        menu.exec_(self.explorer_node_treeview.mapToGlobal(pos))
+
+    def actToggleTabviewColumn(self, key):
+        if self.tabview_active_columns[key]:
+            self.tabview_active_columns[key] = False
+        else:
+            self.tabview_active_columns[key] = True
+
+    def actDisplayAllTabviewColumns(self):
+        for key in self.tabview_active_columns:
+            self.tabview_active_columns[key] = True
+
+    def testEvent(self, event):
+        print(event)
 
 
 if __name__ == "__main__":
