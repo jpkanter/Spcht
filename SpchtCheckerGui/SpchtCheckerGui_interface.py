@@ -32,7 +32,7 @@ import SpchtCheckerGui_i18n
 import SpchtConstants
 
 # ! import language stuff
-i18n = SpchtCheckerGui_i18n.Spcht_i18n("./GuiLanguage.json", language='de')
+i18n = SpchtCheckerGui_i18n.Spcht_i18n("./GuiLanguage.json", language='en')
 
 
 class SpchtMainWindow(object):
@@ -276,6 +276,7 @@ class SpchtMainWindow(object):
         ver_layout_23 = QVBoxLayout(self.explorer_toolbox_page1)
         hor_layour_22 = QHBoxLayout()
         self.explorer_node_add_btn = QPushButton(i18n['generic_add'], FixedWidth=150)
+        self.explorer_node_create_btn = QPushButton(i18n['generic_new'], FixedWidth=150)
         self.explorer_node_import_btn = QPushButton(i18n['generic_import'], FixedWidth=150)
         self.explorer_node_export_btn = QPushButton(i18n['generic_export'], FixedWidth=150)
         self.explorer_node_load_btn = QPushButton(i18n['generic_load'], FixedWidth=150)
@@ -290,12 +291,14 @@ class SpchtMainWindow(object):
         hor_layour_22.addWidget(self.explorer_node_export_btn)
         #hor_layour_22.addWidget(self.explorer_node_compile_btn)
         hor_layour_23 = QHBoxLayout()
+        hor_layour_23.addWidget(self.explorer_node_create_btn)
         hor_layour_23.addStretch(255)
         hor_layour_23.addWidget(self.explorer_node_load_btn)
         hor_layour_23.addWidget(self.explorer_node_save_btn)
         hor_layour_23.addWidget(self.explorer_node_compile_btn)
 
         self.explorer_node_treeview = QTreeView()
+        #self.explorer_node_treeview.setDragDropMode(QAbstractItemView.InternalMove)
         ver_layout_23.addWidget(self.explorer_node_treeview, 1)
         ver_layout_23.addLayout(hor_layour_22)
         ver_layout_23.addLayout(hor_layour_23)
@@ -386,7 +389,7 @@ class SpchtMainWindow(object):
         # line 1
         exp_tabl_label41 = QLabel(i18n['node_mapping'])
         self.exp_tab_node_mapping_btn = QPushButton(i18n['node_details'])
-        self.exp_tab_node_mapping_preview = QLabel(i18n['node_mapping_preview'])
+        self.exp_tab_node_mapping_preview = QLabel("")
         exp_tab_form_mapping.addWidget(exp_tabl_label41, 0, 0)
         exp_tab_form_mapping.addWidget(self.exp_tab_node_mapping_btn, 0, 1)
         exp_tab_form_mapping.addWidget(self.exp_tab_node_mapping_preview, 0, 2)
@@ -717,14 +720,15 @@ class JsonDialogue(QDialog):
     def getContent(self):
         return self.editor.toPlainText()
 
+
 class FernmeldeAmt(QtCore.QObject):
     up = QtCore.Signal()
     down = QtCore.Signal()
     check = QtCore.Signal()
     uncheck = QtCore.Signal()
 
-class MoveUpDownWidget(QWidget):
 
+class MoveUpDownWidget(QWidget):
     def __init__(self, label, parent=None):
         super(MoveUpDownWidget, self).__init__()
         self.c = FernmeldeAmt()
@@ -749,6 +753,7 @@ class MoveUpDownWidget(QWidget):
 
     def upE(self, event):
         self.c.up.emit()
+
 
 class JsonHighlighter(QSyntaxHighlighter):
     braces = ['\{', '\}', '\(', '\)', '\[', '\]']

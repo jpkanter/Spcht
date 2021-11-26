@@ -48,7 +48,7 @@ from SpchtCore import Spcht, SpchtThird, SpchtTriple
 import SpchtUtility
 from SpchtCheckerGui_interface import SpchtMainWindow, ListDialogue, JsonDialogue, QLogHandler, MoveUpDownWidget
 from SpchtCheckerGui_i18n import Spcht_i18n
-i18n = Spcht_i18n("./GuiLanguage.json", language='de')
+i18n = Spcht_i18n("./GuiLanguage.json", language='en')
 
 
 logging.basicConfig(level=logging.DEBUG)
@@ -134,6 +134,10 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         self.active_data_tables = {}
         self.active_data_index = 0
         self.tabview_active_columns = {x['key']: True for x in self.node_headers}
+        self.tabview_menus = {}
+
+        # governs Quality of Life Features:
+        self.META_unsaved = False
 
         # * Event Binds
         self.surpress_comboevent = False
@@ -221,7 +225,10 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         self.explorer_filter_behaviour.stateChanged.connect(self.mthExecDelayedFieldChange)
 
         #self.explorer_center_search_button.clicked.connect(self.test_button)
+        self.explorer_node_create_btn.clicked.connect(self.actCreateSpchtBuilder)
+        self.explorer_node_add_btn.clicked.connect(self.actCreateSpchtNode)
         self.explorer_node_import_btn.clicked.connect(self.actLoadSpcht)
+        self.explorer_node_export_btn.clicked.connect(self.actExportSpchtNode)
         self.explorer_node_save_btn.clicked.connect(self.actSaveSpchtBuilder)
         self.explorer_node_treeview.doubleClicked.connect(self.mthDisplayNodeDetails)
 
@@ -713,6 +720,10 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
     def mthFillNodeView(self, builder_display_data):
         floating_model = QStandardItemModel()
         floating_model.setHorizontalHeaderLabels([x['header'] for x in self.node_headers])
+        for _, header in enumerate(self.node_headers):
+            if _ == 0:
+                continue
+            floating_model.horizontalHeaderItem(_).setDragEnabled(True)
         for big_i, (parent, group) in enumerate(builder_display_data.items()):
             top_node = QStandardItem(parent)
             for i, each in enumerate(group):
@@ -808,9 +819,9 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
             self.active_spcht_node = self.spcht_builder.compileNode(nodeName)
             self.mthSetSpchtTabView(self.spcht_builder[nodeName].properties)
             self.mthComputeSpcht()
-        self.mthLockTabview(False)
-        self.explorer_tabview.setCurrentIndex(0)
-        self.explorer_toolbox.setCurrentIndex(2)
+            self.mthLockTabview(False)
+            self.explorer_tabview.setCurrentIndex(0)
+            self.explorer_toolbox.setCurrentIndex(2)
 
     def mthComputeSpcht(self, spcht_descriptor=None):
         if not spcht_descriptor:
@@ -1062,6 +1073,48 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
             except FileExistsError:
                 logging.warning(f"Cannot overwrite file {path_To_File}")
 
+    def actCreateSpchtBuilder(self):
+        path = QFileDialog.getExistingDirectory(self, i18n['dia_folder_selection'])
+        if path:
+            self.mthCreateSpchtBuilder(path)
+
+    def mthCreateSpchtBuilder(self, directory):
+        self.mthSpchtBuilderBtnStatus(1)
+        self.spcht_builder = SpchtBuilder(spcht_base_path=directory)
+        emptyNode = SimpleSpchtNode(self.spcht_builder._names.giveName(), parent=":MAIN:")
+        emptyNode['field'] = "title"
+        emptyNode['source'] = "dict"
+        emptyNode['predicate'] = "https://predicate"
+        self.spcht_builder.add(emptyNode)
+        self.mthFillNodeView(self.spcht_builder.displaySpcht())
+        self.META_unsaved = True
+
+    def actCreateSpchtNode(self):
+        new_node = self.spcht_builder._names.giveName()
+        emptyNode = SimpleSpchtNode(new_node, parent=":MAIN:")
+        emptyNode['field'] = ""
+        emptyNode['source'] = "dict"
+        emptyNode['predicate'] = ""
+        self.spcht_builder.add(emptyNode)
+        self.mthFillNodeView(self.spcht_builder.displaySpcht())
+        self.active_spcht_node = self.spcht_builder.compileNode(new_node)
+        self.mthSetSpchtTabView(self.spcht_builder[new_node].properties)
+        self.mthComputeSpcht()
+        self.mthLockTabview(False)
+        self.explorer_tabview.setCurrentIndex(0)
+        self.explorer_toolbox.setCurrentIndex(2)
+
+    def actExportSpchtNode(self):
+        file, type = QFileDialog.getSaveFileName(self, i18n['spcht_save_from_builder'], self.spcht_builder.cwd, f"{i18n['spcht_file_name']} (*.spcht.json);;")
+        if file:
+            if not re.search(r"spcht\.json$", file):
+                file = f"{file}.spcht.json"
+            self.mthExportSpchtNode(file)
+
+    def mthExportSpchtNode(self, path):
+        with codecs.open(path, "w", encoding='utf-8') as spcht_file:
+            json.dump(self.spcht_builder.createSpcht(), spcht_file, indent=3, ensure_ascii=False)
+
     def saveBuilderNode(self):
         if not self.active_spcht_node:
             return
@@ -1092,27 +1145,37 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
 
     def actSpchtTabviewColumnMenu(self, pos):
         menu = QMenu()
-        Robin = {}
-        for _, each in enumerate(self.node_headers):
+        self.tabview_menus = {}
+        for each in self.node_headers:
             if each['key'] == "name":
                 continue
-            Robin[_] = QAction(each['header'])
-            Robin[_].setCheckable(True)
+            self.tabview_menus[each['key']] = QAction(each['header'])
+            self.tabview_menus[each['key']].setCheckable(True)
             if self.tabview_active_columns[each['key']]:
-                Robin[_].setChecked(True)
-            print(each['key'])
-            Robin[_].triggered.connect(lambda: self.actToggleTabviewColumn(each['key']))
-            menu.addAction(Robin[_])
+                self.tabview_menus[each['key']].setChecked(True)
+           # self.tabview_menus[each['key']].toggled.connect(lambda: self.actToggleTabviewColumn(each['key']))
+            menu.addAction(self.tabview_menus[each['key']])
         #menu.popup(self.explorer_node_treeview.mapToGlobal(pos))
         all_act = QAction(i18n['menu_display_all'])
         all_act.triggered.connect(self.actDisplayAllTabviewColumns)
-        move = MoveUpDownWidget("Name")
-        test = QWidgetAction(menu)
-
-        test.setDefaultWidget(move)
-        menu.addAction(test)
+        # Test with complex widget
+        # move = MoveUpDownWidget("Name")
+        # test = QWidgetAction(menu)
+        # test.setDefaultWidget(move)
+        # menu.addAction(test)
         menu.addSeparator()
         menu.addAction(all_act)
+        # ! this is like the worst solution ever but i wont just work
+        self.tabview_menus['source'].toggled.connect(lambda: self.actToggleTabviewColumn('source'))
+        self.tabview_menus['field'].toggled.connect(lambda: self.actToggleTabviewColumn('field'))
+        self.tabview_menus['predicate'].toggled.connect(lambda: self.actToggleTabviewColumn('predicate'))
+        self.tabview_menus['type'].toggled.connect(lambda: self.actToggleTabviewColumn('type'))
+        self.tabview_menus['mandatory'].toggled.connect(lambda: self.actToggleTabviewColumn('mandatory'))
+        self.tabview_menus['sub_nodes'].toggled.connect(lambda: self.actToggleTabviewColumn('sub_nodes'))
+        self.tabview_menus['sub_data'].toggled.connect(lambda: self.actToggleTabviewColumn('sub_data'))
+        self.tabview_menus['fallback'].toggled.connect(lambda: self.actToggleTabviewColumn('fallback'))
+        self.tabview_menus['tech'].toggled.connect(lambda: self.actToggleTabviewColumn('tech'))
+        self.tabview_menus['comment'].toggled.connect(lambda: self.actToggleTabviewColumn('comment'))
         menu.exec_(self.explorer_node_treeview.mapToGlobal(pos))
 
     def actToggleTabviewColumn(self, key):
@@ -1120,10 +1183,19 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
             self.tabview_active_columns[key] = False
         else:
             self.tabview_active_columns[key] = True
+        self.mthHideTabviewColumns()
 
     def actDisplayAllTabviewColumns(self):
         for key in self.tabview_active_columns:
             self.tabview_active_columns[key] = True
+        self.mthHideTabviewColumns()
+
+    def mthHideTabviewColumns(self):
+        for _, each in enumerate(self.node_headers):
+            if each['key'] == "name":
+                continue
+            self.explorer_node_treeview.setColumnHidden(_, not self.tabview_active_columns[each['key']])
+
 
     def testEvent(self, event):
         print(event)

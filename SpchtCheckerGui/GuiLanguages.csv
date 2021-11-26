@@ -1,0 +1,114 @@
+;en;de
+window_title;SPCHT Format Checker & analyzer;SPCHT Format Prüfer und Analysegerät
+btn_sdf_txt;open spcht.json;spcht.json Öffnen
+str_sdf_file_placeholder;Click the load button to open a spcht.json file;Laden Knopf drücken um einen spcht.json Deskriptor zu öffnen
+btn_create_spcht;New Spcht;Neuer Spcht
+str_jsonfile_placeholder;Click the open button after loading a spcht.json file to try out testdata;Öffnen Knopf nach erfolreichen Laden des spcht.json Deskriptors drücken um Testdatein auszuprobieren
+str_subject_placeholder;generic subject part;generischer Teil des Sujektes
+btn_testdata_txt;Testdata;Testdaten
+btn_testdata_tooltip;A spcht testdata file is formated in json with a list as root and each element containing the dictionary of one entry.;Ein Testdaten datiert besteht auf einem einfachen Key-Value Wörterbuch oder einer Liste aus eben solchen
+btn_retry_tooltip;This does not only retry to load the Testdata but instead reloads the Spcht File and THEN reloads the testdata as part of its routine;Dieser Knopf läd nicht die Testdaten neu sondern die Spcht.json Datei um dann diese auf die Testdaten erneut anzuwenden
+linetext_field_filter_placeholder;Filtertext, Format: field1, field2, field3;"Filtertext, Formatvorlage: ""Feld1, Feld2, Feld3 """
+check_blacklist_behaviour;blacklist;Blacklist
+builder_toolbox_load_data;Load test data dialogue;Dialog zum Testdaten Laden
+builder_toolbox_node_overview;Spcht Node managment;Spcht Knoten Verwaltung
+builder_toolbox_main_builder;Main Spcht builder view;Spcht Montageplattform
+node_name;Name;Name
+node_name_placeholder;Unique name for a node, used to identify referenced node by fallback, sub_node & sub_data;Einzigartiger Name für einen Knoten, genutzt um referenzierte Knoten für 'fallback', 'sub_node' und 'sub_data' zu erkennen
+node_mandatory;Mandatory Node;Notwendiger Knoten
+node_uri;Node is URI;Knoten ist eine URI
+node_comment;Comment;Kommentar
+node_tag;Tag;Auszeichnung
+node_tag_placeholder;Language or datatype tag, written in sparql-like notation: '@en' // '^^xsd:string';Sprach- oder Datentypauszeichnung, sparql-artiger Syntax: '@de' // '^^xsd:string'
+node_prepend;prepend text;vorgestellter Text
+node_prepend_placeholder;puts the content of this field in front of the actual value;fügt den Inhalt dieses Feldes VOR dem eigentlichen Wert
+node_append;appended text;angehängter text
+node_append_placeholder;puts the content of this field after the actual value;fügt den Inhalt dieses Feldes NACH dem eigentlichen Wert
+node_cut;remove regex ('cut');entferne regex ('cut')
+node_cut_placeholder;replaces every match with the content of 'replace' (or nothing if its empty);ersetzt jeden Fund von 'match' mit dem Inhalt von 'replace' (oder nichts wenn dieses Feld leer ist)
+node_replace;replace 'cut';ersetzt 'cut'
+node_replace_placeholder;replaces the removed part from 'cut' with this content;ersetzt den entfernten Teil von 'cut' mit diesem Wert
+col_name;Name;Name
+col_source;Source;Quelle
+col_field;Datafield;Datenfield
+col_predicate;Predicate;Prädikat
+col_type;URI/Literal;URI/Literal
+col_mandatory;Mandatory;Pflichtfeld
+col_sub_nodes;Sub-nodes;Unterknoten
+col_sub_data;Sub-data;Unterdaten
+col_comment;Comments;Kommentare
+act_open_spcht;Choose a Spcht.json File for further processing;Wählen Sie eine spcht.json Datei zur weitern Verarbeitung
+parent_note;Either subnode, subdata or fallback are technically the same property of a spchtnode that describes its realationship to another node;Sowohl 'subnode', 'subdata' als auch 'fallback' beschreiben die selbe Sache, eine Beziehung zu einem anderen Knoten und sind technisch gesehen die gleiche Eigenschaft
+tab_general;             General             ;             Allgemein             
+tab_simpletext;Text transformation;Texttransformation
+generic_retry;retry;wiederholen
+generic_expandall;Expand all;Alle erweitern
+generic_collapseall;Collapse all;Alle einklappen
+generic_name;Name;Name
+generic_load;Open File;Datei öffnen
+generic_predicate;Predicate;Prädikat
+generic_source;Source;Quelle
+generic_objects;Objects;Objekte
+generic_info;Info;INFO
+generic_comments;Comments;Kommentare
+generic_add;Add;Hinzufügen
+generic_import;Import;Importieren
+generic_export;Export;Exportieren
+generic_compile;Compile;Zu einer Datei
+ex_c&p;;
+gui_checker;Spcht Checker;Fehlersuche
+generic_save;Save;Speichern
+node_field;Field;Datenfeld
+node_source;Source;Quelle
+node_predicate;Predicate;Prädikat
+node_field_placeholder;The named field in every dataset that is used to fill in the basic information;Das benannte Feld in der Datenquelle um die grundlegenden Daten auszufüllen
+node_predicate_placeholder;The predicate is the middle part of any given linked data triple and describes the object;Das Prädikat ist der Mittelteil jedes ‚Linked-Data Triples‘ und beschreibt das folgende Objekt
+node_match;match text;Textfilter
+node_match_placeholder;Only processes those entries that matches the Regex given, this filters partial fields;Prozessiert nur die Einträge im Datensatz die dem Regex hier entsprechen
+node_if_field;If-Field;Vergleichsfeld
+node_if_field_placeholder;Datafield that gets matched against a value to validate a complete node;Datenfeld das für den Vergleich genutzt wird um zu entscheiden ob der gesammte Datensatz ignoriert wird
+node_if_condition;Operator;Vergleichsoperator
+node_if_value;If-Value;Vergleichswert
+node_if_many_values;multiple if values, one match is enough;Viele Vergleichswerte (ein Match genügt)
+node_if_enter_btn;Input Values;Eintragen
+tab_if;If Operations;Vergleichsbedigung
+tab_mapping;Mapping;Wörterbuch
+tab_inheritance;Inheritance ;Vererbung
+tab_misc;Misc;Sonstiges
+node_mapping;Local Mapping;Lokales Wörterbuch
+node_mapping_ref;External Mapping;Externes Wörterbuch
+node_details;Details;Details
+node_mapping_ref_load;Load Mapping;Wörterbuch laden
+node_mapping_settings;Mapping Settings;Wörterbuch Optionen
+node_mapping_default;Default Value;Standardwert
+node_mapping_inherit;Inherit Basevalue;Urprungswert nutzen
+node_mapping_casesens;Case sensivity;Groß/Kleinschreibung beachten
+node_mapping_regex;Use Regex;Regex nutzen
+node_mapping_settings_default_placeholder;Value that is used if no match can be found;Wert der genutzt wird wenn kein Treffer erzielt werden kann
+node_subdata;Subdata;Unterknoten Daten
+node_subdata_placeholder;Name of the imaginary Node that defines the operations for further processing of the received data;Name des imaginären Knoten der die Prozesse für die aus diesem Knoten erhaltenen Daten bündelt
+node_subnode;Sub-Nodes;Unterknoten Knoten
+node_subnode_placeholder;Name of the imaginary Node that takes the result of this node as predicate;Name des imaginären Knoten das das Ergebnis dieses Knotens als Prädikat nutzt
+node_subdata_of;Sub-Data Parent;Sub-Data Vorfahr
+node_subnode_of;Sub-Nodes Parent;Sub-Nodes Vorfahr
+node_fallback;Fallback;Rückfall Knoten
+debug_spcht_json;Original Json before processing of fields;Orginaler Spcht-Node ohne prozessierung über die Formularfelder
+debug_computed_json;Computed and processed Spcht based upon the form fields;Berechnerter Spcht-Knoten auf Basis der Formularfelder
+gui_builder;Spcht Builder;Spcht Architekt
+generic_value;Value;Wert
+dialogue_if_value_text;List of if values, Spcht will check if any one of those values matches and if yes the entire node will proceed;Liste von Werten die Spcht vergleicht, sollte ein Wert zutreffend sein wird der Knoten weiterverarbeitet
+insert_before;Insert before current;Vor aktuellen Einfügen
+generic_delete;Delete;Löschen
+dialogue_if_value;Add, delete or modify if values;Verändern der Wenn-Bedingungen
+generic_key;Key;Schlüssel
+dialogue_mapping_text;Mapping will ‚translate‘ a key to a value;Mapping übersetzt einen Schlüssel zu einem Wert
+dialogue_mapping_title;Adjust mappings values;Mapping Werte anpassen
+node_mapping_setting_default_placeholder;Insert a default value here in case no key matches;Dieser Wert wird genutzt falls keiner der Schlüssel passt
+generic_new;New;Neu
+debug_node_spcht;Raw Spcht;Roher Spcht
+debug_node_computed;Processed Spcht;Verarbeiteter Spcht
+debug_node_save;Save;Speichern
+debug_node_lock;Debug Function;Debug Function
+json_dia_title;JSON View Dialogue;JSON Ansicht
+col_tech;used technologies;Technologien
+col_fallback;Fallback;Stellvertreter

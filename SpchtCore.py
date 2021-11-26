@@ -48,6 +48,20 @@ try:
 except ImportError:
     logger.warning("RDFLib import error in Spcht, limits function")
 
+# ! comment about the spcht structure
+""" 26.11.2021
+As i am currently building the SpchtBuilder or rather i complete it some of my earlier design decisions came to haunt me
+for some reasons i thought myself wise to create the root node as a completly different thing outside of the normal
+node repository, which is well if i had done something like "root": {"field": "id", "source": "dict"} which had meant
+that i could use every function that Spcht offers on it with the known method of _recursive_node or even better, i 
+could have defined everything as sub_nodes of the root. But i only developt those functions for the foliotools a few
+months back. Currently i am a bit short in time, if you, dear fellow maintainer are looking through this and find this 
+node this means the whole root and id_field culprint is still around, it should be fixeable somewhat easily but right 
+now everything works like a well oiled machine and touching it would need me to test extensivly, but know that it 
+annoyed me greatly when creating the SpchtBuilder utility, although, i am increasing my work load on a future maintenance
+i am sorry - JPK
+"""
+
 
 class Spcht:
     def __init__(self, filename=None, schema_path="./SpchtSchema.json", debug=False, log_debug=False):

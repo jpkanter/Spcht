@@ -99,6 +99,7 @@ class SpchtBuilder:
     def __init__(self, import_dict=None, unique_names=None, spcht_base_path=None):
         self._repository = {}
         self._root = SimpleSpchtNode(":ROOT:", parent=":ROOT:")
+        self.cwd = spcht_base_path
         self._references = {}
         if unique_names is None:
             self._names = UniqueNameGenerator(SpchtConstants.RANDOM_NAMES)
@@ -123,8 +124,9 @@ class SpchtBuilder:
             raise KeyError(f"SpchtBuilder::Cannot access key '{item}'.")
 
     def add(self, UniqueSpchtNode: SimpleSpchtNode):
-        if UniqueSpchtNode['name'] in self._repository:
-            raise KeyError("Cannot add a name that is already inside")
+        UniqueSpchtNode['name'] = self.createNewName(UniqueSpchtNode['name'])
+        # if UniqueSpchtNode['name'] in self._repository:
+        #     raise KeyError("Cannot add a name that is already inside")
         self._repository[UniqueSpchtNode['name']] = UniqueSpchtNode
 
     def remove(self, UniqueName: str):
@@ -139,8 +141,10 @@ class SpchtBuilder:
         if OriginalName not in self._repository:
             raise KeyError(f"Cannot update node {OriginalName} as it does not exist")
         if OriginalName != UniqueSpchtNode['name']:
-            if UniqueSpchtNode['name'] in self._repository:
-                raise SpchtErrors.OperationalError("Cannot modify node with new name as another node already exists")
+            UniqueSpchtNode['name'] = self.createNewName(UniqueSpchtNode['name'])
+            # ? this is actually a rather hard decision, do i want to discard the name automatically or give choice to the user?
+            # if UniqueSpchtNode['name'] in self._repository:
+            #    raise SpchtErrors.OperationalError("Cannot modify node with new name as another node already exists")
             for node in self._repository:  # updates referenced names
                 for key in SpchtConstants.BUILDER_REFERENCING_KEYS:
                     if key in node and node[key] == OriginalName:
@@ -166,8 +170,8 @@ class SpchtBuilder:
         a = dict()
         a['meta'] = {'created': datetime.date.today().isoformat()}
         b = dict()
-        b['::ROOT::'] = self._root.properties
-        b['::ROOT::']['parent'] = self._root.parent
+        b[':ROOT:'] = self._root.properties
+        b[':ROOT:']['parent'] = self._root.parent
         for key in self._repository:
             b[key] = self._repository[key].properties
             b[key]['parent'] = self._repository[key].parent
@@ -177,12 +181,26 @@ class SpchtBuilder:
 
     def createSpcht(self):
         # exports an actual Spcht dictionary
-        pass
+        root_node = {"id_source": self._root['source'],
+                     "id_field": self._root['field'],
+                     "nodes": self.compileSpcht()}
+        if 'fallback' in self._root:
+            fallback = self.compileNodeByParent(":ROOT:")
+            root_node.update({'id_fallback': fallback[0]})
+        return root_node
 
     def compileSpcht(self):
         # exports a compiled Spcht dictionary with all references solved
         # this still misses the root node
-        return self.compileNode(":MAIN:")
+        return self.compileNodeByParent(":MAIN:")
+
+    def compileNodeByParent(self, parent: str):
+        parent = str(parent)
+        node_list = []
+        for key, top_node in self._repository.items():
+            if top_node.parent == parent:
+                node_list.append(self.compileNode(key))
+        return node_list
 
     def compileNode(self, name: str):
         name = str(name)
@@ -198,10 +216,14 @@ class SpchtBuilder:
                 pure_dict[key] = node_group
             elif key in SpchtConstants.BUILDER_SINGLE_REFERENCE:
                 pure_dict[key] = self.compileNode(item)
+            elif key == 'parent':  # parent added to object for some convenience but its not technically in the schema
+                continue
             else:
                 pure_dict[key] = item
             if 'predicate' not in pure_dict:
-                pure_dict['predicate'] = self.inheritPredicate(name)  # find root predicate name
+                predicate = self.inheritPredicate(name)  # find root predicate name
+                if predicate:
+                    pure_dict['predicate'] = predicate
         return pure_dict
 
     def inheritPredicate(self, sub_node_name: str):
@@ -246,8 +268,22 @@ class SpchtBuilder:
         if 'nodes' not in spcht:
             raise SpchtErrors.ParsingError("Cannot read SpchtDict, lack of 'nodes'")
         self._repository = self._recursiveSpchtImport(spcht['nodes'], base_path)
+        # ? import :ROOT:
+        self._root['field'] = spcht['id_field']
+        self._root['source'] = spcht['id_source']
+        # this special case of root fallbacks makes for a good headache
+        if 'id_fallback' in spcht:
+            root_fallbacks = self._recursiveSpchtImport([spcht['id_fallback']], base_path, parent=":ROOT:")
+            # ? iterating through all fallbacks which will be the one directly tied to root and those below it, each
+            # ? node can only have on fallback so we can safely skip after the first one, yet those fallbacks
+            # ? live normally in the repository
+            for key in root_fallbacks:
+                if root_fallbacks[key]['parent'] == ":ROOT:":
+                    self._root['fallback'] = key
+                    break
+            self._repository.update(root_fallbacks)
 
-    def _recursiveSpchtImport(self, spcht_nodes: list, base_path, parent=":MAIN:"):
+    def _recursiveSpchtImport(self, spcht_nodes: list, base_path, parent=":MAIN:") -> dict:
         temp_spcht = {}
         for node in spcht_nodes:
             if 'name' not in node:
@@ -256,14 +292,15 @@ class SpchtBuilder:
                 name = self._names.giveName()
             else:
                 name = node['name']
+            name = self.createNewName(name)
             new_node = SimpleSpchtNode(name, parent=parent)
             for key in SpchtConstants.BUILDER_KEYS.keys():
                 if key in node and key != "name":
-                    if key in SpchtConstants.BUILDER_LIST_REFERENCE:
+                    if key in SpchtConstants.BUILDER_LIST_REFERENCE:  # sub_nodes & sub_data
                         new_group = self._names.giveName()
                         new_node[key] = new_group
                         temp_spcht.update(self._recursiveSpchtImport(node[key], base_path, parent=new_group))
-                    elif key in SpchtConstants.BUILDER_SINGLE_REFERENCE:
+                    elif key in SpchtConstants.BUILDER_SINGLE_REFERENCE:  # fallback
                         list_of_one = self._recursiveSpchtImport([node[key]], base_path, parent=name)
                         for each in list_of_one:
                             new_node[key] = each
@@ -357,9 +394,36 @@ class SpchtBuilder:
             names.append(key)
         return names
 
-    def uniqueness_check(self):
-        # checks if everything is in order for after import
-        pass
+    def createNewName(self, name: str, mode="add") -> str:
+        """
+        Creates a new name by the given name, if the provided name is already unique it just gets echoed, otherwise
+        different methods can be utilised to generate a new one.
+
+        Finding modes:
+
+        * add - adds a random string from the name repository to the original name, might be an UUID DEFAULT
+        * number - just counts up a number at the end
+        * replace - replaces the name with one of the name repository, might be an UUID
+        :param str name: any UTF-8 valid name
+        :param str mode: 'add', 'number' or 'replace
+        :return: a new, unique name
+        :rtype: str
+        """
+        if name not in self._repository:
+            return name
+        if mode == "number":
+            found = re.search(r"[0-9]+$", name)
+            if found:
+                pos0 = found.regs[0][0]
+                num = int(found.group(0))+1
+                name = name[:pos0] + num
+            else:
+                name = f"{name}1"
+        elif mode == "replace":
+            name = self._names.giveName()
+        else:
+            name = f"{name}{self._names.giveName()}"  # one day i have to benchmark whether this is faster than str + str
+        return self.createNewName(name, mode)
 
 
 class UniqueNameGenerator:

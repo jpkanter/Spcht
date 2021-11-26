@@ -382,5 +382,73 @@
    "gui_builder": {
       "en": "Spcht Builder",
       "de": "Spcht Architekt"
+   },
+   "generic_value": {
+      "en": "Value",
+      "de": "Wert"
+   },
+   "dialogue_if_value_text": {
+      "en": "List of if values, Spcht will check if any one of those values matches and if yes the entire node will proceed",
+      "de": "Liste von Werten die Spcht vergleicht, sollte ein Wert zutreffend sein wird der Knoten weiterverarbeitet"
+   },
+   "insert_before": {
+      "en": "Insert before current",
+      "de": "Vor aktuellen Einfügen"
+   },
+   "generic_delete": {
+      "en": "Delete",
+      "de": "Löschen"
+   },
+   "dialogue_if_value": {
+      "en": "Add, delete or modify if values",
+      "de": "Verändern der Wenn-Bedingungen"
+   },
+   "generic_key": {
+      "en": "Key",
+      "de": "Schlüssel"
+   },
+   "dialogue_mapping_text": {
+      "en": "Mapping will ‚translate‘ a key to a value",
+      "de": "Mapping übersetzt einen Schlüssel zu einem Wert"
+   },
+   "dialogue_mapping_title": {
+      "en": "Adjust mappings values",
+      "de": "Mapping Werte anpassen"
+   },
+   "node_mapping_setting_default_placeholder": {
+      "en": "Insert a default value here in case no key matches",
+      "de": "Dieser Wert wird genutzt falls keiner der Schlüssel passt"
+   },
+   "generic_new": {
+      "en": "New",
+      "de": "Neu"
+   },
+   "debug_node_spcht": {
+      "en": "Raw Spcht",
+      "de": "Roher Spcht"
+   },
+   "debug_node_computed": {
+      "en": "Processed Spcht",
+      "de": "Verarbeiteter Spcht"
+   },
+   "debug_node_save": {
+      "en": "Save",
+      "de": "Speichern"
+   },
+   "debug_node_lock": {
+      "en": "Debug Function",
+      "de": "Debug Function"
+   },
+   "json_dia_title": {
+      "en": "JSON View Dialogue",
+      "de": "JSON Ansicht"
+   },
+   "col_tech": {
+      "en": "used technologies",
+      "de": "Technologien"
+   },
+   "col_fallback": {
+      "en": "Fallback",
+      "de": "Stellvertreter"
    }
 }
