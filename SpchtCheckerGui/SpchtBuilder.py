@@ -268,7 +268,7 @@ class SpchtBuilder:
         if 'nodes' not in spcht:
             raise SpchtErrors.ParsingError("Cannot read SpchtDict, lack of 'nodes'")
         self._repository = self._recursiveSpchtImport(spcht['nodes'], base_path)
-        # ? import :ROOT:
+        # ! import :ROOT:
         self._root['field'] = spcht['id_field']
         self._root['source'] = spcht['id_source']
         # this special case of root fallbacks makes for a good headache
@@ -292,7 +292,8 @@ class SpchtBuilder:
                 name = self._names.giveName()
             else:
                 name = node['name']
-            name = self.createNewName(name)
+            name = self.createNewName(name, "number", alt_repository=temp_spcht)
+            node['name'] = name
             new_node = SimpleSpchtNode(name, parent=parent)
             for key in SpchtConstants.BUILDER_KEYS.keys():
                 if key in node and key != "name":
@@ -394,7 +395,7 @@ class SpchtBuilder:
             names.append(key)
         return names
 
-    def createNewName(self, name: str, mode="add") -> str:
+    def createNewName(self, name: str, mode="add", alt_repository=None) -> str:
         """
         Creates a new name by the given name, if the provided name is already unique it just gets echoed, otherwise
         different methods can be utilised to generate a new one.
@@ -406,11 +407,16 @@ class SpchtBuilder:
         * replace - replaces the name with one of the name repository, might be an UUID
         :param str name: any UTF-8 valid name
         :param str mode: 'add', 'number' or 'replace
+        :param didct alt_repository: alternative names repository in case of bulk processing
         :return: a new, unique name
         :rtype: str
         """
-        if name not in self._repository:
-            return name
+        if alt_repository:
+            if name not in alt_repository:
+                return name
+        else:
+            if name not in self._repository:
+                return name
         if mode == "number":
             found = re.search(r"[0-9]+$", name)
             if found:
