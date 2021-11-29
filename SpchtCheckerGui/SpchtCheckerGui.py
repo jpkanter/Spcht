@@ -35,7 +35,7 @@ from pathlib import Path
 
 from PySide2.QtGui import QStandardItemModel, QStandardItem, QFontDatabase, QIcon, QScreen
 from PySide2.QtWidgets import *
-from PySide2 import QtWidgets, QtCore, Qt
+from PySide2 import QtWidgets, QtCore
 
 from dateutil.relativedelta import relativedelta
 
