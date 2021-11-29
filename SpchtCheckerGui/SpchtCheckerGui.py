@@ -46,9 +46,9 @@ from SpchtBuilder import SpchtBuilder, SimpleSpchtNode
 from SpchtCore import Spcht, SpchtThird, SpchtTriple
 
 import SpchtUtility
-from SpchtCheckerGui_interface import SpchtMainWindow, ListDialogue, JsonDialogue, QLogHandler, MoveUpDownWidget
+from SpchtCheckerGui_interface import SpchtMainWindow, ListDialogue, JsonDialogue, QLogHandler, resource_path
 from SpchtCheckerGui_i18n import Spcht_i18n
-i18n = Spcht_i18n("./GuiLanguage.json", language='en')
+i18n = Spcht_i18n(resource_path("./GuiLanguage.json"), language='en')
 
 
 logging.basicConfig(level=logging.DEBUG)
@@ -125,7 +125,7 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.create_ui(self)
-        self.taube = Spcht()
+        self.taube = Spcht(schema_path=resource_path("./SpchtSchema.json"))
 
         self.data_cache = None
         self.spcht_builder = None
@@ -298,7 +298,7 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         try:
             with open(path_To_File, "r") as file:
                 spcht_data = json.load(file)
-                status, output = SpchtUtility.schema_validation(spcht_data, schema="./SpchtSchema.json")
+                status, output = SpchtUtility.schema_validation(spcht_data, schema=resource_path("./SpchtSchema.json"))
         except json.decoder.JSONDecodeError as e:
             self.console.insertPlainText(time_log(f"JSON Error: {str(e)}"))
             self.write_status("Json error while loading Spcht")

@@ -23,6 +23,7 @@
 import json
 import logging
 import sys
+import os
 
 from PySide2.QtGui import QStandardItemModel, QStandardItem, QFontDatabase, QIcon, QSyntaxHighlighter, QTextCharFormat, QColor, QFont, QTextDocument, QPalette
 from PySide2.QtWidgets import *
@@ -31,8 +32,22 @@ from PySide2 import QtCore, QtWidgets
 import SpchtCheckerGui_i18n
 import SpchtConstants
 
+
+def resource_path(relative_path: str) -> str:
+    """
+    Returns the path to a ressource, normally just echos, but when this is packed with PyInstall there wont be any
+    additional files, therefore this is the middleware to access packed data
+    :param relative_path: relative path to a file
+    :return: path to the file
+    :rtype: str
+    """
+    base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+    return os.path.join(base_path, relative_path)
+
+
 # ! import language stuff
-i18n = SpchtCheckerGui_i18n.Spcht_i18n("./GuiLanguage.json", language='en')
+i18n = SpchtCheckerGui_i18n.Spcht_i18n(resource_path("./GuiLanguage.json"), language='en')
+
 
 
 class SpchtMainWindow(object):

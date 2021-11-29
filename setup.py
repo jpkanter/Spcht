@@ -40,14 +40,21 @@ with open("README.md", "r") as readme:
         license="",
         python_requires=">=3.6",
         zip_safe=False,
-        py_modules=['local_tools', 'main', 'SpchtDescriptorFormat', 'SpchtErrors', 'WorkOrder', 'SpchtUtility'],
+        py_modules=['local_tools', 'main', 'SpchtCore', 'SpchtErrors', 'WorkOrder', 'SpchtUtility', 'SpchtConstants',
+                    'SpchtCheckerGui/SpchtBuilder', 'SpchtCheckerGui/SpchtCheckerGui', 'SpchtCheckerGui/SpchtCheckerGui_i18n',
+                    'SpchtCheckerGui/SpchtCheckerGui_interface'],
         data_files=[('config', ['default.spcht.json', 'config.example.json', "argparse.json", "SpchtSchema.json"]),
-                    ('maps', ['translation_maps/documents.json', 'translation_maps/languages.json', 'translation_maps/role_graphs.json', 'translation_maps/roles.json'])],
+                    ('maps', ['translation_maps/documents.json', 'translation_maps/languages.json', 'translation_maps/role_graphs.json', 'translation_maps/roles.json']),
+                    ('i18n', ['SpchtCheckerGui/GuiLanguages.json'])],
         classifiers=[
                 "Programming Language :: Python :: 3",
                 "Environment :: Console",
+                "Intended Audience :: System Administrators",
+                "Development Status :: 5 - Production/Stable",
                 "License :: GPLv3",
                 "Operating System :: OS Independent",
+                "Intended Audience :: Science/Research",
+                "Topic :: Utilities"
             ],
         install_requires=[
             "rdflib>=4.2.2",
@@ -55,10 +62,15 @@ with open("README.md", "r") as readme:
             "requests",
             "pymarc>=4.0.0",
             "python-dateutil",
-            "jsonschema>=3.2.0"
+            "jsonschema>=3.2.0",
         ],
         extras_require={"dev": [
-            "termcolor"
-        ]}
+                                "termcolor"
+                                ],
+                        "gui": [
+                                "pyside2",
+                                "appdirs"
+                            ]
+                        }
     )
 

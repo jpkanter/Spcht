@@ -604,27 +604,31 @@ def schema_validation(descriptor: dict, schema="./SpchtSchema.json") -> (bool, s
     :rtype: (bool, str)
     """
     # ? load schema, per default this should be the Spcht one but this function is written reusable
-    try:
-        with open(schema, "r") as schema_file:
-            rdy_schema = json.load(schema_file)
-    except FileNotFoundError as e:
-        if schema == "./SpchtSchema.json":
-            logger.critical("Standard Spcht Schema file could not be found, this is worrysome as its part of the package")
-        else:
-            logger.warning(f"JSON schema {schema} could not be found")
-        msg = f"Schema file {e} not found"
-        return False, msg
-    except json.JSONDecodeError as e:
-        if schema == "./SpchtSchema.json":
-            logger.critical("Package Schema for Spcht contains an error, this is worrysome.")
-        else:
-            logger.warning(f"JSON schema {schema} contains an error within the encoding")
-        msg = f"Schema file has in correct json encoding: {e}"
-        return False, msg
-    except Exception as e:
-        msg = f"Unexpected exception in 'schema_validation': {e}"
-        logger.error(msg)
-        return False, msg
+    # ? there is also the option to directly provide a loaded json for a use case i had with SpchtBuilder
+    if isinstance(schema, dict):
+        rdy_schema = schema
+    else:
+        try:
+            with open(schema, "r") as schema_file:
+                rdy_schema = json.load(schema_file)
+        except FileNotFoundError as e:
+            if schema == "./SpchtSchema.json":
+                logger.critical("Standard Spcht Schema file could not be found, this is worrysome as its part of the package")
+            else:
+                logger.warning(f"JSON schema {schema} could not be found")
+            msg = f"Schema file {e} not found"
+            return False, msg
+        except json.JSONDecodeError as e:
+            if schema == "./SpchtSchema.json":
+                logger.critical("Package Schema for Spcht contains an error, this is worrysome.")
+            else:
+                logger.warning(f"JSON schema {schema} contains an error within the encoding")
+            msg = f"Schema file has in correct json encoding: {e}"
+            return False, msg
+        except Exception as e:
+            msg = f"Unexpected exception in 'schema_validation': {e}"
+            logger.error(msg)
+            return False, msg
     # * actual validation
     try:
         validate(instance=descriptor, schema=rdy_schema)
