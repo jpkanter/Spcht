@@ -20,14 +20,23 @@
 # along with Solr2Triplestore Tool.  If not, see <http://www.gnu.org/licenses/>.
 #
 # @license GPL-3.0-only <https://www.gnu.org/licenses/gpl-3.0.en.html>
+
+# globals mostly for appdata settings
+__appname__ = "SpchtCheckerBuilderGui"
+__appauthor__ = "UniversityLeipzig"
+__version__ = "0.8"
+
 import json
 import logging
 import sys
 import os
+import time
 
 from PySide2.QtGui import QStandardItemModel, QStandardItem, QFontDatabase, QIcon, QSyntaxHighlighter, QTextCharFormat, QColor, QFont, QTextDocument, QPalette
 from PySide2.QtWidgets import *
 from PySide2 import QtCore, QtWidgets
+
+import appdirs
 
 import SpchtCheckerGui_i18n
 import SpchtConstants
@@ -53,7 +62,12 @@ i18n = SpchtCheckerGui_i18n.Spcht_i18n(resource_path("./GuiLanguage.json"), lang
 class SpchtMainWindow(object):
 
     def create_ui(self, MainWindow: QMainWindow):
+        self.time0 = time.time()
         self.FIXEDFONT = self.FIXEDFONT = tryForFont(9)
+        self.console = QTextEdit(ReadOnly=True, Font=self.FIXEDFONT)
+        # console elements gets created out of bounds so i can write to it despite it not beeing yet in layout
+        self.loadUserSettings()
+
         self.input_timer = QtCore.QTimer()
         self.input_timer.setSingleShot(True)
         self.spcht_timer = QtCore.QTimer(SingleShot=True)
@@ -134,9 +148,6 @@ class SpchtMainWindow(object):
         center_layout.addLayout(fields)
         center_layout.addLayout(graphs)
 
-        # middle part - View 2
-        self.console = QTextEdit(ReadOnly=True, Font=self.FIXEDFONT)
-
         # middle part - View 3
         self.txt_tabview = QTextEdit(ReadOnly=True)
         self.txt_tabview.setFont(self.FIXEDFONT)
@@ -193,6 +204,8 @@ class SpchtMainWindow(object):
 
         self.central_widget.addWidget(checker_wrapper)
         self.central_widget.addWidget(self.explorer)
+
+        self.console.insertPlainText(f"Building of interface took {time.time()-self.time0:.2f} seconds\n")
 
     def create_explorer_layout(self):
         self.field_completer = QCompleter()
@@ -266,9 +279,13 @@ class SpchtMainWindow(object):
 
         self.explorer_field_filter = QLineEdit()
         self.explorer_field_filter.setPlaceholderText(i18n['linetext_field_filter_placeholder'])
-        self.explorer_filter_behaviour = QCheckBox(i18n['check_blacklist_behaviour'], Checked=True)
-        self.explorer_field_filter.setText(
-            "spelling, barcode, rvk_path, rvk_path_str_mv, topic_facet, author_facet, institution, spellingShingle")
+        self.explorer_filter_behaviour = QCheckBox(i18n['check_blacklist_behaviour'], Checked=self.save_blacklist)
+        if self.save_field_filter is None:
+            self.explorer_field_filter.setText("spelling, barcode, rvk_path, rvk_path_str_mv, topic_facet, author_facet, institution, spellingShingle")
+            # extended version for solr of the ubl, whom it might concern
+            # _version_, access_facet_,author_corporate,author_corporate_role,author_sort,author_variant,barcode,barcode_de15,barcode_dech1,barcode_del152,barcode_dezi4,branch_de14,branch_de15, branch_dezi4,building,callnumber-first,callnumber-label,callnumber-raw,callnumber-search,callnumber-subject,callnumber_de14,callnumber_de15,callnumber-sort,callnumber_de15_cns_mv,callnumber_de15_ct_mv,callnumber_dech1,callnumber_del152,branch_dech1,callnumber_dezi4,collcode_dech1,collcode_dezi4,container_reference,ctrlnum,container_start_page,container_title,contents,dateSpan,de15_date,dech1_date,dewey-full,dewey-hundreds,dewey-ones,dewey-raw,dewey-sort,dewey-tens,dewey-search,era_facet,facet_912a, facet_avail,facet_de14_branch_collcode_exception,facet_local_del330, facet_scale,film_heading,finc_id_str,format_de105,format_de14, format_de15,format_del152,format_dezi4,format_finc,format_legacy_nrw,format_nrw,genre_facet,geogr_code,geogr_code_person, hierarchy_sequence, is_hierarchy_id, is_hierarchy_title, local_class_del242,local_heading_facet_dezwi2,marc028a_ct_mv,match_str,mega_collection,misc_de105,multipart_link,marc024a_ct_mv,multipart_part,multipart_set,names_id_str_mv, spelling,spellingShingle, rvk_path, rvk_path_str_mv,title_full_unstemmed, title_in_hierarchy,title_list_str,title_id_str_mv, zdb, urn, topic_facet,title_old, title_orig, title_part_str, title_short, title_sort
+        else:
+            self.explorer_field_filter.setText(self.save_field_filter)
         # additional widgets here
 
         self.explorer_top_layout.addWidget(self.explorer_field_filter)

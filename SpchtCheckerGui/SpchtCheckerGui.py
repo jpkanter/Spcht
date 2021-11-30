@@ -21,11 +21,6 @@
 #
 # @license GPL-3.0-only <https://www.gnu.org/licenses/gpl-3.0.en.html>
 
-# globals mostly for appdata settings
-__appname__ = "SpchtCheckerBuilderGui"
-__appauthor__ = "UniversityLeipzig"
-__version__ = "0.8"
-
 import json
 import logging
 import os
@@ -38,12 +33,12 @@ from io import StringIO
 from datetime import datetime
 from pathlib import Path
 
+import appdirs
 from PySide2.QtGui import QStandardItemModel, QStandardItem, QFontDatabase, QIcon, QScreen
 from PySide2.QtWidgets import *
 from PySide2 import QtWidgets, QtCore
 
 from dateutil.relativedelta import relativedelta
-import appdirs
 
 import SpchtConstants
 import SpchtErrors
@@ -52,9 +47,7 @@ from SpchtBuilder import SpchtBuilder, SimpleSpchtNode
 from SpchtCore import Spcht, SpchtThird, SpchtTriple
 
 import SpchtUtility
-from SpchtCheckerGui_interface import SpchtMainWindow, ListDialogue, JsonDialogue, QLogHandler, resource_path
-from SpchtCheckerGui_i18n import Spcht_i18n
-i18n = Spcht_i18n(resource_path("./GuiLanguage.json"), language='en')
+from SpchtCheckerGui_interface import SpchtMainWindow, ListDialogue, JsonDialogue, QLogHandler, resource_path, i18n, __appauthor__, __appname__
 
 
 logging.basicConfig(level=logging.DEBUG)
@@ -115,6 +108,24 @@ def handle_variants(dictlist: dict or list) -> list:
 
 
 class SpchtChecker(QMainWindow, SpchtMainWindow):
+    """
+    Gui for the Spcht Checker & Builder, as this is a rather big mess read further to get some thoughts behind the
+    general layout:
+
+    * Originally i thought in just using an external .ui file but the design fidility i get by using play code is a lot
+      nicer for me, therefore i went that route. That idea birthed the SpchtCheckerGui_interface.py. This file actually
+      contains more than just the interface but also Widgets and SubMenus as part of the file but not the class
+    * Usually PEP8 recommends not to name functions in python with CamelCase and reserve that name scheme only for
+      classes, this is quite often ignored. I decided to deviate from the standard a bit by using CamelCase for all
+      class functions but use a underlaying logic to determine the different usages. All variables and objects like
+      the interface elements are still using snake_case. Functions are differenciated by prefix:
+       * actFunction is an 'action' therefore the direct result of a button beeing pressed or any other even
+       * mthFunction are 'methods', functions that can be called by different parts of the code
+       * utlFunction are utilities, functions serve an abstarct purpose, possibly reused at vastly different places
+    * due timing some class-based variables have to be defined outside of the actual init, this is mostly all
+      of the interface like self.console but also some of the 'savegame' variables, in detail those are:
+       * self.tabview_menu - governs which columns of the SpchtExplorer widgets gets displayed
+    """
     # as there should be always only one instance of this its hopefully okay this way
     node_headers = [{'key': "name", 'header': i18n['col_name']},
                     {'key': "source", 'header': i18n['col_source']},
@@ -139,29 +150,32 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         self.active_data = None
         self.active_data_tables = {}
         self.active_data_index = 0
-        self.tabview_active_columns = {x['key']: True for x in self.node_headers}
-        self.tabview_menus = {}
 
         # governs Quality of Life Features:
         self.META_unsaved = False
 
         # * Event Binds
         self.surpress_comboevent = False
-        self.setup_event_binds()
-        self.setupNodeTabConstants()
+        self.utlSetupEventBinds()
+        self.utlSetupNodeTabConstants()
 
         # various
         self.console.insertPlainText(time_log(f"Init done, program started"))
         self.console.insertPlainText(f"Working Directory: {os.getcwd()}\n")
         # self.setupLogging()  # plan was to get logging into the console widget but i am too stupid
 
-        self.center()
+        self.mthLayoutCenter()
 
         # * Savegames
-        self.loadUserSettings()
         self.lineeditstyle = self.exp_tab_node_field.styleSheet()  # this is probably a horrible idea
+        self.console.insertPlainText(f"Time for init: {time.time()-self.time0:.2f}\n")
 
-    def setupNodeTabConstants(self):
+    def closeEvent(self, event):
+        self.utlSaveUserSettings()
+        event.accept()
+        # event.ignore()
+
+    def utlSetupNodeTabConstants(self):
         self.LINE_EDITS = {"name": self.exp_tab_node_name,
                       "field": self.exp_tab_node_field,
                       "tag": self.exp_tab_node_tag,
@@ -213,17 +227,17 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
             {'key': "mapping", 'data': "dict", 'widget': self.exp_tab_node_mapping_preview}
         ]
 
-    def setup_event_binds(self):
+    def utlSetupEventBinds(self):
         self.btn_load_spcht_file.clicked.connect(self.actLoadSpcht)
-        self.btn_load_spcht_retry.clicked.connect(self.btn_spcht_load_retry)
-        self.btn_tristate.clicked.connect(self.toogleTriState)
+        self.btn_load_spcht_retry.clicked.connect(self.actSpchtLoadRetry)
+        self.btn_tristate.clicked.connect(self.actToggleTriState)
         self.btn_load_testdata_file.clicked.connect(lambda: self.actLoadTestData(True))
         self.btn_load_testdata_retry.clicked.connect(self.actRetryTestdata)
         self.btn_tree_expand.clicked.connect(self.treeview_main_spcht_data.expandAll)
         self.btn_tree_collapse.clicked.connect(self.treeview_main_spcht_data.collapseAll)
         self.btn_change_main.clicked.connect(self.actChangeMainView)
         self.explorer_switch_checker.clicked.connect(self.actChangeMainView)
-        self.toogleTriState(0)
+        self.actToggleTriState(0)
         # self.explorer_data_file_path.doubleClicked.connect(self.act_data_load_dialogue)  # line edit does not emit events :/
         self.explorer_data_load_button.clicked.connect(self.actLoadTestData)
         self.explorer_field_filter.textChanged[str].connect(self.actExecDelayedFieldChange)
@@ -285,7 +299,7 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         temp_header.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
         temp_header.customContextMenuRequested.connect(self.actSpchtTabviewColumnMenu)
 
-    def setupLogging(self):
+    def utlSetupLogging(self):
         handler = QLogHandler(self)
         logging.getLogger(__name__).addHandler(handler)
         logging.getLogger(__name__).setLevel(logging.DEBUG)
@@ -294,44 +308,76 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
 
     def loadUserSettings(self):
         setting_folder = appdirs.user_config_dir(__appname__, __appauthor__, roaming=True)
-        self.console.insertPlainText(f"Loaded Settings from {setting_folder}\n")
+        save_data = {}
+        try:
+            with open(os.path.join(setting_folder, "user_settings.json"), "r") as save:
+                save_data = json.load(save)
+        except FileNotFoundError:
+            logging.warning("No 'savegame' file found, might be the first start, in this case this is normal")
+        except json.decoder.JSONDecodeError as e:
+            logging.warning(f"'savegame' file found but reading it failed: {e}")
+        self.save_blacklist = save_data.get('blacklist', False)
+        self.save_field_filter = save_data.get('field_filter', None)
+        self.tabview_active_columns = save_data.get('active_columns', {})
+        for element in self.node_headers:
+            if element['key'] not in self.tabview_active_columns:
+                self.tabview_active_columns[element['key']] = True
+        self.console.insertPlainText(f"Loaded {len(save_data)} settings from {os.path.join(setting_folder,'user_settings.json')}\n")
 
-    def center(self):
+    def utlSaveUserSettings(self):
+        save_path = appdirs.user_config_dir(__appname__,__appauthor__, roaming=True)
+        savegame = Path(save_path)
+        savegame.mkdir(parents=True, exist_ok=True)
+        savegame = savegame / "user_settings.json"  # i am actually amazed that path just uses the divide function for this
+        # ! congregating data
+        blacklist = self.explorer_filter_behaviour.isChecked()
+        field_filter = self.explorer_field_filter.text()
+
+        save_data = {
+            "blacklist": blacklist,
+            "field_filter": field_filter,
+            "active_columns": self.tabview_active_columns
+        }
+
+        with savegame.open("w", encoding="utf-8") as save:
+            json.dump(save_data, save, indent=2)
+
+    def mthLayoutCenter(self):
         center = QScreen.availableGeometry(QApplication.primaryScreen()).center()
         geo = self.frameGeometry()
         geo.moveCenter(center)
         self.move(geo.topLeft())
 
-    def btn_spcht_load_retry(self):
-        self.load_spcht(self.linetext_spcht_filepath.displayText())
+    def actSpchtLoadRetry(self):
+        self.mthLoadSpcht(self.linetext_spcht_filepath.displayText())
 
-    def load_spcht(self, path_To_File):
+    def mthLoadSpcht(self, path_To_File):
         try:
             with open(path_To_File, "r") as file:
                 spcht_data = json.load(file)
                 status, output = SpchtUtility.schema_validation(spcht_data, schema=resource_path("./SpchtSchema.json"))
         except json.decoder.JSONDecodeError as e:
             self.console.insertPlainText(time_log(f"JSON Error: {str(e)}\n"))
-            self.write_status("Json error while loading Spcht")
-            self.toogleTriState(0)
+            self.utlWriteStatus("Json error while loading Spcht")
+            self.actToggleTriState(0)
             return None
         except FileNotFoundError as e:
             self.console.insertPlainText(time_log(f"File not Found: {str(e)}\n"))
-            self.write_status("Spcht file could not be found")
-            self.toogleTriState(0)
+            self.utlWriteStatus("Spcht file could not be found")
+            self.actToggleTriState(0)
             return None
 
         if status:
             if not self.taube.load_descriptor_file(path_To_File):
                 self.console.insertPlainText(time_log(
                     f"Unknown error while loading SPCHT, this is most likely something the checker engine doesnt account for, it might be 'new'\n"))
-                self.write_status("Unexpected kind of error while loading Spcht")
+                self.utlWriteStatus("Unexpected kind of error while loading Spcht")
                 return False
-            self.toogleTriState(1)
+            self.actToggleTriState(1)
             self.btn_load_testdata_file.setDisabled(False)
-            self.populate_treeview_with_spcht()
-            self.populate_text_views()
-            self.write_status("Loaded spcht discriptor file")
+            self.mthPopulateTreeviewWithSpcht()
+            self.mthPopulateTextViews()
+            self.utlWriteStatus("Loaded spcht discriptor file")
             self.mthSpchtBuilderBtnStatus(1)
             self.explorer_node_spcht_filepath.setText(path_To_File)
             self.spcht_builder = SpchtBuilder(spcht_data, spcht_base_path=str(Path(path_To_File).parent))
@@ -343,11 +389,11 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
             self.explorer_toolbox.setCurrentIndex(1)
         else:
             self.console.insertPlainText(time_log(f"SPCHT Schema Error: {output}\n"))
-            self.write_status("Loading of spcht failed")
-            self.toogleTriState(0)
+            self.utlWriteStatus("Loading of spcht failed")
+            self.actToggleTriState(0)
             return None
 
-    def populate_treeview_with_spcht(self):
+    def mthPopulateTreeviewWithSpcht(self):
         i = 0
         # populate views
         if self.spchttree_view_model.hasChildren():
@@ -355,13 +401,13 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         for each in self.taube:
             i += 1
             tree_row = QStandardItem(each.get('name', f"Element #{i}"))
-            SpchtChecker.populate_treeview_recursion(tree_row, each)
+            SpchtChecker.mthPopulateTreeviewRecursion(tree_row, each)
             tree_row.setEditable(False)
             self.spchttree_view_model.appendRow(tree_row)
             self.treeview_main_spcht_data.setFirstColumnSpanned(i - 1, self.treeview_main_spcht_data.rootIndex(), True)
 
     @staticmethod
-    def populate_treeview_recursion(parent, node):
+    def mthPopulateTreeviewRecursion(parent, node):
         info = ""
         if node.get('type') == "mandatory":
             col0 = QStandardItem("!!!")
@@ -401,9 +447,9 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         disableEdits(col0, col1, col2, col3, col5, col6)
         parent.appendRow([col0, col1, col2, col3, col5, col6])
         if 'fallback' in node:
-            SpchtChecker.populate_treeview_recursion(parent, node['fallback'])
+            SpchtChecker.mthPopulateTreeviewRecursion(parent, node['fallback'])
 
-    def populate_text_views(self):
+    def mthPopulateTextViews(self):
         # retrieve used fields & graphs
         fields = self.taube.get_node_fields()
         predicates = self.taube.get_node_predicates()
@@ -418,7 +464,7 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
             tempItem.setEditable(False)
             self.lst_graphs_model.appendRow(tempItem)
 
-    def toogleTriState(self, status=0):
+    def actToggleTriState(self, status=0):
         toggleTexts = ["[1/3] Console", "[2/3] View", "[3/3]Tests", "Explorer"]
         if isinstance(status, bool):  # connect calls as false
             if self.tristate == 2:
@@ -445,7 +491,7 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
 
         self.btn_load_spcht_retry.setDisabled(False)
         self.linetext_spcht_filepath.setText(path_To_File)
-        self.load_spcht(path_To_File)
+        self.mthLoadSpcht(path_To_File)
 
     def mthGatherAvailableFields(self, data=None, marc21=False):
         if not data:
@@ -485,10 +531,10 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
             with open(path_to_file, "r") as file:
                 test_data = json.load(file)
         except FileNotFoundError:
-            self.write_status("Loading of example Data file failed.")
+            self.utlWriteStatus("Loading of example Data file failed.")
             return False
         except json.JSONDecodeError as e:
-            self.write_status(f"Example data contains json errors: {e}")
+            self.utlWriteStatus(f"Example data contains json errors: {e}")
             self.console.insertPlainText(time_log(f"JSON Error in Example File: {str(e)}\n"))
             return False
         if test_data:
@@ -501,7 +547,7 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
                 self.active_data = self.data_cache[0]
                 self.active_data_index = 0
                 self.explorer_linetext_search.setPlaceholderText(f"{1} / {len(self.data_cache)}")
-                self.fct_fill_explorer(self.data_cache)
+                self.mthFillExplorer(self.data_cache)
                 temp_model = QStandardItemModel()
                 [temp_model.appendRow(QStandardItem(x)) for x in self.mthGatherAvailableFields(marc21=True)]
                 self.field_completer.setModel(temp_model)
@@ -523,7 +569,7 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
 
     def actRetryTestdata(self):
         if self.data_cache:
-            self.load_spcht(self.linetext_spcht_filepath.displayText())
+            self.mthLoadSpcht(self.linetext_spcht_filepath.displayText())
             self.actProcessTestdata(self.str_testdata_filepath.displayText(), self.linetext_subject_prefix.displayText())
         # its probably bad style to directly use interface element text
 
@@ -540,16 +586,16 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
                     code_green = 1
                     for key, value in temp_dict.items():
                         if not isinstance(key, str) or not isinstance(value, str):
-                            self.write_status("Auxilliary data isnt in expected format")
+                            self.utlWriteStatus("Auxilliary data isnt in expected format")
                             code_green = 0
                             break
                     if code_green == 1:
                         debug_dict = temp_dict
         except FileNotFoundError:
-            self.write_status("No auxilliary data has been found")
+            self.utlWriteStatus("No auxilliary data has been found")
             pass  # nothing happens
         except json.JSONDecodeError:
-            self.write_status("Loading of auxilliary testdata failed due a json error")
+            self.utlWriteStatus("Loading of auxilliary testdata failed due a json error")
             pass  # also okay
         # loading debug data from debug dict if possible
         time_process_start = datetime.now()
@@ -557,7 +603,7 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         tbl_list = []
         text_list = []
         thetestset = handle_variants(self.data_cache)
-        self.progressMode(True)
+        self.mthProgressMode(True)
         self.processBar.setMaximum(len(thetestset))
         i = 0
         for entry in thetestset:
@@ -566,8 +612,8 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
             try:
                 temp = self.taube.process_data(entry, subject)
             except Exception as e:  # probably an AttributeError but i actually cant know, so we cast the WIDE net
-                self.progressMode(False)
-                self.write_status(f"SPCHT interpreting encountered an exception {e}")
+                self.mthProgressMode(False)
+                self.utlWriteStatus(f"SPCHT interpreting encountered an exception {e}")
                 return False
             if isinstance(temp, list):
                 text_list.append(
@@ -589,16 +635,16 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
             col2 = QStandardItem(str(each.sobject))
             disableEdits(col0, col1, col2)
             self.mdl_tbl_sparql.appendRow([col0, col1, col2])
-        self.toogleTriState(2)
+        self.actToggleTriState(2)
         time3 = datetime.now()-time_process_start
-        self.write_status(f"Testdata processing finished, took {delta_time_human(microseconds=time3.microseconds)}")
-        self.progressMode(False)
+        self.utlWriteStatus(f"Testdata processing finished, took {delta_time_human(microseconds=time3.microseconds)}")
+        self.mthProgressMode(False)
         return True
 
-    def write_status(self, text):
+    def utlWriteStatus(self, text):
         self.notifybar.showMessage(time_log(text, time_string="%H:%M:%S", spacer=" ", end=""))
 
-    def progressMode(self, mode):
+    def mthProgressMode(self, mode):
         # ! might go hay wire if used elsewhere cause it resets the buttons in a sense, unproblematic when
         # ! only used in processData cause all buttons are active there
         if mode:
@@ -645,10 +691,9 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
 
     def mthExecDelayedFieldChange(self):
         if self.data_cache:
-            filtering = self.explorer_field_filter.text()
-            self.fct_fill_explorer(self.data_cache, filtering)
+            self.mthFillExplorer(self.data_cache)
 
-    def fct_fill_explorer(self, data, filtering=None):
+    def mthFillExplorer(self, data):
         # * Check if filter is elegible
 
         all_keys = set()
@@ -656,6 +701,7 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
             for key in line:
                 if key != "fullrecord":  # ! TODO: do not make fullrecord static text
                     all_keys.add(key)
+        filtering = self.explorer_field_filter.text()
         if filtering:
             fields = [x.strip() for x in filtering.split(",")]
             if self.explorer_filter_behaviour.isChecked():
@@ -746,6 +792,7 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
             top_node.setEditable(False)
         self.explorer_node_treeview.setModel(floating_model)
         self.explorer_node_treeview.expandAll()
+        self.mthHideTabviewColumns()
         #self.explorer_node_treeview.setColumnHidden(5, True)
 
     def mthSetSpchtTabView(self, SpchtNode=None):  # aka NodeToForms
@@ -1206,11 +1253,6 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
             if each['key'] == "name":
                 continue
             self.explorer_node_treeview.setColumnHidden(_, not self.tabview_active_columns[each['key']])
-
-
-    def testEvent(self, event):
-        print(event)
-
 
 if __name__ == "__main__":
     thisApp = QtWidgets.QApplication(sys.argv)
