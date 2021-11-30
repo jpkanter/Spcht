@@ -21,6 +21,11 @@
 #
 # @license GPL-3.0-only <https://www.gnu.org/licenses/gpl-3.0.en.html>
 
+# globals mostly for appdata settings
+__appname__ = "SpchtCheckerBuilderGui"
+__appauthor__ = "UniversityLeipzig"
+__version__ = "0.8"
+
 import json
 import logging
 import os
@@ -38,6 +43,7 @@ from PySide2.QtWidgets import *
 from PySide2 import QtWidgets, QtCore
 
 from dateutil.relativedelta import relativedelta
+import appdirs
 
 import SpchtConstants
 import SpchtErrors
@@ -146,12 +152,13 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
 
         # various
         self.console.insertPlainText(time_log(f"Init done, program started"))
-        self.console.insertPlainText(f"Working Directory: {os.getcwd()}")
+        self.console.insertPlainText(f"Working Directory: {os.getcwd()}\n")
         # self.setupLogging()  # plan was to get logging into the console widget but i am too stupid
 
         self.center()
 
         # * Savegames
+        self.loadUserSettings()
         self.lineeditstyle = self.exp_tab_node_field.styleSheet()  # this is probably a horrible idea
 
     def setupNodeTabConstants(self):
@@ -285,6 +292,10 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         handler.new_record.connect(self.console.append)
         #logging.warning("i think this isnt working at all, sad times")
 
+    def loadUserSettings(self):
+        setting_folder = appdirs.user_config_dir(__appname__, __appauthor__, roaming=True)
+        self.console.insertPlainText(f"Loaded Settings from {setting_folder}\n")
+
     def center(self):
         center = QScreen.availableGeometry(QApplication.primaryScreen()).center()
         geo = self.frameGeometry()
@@ -300,12 +311,12 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
                 spcht_data = json.load(file)
                 status, output = SpchtUtility.schema_validation(spcht_data, schema=resource_path("./SpchtSchema.json"))
         except json.decoder.JSONDecodeError as e:
-            self.console.insertPlainText(time_log(f"JSON Error: {str(e)}"))
+            self.console.insertPlainText(time_log(f"JSON Error: {str(e)}\n"))
             self.write_status("Json error while loading Spcht")
             self.toogleTriState(0)
             return None
         except FileNotFoundError as e:
-            self.console.insertPlainText(time_log(f"File not Found: {str(e)}"))
+            self.console.insertPlainText(time_log(f"File not Found: {str(e)}\n"))
             self.write_status("Spcht file could not be found")
             self.toogleTriState(0)
             return None
@@ -313,7 +324,7 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         if status:
             if not self.taube.load_descriptor_file(path_To_File):
                 self.console.insertPlainText(time_log(
-                    f"Unknown error while loading SPCHT, this is most likely something the checker engine doesnt account for, it might be 'new'"))
+                    f"Unknown error while loading SPCHT, this is most likely something the checker engine doesnt account for, it might be 'new'\n"))
                 self.write_status("Unexpected kind of error while loading Spcht")
                 return False
             self.toogleTriState(1)
@@ -331,7 +342,7 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
             self.mthFillNodeView(self.spcht_builder.displaySpcht())
             self.explorer_toolbox.setCurrentIndex(1)
         else:
-            self.console.insertPlainText(time_log(f"SPCHT Schema Error: {output}"))
+            self.console.insertPlainText(time_log(f"SPCHT Schema Error: {output}\n"))
             self.write_status("Loading of spcht failed")
             self.toogleTriState(0)
             return None
@@ -478,7 +489,7 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
             return False
         except json.JSONDecodeError as e:
             self.write_status(f"Example data contains json errors: {e}")
-            self.console.insertPlainText(time_log(f"JSON Error in Example File: {str(e)}"))
+            self.console.insertPlainText(time_log(f"JSON Error in Example File: {str(e)}\n"))
             return False
         if test_data:
             self.data_cache = handle_variants(test_data)
@@ -497,7 +508,7 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
                 if self.active_spcht_node:
                     self.mthCreateTempSpcht()
             else:
-                self.console.insertPlainText(f"Loading of file {path_to_file} failed, most likely an unsupported format")
+                self.console.insertPlainText(f"Loading of file {path_to_file} failed, most likely an unsupported format\n")
 
         if graph_prompt:
             graphtext = self.linetext_subject_prefix.displayText()
@@ -1203,7 +1214,7 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
 
 if __name__ == "__main__":
     thisApp = QtWidgets.QApplication(sys.argv)
-    thisApp.setWindowIcon(QIcon(':/icons/woodpecker.ico'))
+    thisApp.setWindowIcon(QIcon('./woodpecker.png'))
     window = SpchtChecker()
     window.show()
     try:

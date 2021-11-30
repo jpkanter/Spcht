@@ -7,8 +7,10 @@ a = Analysis(['SpchtCheckerGui/SpchtCheckerGui.py'],
 			 pathex=['./'],
              binaries=[],
              datas=[
-			 ('./SpchtCheckerGui/GuiLanguage.json', '.'),
-			 ('./SpchtSchema.json', '.')],
+			       ('./SpchtCheckerGui/GuiLanguage.json', '.'),
+			       ('./SpchtSchema.json', '.'),
+			       ('./SpchtCheckerGui/woodpecker.png', '.')
+			       ],
              hiddenimports=[],
              hookspath=[],
              runtime_hooks=[],
@@ -34,4 +36,11 @@ exe = EXE(pyz,
           runtime_tmpdir=None,
           console=False,
 		  icon='./SpchtCheckerGui/woodpecker.ico')
-
+coll = COLLECT(exe,
+               a.binaries,
+               a.zipfiles,
+               a.datas, 
+               strip=False,
+               upx=True,
+               upx_exclude=[],
+               name='SpchtCheckerGui')
