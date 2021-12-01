@@ -308,6 +308,7 @@ class SpchtBuilder:
                 if key in node and key != "name":
                     if key in SpchtConstants.BUILDER_LIST_REFERENCE:  # sub_nodes & sub_data
                         new_group = self._names.giveName()
+                        new_group = self.createNewName(new_group, "replace")
                         new_node[key] = new_group
                         temp_spcht.update(self._recursiveSpchtImport(node[key], base_path, parent=new_group))
                     elif key in SpchtConstants.BUILDER_SINGLE_REFERENCE:  # fallback
@@ -420,12 +421,29 @@ class SpchtBuilder:
         :return: a new, unique name
         :rtype: str
         """
+        all_clear = True # i fear this is the easiest way, but i am not happy with it
         if alt_repository:
+            for key in alt_repository:
+                if key == name:
+                    all_clear = False
+                    break
+                if hasattr(alt_repository[key], "parent"):  # theoretically this has not to be a dict of SimpleSpchtNodes
+                    if alt_repository[key].parent == name:
+                        all_clear = False
+                        break
             if name not in alt_repository:
                 return name
-        else:
-            if name not in self._repository:
-                return name
+        else:  # checks for direct names and duplicated parent names
+            for key in self._repository:
+                if key == name:
+                    all_clear = False
+                    break
+                if self._repository[key].parent == name:
+                    all_clear = False
+                    break
+        if all_clear:
+            return name
+        # ! in case a duplicate was found
         if mode == "number":
             found = re.search(r"[0-9]+$", name)
             if found:

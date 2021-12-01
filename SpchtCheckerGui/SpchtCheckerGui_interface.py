@@ -742,10 +742,10 @@ class SelectionDialogue(QDialog):
         self.model_2 = QStandardItemModel()
         self.list_2.setModel(self.model_2)
         layout_middle = QVBoxLayout()
-        self.btn_left = QPushButton(icon=QIcon.fromTheme("arrow-left"))
-        self.btn_right = QPushButton(icon=QIcon.fromTheme("arrow-right"))
+        self.btn_left = QPushButton(icon=QApplication.style().standardIcon(QStyle.SP_ArrowLeft))
+        self.btn_right = QPushButton(icon=QApplication.style().standardIcon(QStyle.SP_ArrowRight))
         # Cross Platform arrows arent exactly straight forward, some humans suggested this:
-        # icon=QApplication.style().standardIcon(QStyle.SP_ArrowLeft)
+        # icon=QIcon.fromTheme("arrow-left")
         # but it seems to not work under windows, both do in Linux with KDE
         layout_middle.addStretch(1)
         layout_middle.addWidget(self.btn_right)
@@ -839,6 +839,7 @@ class SelectionDialogue(QDialog):
             item2 = self.model_2.item(_)
             items.append(item2.text())
         return items
+
 
 class JsonDialogue(QDialog):
     def __init__(self, data, parent=None):

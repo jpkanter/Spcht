@@ -256,7 +256,7 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         #self.spcht_tree_model.itemChanged.connect(self.fct_explorer_spcht_change)
 
         # * Spcht Node Edit Tab
-        self.spcht_timer.timeout.connect(self.mthCreateTempSpcht)
+        self.spcht_timer.timeout.connect(self.actCreateTempAndCompute)
         self.exp_tab_node_name.textChanged[str].connect(self.actDelayedSpchtComputing)
         self.exp_tab_node_field.textChanged[str].connect(self.actDelayedSpchtComputing)
         self.exp_tab_node_source.currentIndexChanged.connect(self.actDelayedSpchtComputing)
@@ -545,7 +545,8 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
                 [temp_model.appendRow(QStandardItem(x)) for x in self.mthGatherAvailableFields(marc21=True)]
                 self.field_completer.setModel(temp_model)
                 if self.active_spcht_node:
-                    self.mthCreateTempSpcht()
+                    temp = self.mthCreateTempSpcht()
+                    self.mthComputeSpcht(temp)
             else:
                 self.console.insertPlainText(f"Loading of file {path_to_file} failed, most likely an unsupported format\n")
 
@@ -686,6 +687,11 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         if self.data_cache:
             self.mthFillExplorer(self.data_cache)
 
+    def actCreateTempAndCompute(self):
+        temp = self.mthCreateTempSpcht()
+        if temp:
+            self.mthComputeSpcht(temp)
+
     def actFieldFilterHelper(self):
         all_fields = set()
         if self.data_cache:
@@ -780,7 +786,9 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
             self.active_data_index = number
             self.explorer_linetext_search.setPlaceholderText(f"{number+1} / {len(self.data_cache)}")
             self.explorer_linetext_search.setText("")
-        self.mthCreateTempSpcht()
+        temp = self.mthCreateTempSpcht()
+        if temp:
+            self.mthComputeSpcht(temp)
         #self.mthComputeSpcht()
 
     def mthFillNodeView(self, builder_display_data):
@@ -961,8 +969,17 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         if self.active_spcht_node:
             temp = self.mthNodeFormsToSpcht(self.active_spcht_node)
             if temp:
-                temp = self.spcht_builder.compileNodeReference(temp)
-                self.mthComputeSpcht(temp)
+                # ? apparently to get the true temp node i need to get a new builder with the changed node so i can
+                # ? can compile accordingly to properly collapse the dependencies..
+                temp_builder = copy.deepcopy(self.spcht_builder)
+                smp = SimpleSpchtNode(temp['name'])
+                smp.properties = temp
+                smp.parent = temp.get('parent', ":MAIN:")
+                temp_builder.modify(self.active_spcht_node['name'], smp)
+                temp = temp_builder.compileNode(temp['name'])
+                temp = temp_builder.compileNodeReference(temp)
+                return temp
+            return None
 
     def mthNodeFormsToSpcht(self, source_node=None):
         raw_node = {'required': 'optional'}  # legacy bullshit i thought that was more important in the past
@@ -1058,7 +1075,7 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         if mode == 1:
             data = self.active_spcht_node
         else:
-            data = self.mthNodeFormsToSpcht(self.active_spcht_node)
+            data = self.mthCreateTempSpcht()
         dlg = JsonDialogue(data)
         if dlg.exec_():
             print(dlg.getContent())
