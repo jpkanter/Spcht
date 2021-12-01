@@ -3,6 +3,10 @@
       "en": "SPCHT Format Checker & analyzer",
       "de": "SPCHT Format Prüfer und Analysegerät"
    },
+   "meta_language_name": {
+      "en": "English",
+      "de": "Deutsch"
+   },
    "btn_sdf_txt": {
       "en": "open spcht.json",
       "de": "spcht.json Öffnen"

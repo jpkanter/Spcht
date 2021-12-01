@@ -47,7 +47,7 @@ from SpchtBuilder import SpchtBuilder, SimpleSpchtNode
 from SpchtCore import Spcht, SpchtThird, SpchtTriple
 
 import SpchtUtility
-from SpchtCheckerGui_interface import SpchtMainWindow, ListDialogue, JsonDialogue, QLogHandler, resource_path, i18n, __appauthor__, __appname__
+from SpchtCheckerGui_interface import SpchtMainWindow, ListDialogue, JsonDialogue, SelectionDialogue, QLogHandler, resource_path, i18n, __appauthor__, __appname__
 
 
 logging.basicConfig(level=logging.DEBUG)
@@ -126,24 +126,11 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
       of the interface like self.console but also some of the 'savegame' variables, in detail those are:
        * self.tabview_menu - governs which columns of the SpchtExplorer widgets gets displayed
     """
-    # as there should be always only one instance of this its hopefully okay this way
-    node_headers = [{'key': "name", 'header': i18n['col_name']},
-                    {'key': "source", 'header': i18n['col_source']},
-                    {'key': "field", 'header': i18n['col_field']},
-                    {'key': "predicate", 'header': i18n['col_predicate']},
-                    {'key': "type", 'header': i18n['col_type']},
-                    {'key': "mandatory", 'header': i18n['col_mandatory']},
-                    {'key': "sub_nodes", 'header': i18n['col_sub_nodes']},
-                    {'key': "sub_data", 'header': i18n['col_sub_data']},
-                    {'key': "fallback", 'header': i18n['col_fallback']},
-                    {'key': "tech", 'header': i18n['col_tech']},
-                    {'key': "comment", 'header': i18n['col_comment']}]
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.create_ui(self)
-        self.taube = Spcht(schema_path=resource_path("./SpchtSchema.json"))
-
+        # * condensly generates the names for SpchtView Headers
+        self.node_headers = [{'key': x, 'header': i18n[f'col_{x}']} for x in SpchtBuilder.displaySpchtHeaders()]
         self.data_cache = None
         self.spcht_builder = None
         self.active_spcht_node = None
@@ -153,6 +140,11 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
 
         # governs Quality of Life Features:
         self.META_unsaved = False
+        # ! this creates the entire ui, small line, big cause
+        self.create_ui(self)
+        self.taube = Spcht(schema_path=resource_path("./SpchtSchema.json"))
+
+
 
         # * Event Binds
         self.surpress_comboevent = False
@@ -243,6 +235,7 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         self.explorer_field_filter.textChanged[str].connect(self.actExecDelayedFieldChange)
         self.input_timer.timeout.connect(self.mthExecDelayedFieldChange)
         self.explorer_field_filter.returnPressed.connect(self.mthExecDelayedFieldChange)
+        self.explorer_field_filter_helper.clicked.connect(self.actFieldFilterHelper)
         self.explorer_filter_behaviour.stateChanged.connect(self.mthExecDelayedFieldChange)
 
         #self.explorer_center_search_button.clicked.connect(self.test_button)
@@ -692,6 +685,22 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
     def mthExecDelayedFieldChange(self):
         if self.data_cache:
             self.mthFillExplorer(self.data_cache)
+
+    def actFieldFilterHelper(self):
+        all_fields = set()
+        if self.data_cache:
+            for line in self.data_cache:
+                for key in line:
+                    if key != "fullrecord":  # ! TODO: do not make fullrecord static text
+                        all_fields.add(key)
+        filtering = self.explorer_field_filter.text()
+        if not filtering:
+            field_filter = []
+        else:
+            field_filter = [x.strip() for x in filtering.split(",")]
+        dlg = SelectionDialogue(i18n['dialogue_filter_helper'], field_filter, list(all_fields), self)
+        if dlg.exec_():
+            self.explorer_field_filter.setText(", ".join(dlg.getListA()))
 
     def mthFillExplorer(self, data):
         # * Check if filter is elegible
@@ -1253,6 +1262,7 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
             if each['key'] == "name":
                 continue
             self.explorer_node_treeview.setColumnHidden(_, not self.tabview_active_columns[each['key']])
+
 
 if __name__ == "__main__":
     thisApp = QtWidgets.QApplication(sys.argv)

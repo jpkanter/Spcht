@@ -262,6 +262,15 @@ class SpchtBuilder:
             grouped_dict[each.parent].append(curated_data)
         return grouped_dict
 
+    @staticmethod
+    def displaySpchtHeaders() -> list:
+        """
+        Just echos the possible header names from above so SpchtBuilder can serve as a "source of truth"
+        :return: a list of strings
+        :rtype: list
+        """
+        return ["name", "source", "field", "type", "mandatory", "sub_nodes", "sub_data", "predicate", "fallback", "tech", "comment"]
+
     def _importSpcht(self, spcht: dict, base_path=None):
         self._repository = {}
         self._names.reset()

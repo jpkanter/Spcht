@@ -278,6 +278,7 @@ class SpchtMainWindow(object):
         self.explorer_top_layout = QHBoxLayout()
 
         self.explorer_field_filter = QLineEdit()
+        self.explorer_field_filter_helper = QPushButton("...", maximumWidth=40)
         self.explorer_field_filter.setPlaceholderText(i18n['linetext_field_filter_placeholder'])
         self.explorer_filter_behaviour = QCheckBox(i18n['check_blacklist_behaviour'], Checked=self.save_blacklist)
         if self.save_field_filter is None:
@@ -289,6 +290,7 @@ class SpchtMainWindow(object):
         # additional widgets here
 
         self.explorer_top_layout.addWidget(self.explorer_field_filter)
+        self.explorer_top_layout.addWidget(self.explorer_field_filter_helper)
         self.explorer_top_layout.addWidget(self.explorer_filter_behaviour)
         # self.explore_main_vertical.addLayout(self.explorer_top_layout)
         self.explorer_data_file_path = QLineEdit(ReadOnly=True)
@@ -716,6 +718,127 @@ class ListDialogue(QDialog):
         else:
             return self.getDictionary()
 
+
+class SelectionDialogue(QDialog):
+    """
+    Accepts two lists, presumes ever element on each list is an overall unique string (but case sensitive, so that
+    'name' and 'Name' are different things) Gives the user the ability to swap elements of the list. The underlaying
+    technique to move elemnts is primitiv, doesnt scale well and is a source of eternal shame. But it works well enough
+    """
+    def __init__(self, title: str, list_a: list, list_b: list, parent=None):
+        super().__init__(parent)
+
+        self.setWindowTitle(title)
+        self.setMinimumWidth(600)
+        self.setMinimumHeight(480)
+        QBtn = QDialogButtonBox.Save | QDialogButtonBox.Cancel
+        self.button_box = QDialogButtonBox(QBtn)
+
+        self.layout = QGridLayout()
+        self.list_1 = QListView()
+        self.model_1 = QStandardItemModel()
+        self.list_1.setModel(self.model_1)
+        self.list_2 = QListView()
+        self.model_2 = QStandardItemModel()
+        self.list_2.setModel(self.model_2)
+        layout_middle = QVBoxLayout()
+        self.btn_left = QPushButton(icon=QIcon.fromTheme("arrow-left"))
+        self.btn_right = QPushButton(icon=QIcon.fromTheme("arrow-right"))
+        # Cross Platform arrows arent exactly straight forward, some humans suggested this:
+        # icon=QApplication.style().standardIcon(QStyle.SP_ArrowLeft)
+        # but it seems to not work under windows, both do in Linux with KDE
+        layout_middle.addStretch(1)
+        layout_middle.addWidget(self.btn_right)
+        layout_middle.addWidget(self.btn_left)
+        layout_middle.addStretch(1)
+
+        self.layout.addWidget(self.list_1, 0, 0)
+        self.layout.addLayout(layout_middle, 0, 1)
+        self.layout.addWidget(self.list_2, 0, 2)
+        self.layout.addWidget(self.button_box, 1, 2)
+
+        self.setLayout(self.layout)
+
+        self.btn_right.clicked.connect(self.LeftToRightMove)
+        self.list_1.doubleClicked.connect(self.LeftToRightMove)
+        self.btn_left.clicked.connect(self.RightToLeftMove)
+        self.list_2.doubleClicked.connect(self.RightToLeftMove)
+        self.button_box.accepted.connect(self.accept)
+        self.button_box.rejected.connect(self.reject)
+
+        self.mthSortData(list_a, list_b)
+
+    def mthSortData(self, list_a, list_b):
+        list_1 = set(list_a)  # unique element list of list_a
+        for element in sorted(list_a, key=str.lower):
+            element_of_nothing = QStandardItem(element)
+            element_of_nothing.setEditable(False)
+            # * i really dislike this, but i found no one liner solution in 5 minutes so i had to give up, sad
+            # ? item.setFlags(QtCore.Qt.ItemIsEnabled | QtCore.Qt.ItemIsSelectable)
+            # ? setEditable wraps just setFlag while preserving the others
+            self.model_1.appendRow(element_of_nothing)
+        for element in sorted(list_b, key=str.lower):
+            if element not in list_1:  # uniqueness check
+                element_of_nothing = QStandardItem(element)
+                element_of_nothing.setEditable(False)
+                self.model_2.appendRow(element_of_nothing)
+
+    def LeftToRightMove(self):
+        index = self.list_1.currentIndex()
+        if index.row() < 0:
+            return
+        item = self.model_1.itemFromIndex(index)
+        # iterating through all elements of the list, sorting and adding because this is quicker for me
+        list_2_items = []
+        for _ in range(self.model_2.rowCount()):
+            item2 = self.model_2.item(_)
+            list_2_items.append(item2.text())
+        list_2_items.append(item.text())
+        # * now we remove the activated item
+        self.model_1.removeRow(index.row())
+        # * clearing the model and re-adding everything with their now sister among them
+        self.model_2.clear()
+        for element in sorted(list_2_items, key=str.lower):
+            element_of_nothing = QStandardItem(element)
+            element_of_nothing.setEditable(False)
+            self.model_2.appendRow(element_of_nothing)
+
+    def RightToLeftMove(self):
+        """
+        Carbon Copy of LeftToRight
+        """
+        index = self.list_2.currentIndex()
+        if index.row() < 0:
+            return
+        item = self.model_2.itemFromIndex(index)
+        # iterating through all elements of the list, sorting and adding because this is quicker for me
+        list_1_items = []
+        for _ in range(self.model_1.rowCount()):
+            item1 = self.model_1.item(_)
+            list_1_items.append(item1.text())
+        list_1_items.append(item.text())
+        # * now we remove the activated item
+        self.model_2.removeRow(index.row())
+        # * clearing the model and re-adding everything with their now sister among them
+        self.model_1.clear()
+        for element in sorted(list_1_items, key=str.lower):
+            element_of_nothing = QStandardItem(element)
+            element_of_nothing.setEditable(False)
+            self.model_1.appendRow(element_of_nothing)
+
+    def getListA(self):
+        items = []
+        for _ in range(self.model_1.rowCount()):
+            item1 = self.model_1.item(_)
+            items.append(item1.text())
+        return items
+
+    def getListB(self):
+        items = []
+        for _ in range(self.model_2.rowCount()):
+            item2 = self.model_2.item(_)
+            items.append(item2.text())
+        return items
 
 class JsonDialogue(QDialog):
     def __init__(self, data, parent=None):
