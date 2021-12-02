@@ -50,6 +50,18 @@ class SimpleSpchtNode:
         else:
             return default
 
+    def pop(self, key, default=None):
+        """
+        Simple forwarding of dictionaries .pop function
+        :param str or int key: key of an dictionary
+        :param any default: value that will be returned if nothing happened
+        :return: the popped value
+        :rtype: Any
+        """
+        if key not in self.properties:
+            raise KeyError(key)
+        return self.properties.pop(key, default)
+
     def __repr__(self):
         return f"Parent={self.parent} - " + str(self.properties)
 
@@ -123,6 +135,12 @@ class SpchtBuilder:
         else:
             raise KeyError(f"SpchtBuilder::Cannot access key '{item}'.")
 
+    def get(self, key, default=None):
+        if key in self.repository:
+            return self.repository[key]
+        else:
+            return default
+
     def add(self, UniqueSpchtNode: SimpleSpchtNode):
         UniqueSpchtNode['name'] = self.createNewName(UniqueSpchtNode['name'])
         # if UniqueSpchtNode['name'] in self._repository:
@@ -140,8 +158,26 @@ class SpchtBuilder:
     def modify(self, OriginalName: str, UniqueSpchtNode: SimpleSpchtNode):
         if OriginalName not in self._repository:
             raise KeyError(f"Cannot update node {OriginalName} as it does not exist")
+        # ! reinstate fallback relationships
         if OriginalName != UniqueSpchtNode['name']:
             UniqueSpchtNode['name'] = self.createNewName(UniqueSpchtNode['name'])
+
+        # ! you can actually set a node to be its own parent, it wont be exported that ways as no recursion will find it
+        # ! if you manually set a node a parent that already has a fallback that relationship will be usurped
+        old_fallback = self._repository[OriginalName].get('fallback', None)
+        new_fallback = UniqueSpchtNode.get('fallback', None)
+        if old_fallback or new_fallback:  # we only have to iterate once through the thing
+            for name in self._repository:
+                if 'fallback' in self._repository[name]:
+                    if old_fallback != new_fallback:
+                        if self._repository[name]['fallback'] == new_fallback:  # the other nodes loses its fallback
+                            self._repository[name].pop('fallback', None)
+                        if name == old_fallback:
+                            self._repository[name].parent = ":MAIN:"  # default back into the orphanage called :MAIN:
+                if name == new_fallback:  # the target of the old fallback gets a new parent
+                    self._repository[name].parent = UniqueSpchtNode['name']  # also accidentally updates the fallback in case the node is now named differently
+
+        if OriginalName != UniqueSpchtNode['name']:  # * second time we do this because the fallback fix from above needed the name earlier
             # ? this is actually a rather hard decision, do i want to discard the name automatically or give choice to the user?
             # if UniqueSpchtNode['name'] in self._repository:
             #    raise SpchtErrors.OperationalError("Cannot modify node with new name as another node already exists")
@@ -376,10 +412,15 @@ class SpchtBuilder:
         return copy.copy(self._references.get(rel_path, {}))
 
     def getSolidParents(self):
-        names = []
-        for node in self._repository.keys():
-            names.append(node)
-        return names
+        return [key for key in self._repository]
+
+    def getChildlessParents(self):
+        """
+        Finds all parent objects that are actual nodes and do not already possess a fallback
+        :return: list of all nodes without fallback
+        :rtype: list
+        """
+        return [x for x in self._repository if 'fallback' not in self._repository[x]]
 
     def getSubdataParents(self):
         names = []

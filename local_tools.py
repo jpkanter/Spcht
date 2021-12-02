@@ -94,12 +94,12 @@ def load_remote_content(url, params, response_type=0, mode="GET"):
             resp = requests.post(url, data=params)
         if resp.status_code != 200:
             raise SpchtErrors.RequestError("Request couldnt be fullfilled, check url")
-        if response_type == 0 or response_type > 2:  # this seems ugly
-            return resp.text
-        elif response_type == 1:
+        if response_type == 1:
             return resp.headers
         elif response_type == 2:
             return resp
+        else:
+            return resp.text
     except requests.exceptions.RequestException as e:
         print("Request not successful,", e, file=sys.stderr)
 
@@ -284,7 +284,7 @@ def test_json(json_str: str) -> dict or bool:
         data = json.loads(json_str)
         return data
     except ValueError:
-        logger.error(f"Got supplied an errernous json, started with '{str[:100]}'")
+        logger.error(f"Got supplied an errernous json, started with '{str(json_str)[:100]}'")
         return None
     except SpchtErrors.RequestError as e:
         logger.error(f"Connection Error: {e}")

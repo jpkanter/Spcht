@@ -47,7 +47,11 @@ from SpchtBuilder import SpchtBuilder, SimpleSpchtNode
 from SpchtCore import Spcht, SpchtThird, SpchtTriple
 
 import SpchtUtility
-from SpchtCheckerGui_interface import SpchtMainWindow, ListDialogue, JsonDialogue, SelectionDialogue, QLogHandler, resource_path, i18n, __appauthor__, __appname__
+from SpchtCheckerGui_interface import SpchtMainWindow, ListDialogue, JsonDialogue, SelectionDialogue, QLogHandler, SolrDialogue, resource_path, i18n, __appauthor__, __appname__
+
+__SOLR_MAX_START__ = 25000
+__SOLR_MAX_ROWS__ = 500
+__SOLR_DEFAULT_QUERY__ = "*.*"
 
 
 logging.basicConfig(level=logging.DEBUG)
@@ -185,7 +189,7 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
                          {'key': "if_condition", 'widget': self.exp_tab_node_if_condition},
                          {'key': "parent", 'widget': self.exp_tab_node_subdata_of},
                          {'key': "parent", 'widget': self.exp_tab_node_subnode_of},
-                         {'key': "parent", 'widget': self.exp_tab_node_fallback}]
+                         {'key': "fallback", 'widget': self.exp_tab_node_fallback}]
         self.CHECKBOX = {"required": {
                             "widget": self.exp_tab_node_mandatory,
                             "bool": {False: "optional", True: "mandatory"}
@@ -209,9 +213,9 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
             {'type': "check", 'widget': self.exp_tab_mapping_casesens, 'key': 'mapping_settings>$casesens', 'bool': {True: True, False: False}},
         ]
         self.FILL = [
-            {'type': "combo", 'widget': self.exp_tab_node_subdata_of, 'fct': "getSubdataParents"},
-            {'type': "combo", 'widget': self.exp_tab_node_subnode_of, 'fct': "getSubnodeParents"},
-            {'type': "combo", 'widget': self.exp_tab_node_fallback, 'fct': "getSolidParents"}
+            {'type': "combo", 'widget': self.exp_tab_node_subdata_of, 'fct': "getSubdataParents", 'key': "sub_nodes"},
+            {'type': "combo", 'widget': self.exp_tab_node_subnode_of, 'fct': "getSubnodeParents", 'key': "sub_data"},
+            {'type': "combo", 'widget': self.exp_tab_node_fallback, 'fct': "getSolidParents", 'key': "fallback"},
         ]
         self.dialogue = [
             {'key': "if_value", 'data': "list", 'widget': self.exp_tab_node_if_many_values},
@@ -232,6 +236,7 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         self.actToggleTriState(0)
         # self.explorer_data_file_path.doubleClicked.connect(self.act_data_load_dialogue)  # line edit does not emit events :/
         self.explorer_data_load_button.clicked.connect(self.actLoadTestData)
+        self.explorer_data_solr_button.clicked.connect(self.actSolrLoad)
         self.explorer_field_filter.textChanged[str].connect(self.actExecDelayedFieldChange)
         self.input_timer.timeout.connect(self.mthExecDelayedFieldChange)
         self.explorer_field_filter.returnPressed.connect(self.mthExecDelayedFieldChange)
@@ -287,6 +292,7 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         self.exp_tab_node_display_spcht.clicked.connect(lambda: self.actDisplayJson(1))
         self.exp_tab_node_display_computed.clicked.connect(lambda: self.actDisplayJson(0))
         self.exp_tab_node_save_node.clicked.connect(self.saveBuilderNode)
+        self.exp_tab_node_builder.clicked.connect(self.actShowCompleteBuilder)
 
         temp_header = self.explorer_node_treeview.header()
         temp_header.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
@@ -312,6 +318,7 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         self.save_blacklist = save_data.get('blacklist', False)
         self.save_field_filter = save_data.get('field_filter', None)
         self.tabview_active_columns = save_data.get('active_columns', {})
+        self.solr_defaults = save_data.get('solr_defaults', None)
         for element in self.node_headers:
             if element['key'] not in self.tabview_active_columns:
                 self.tabview_active_columns[element['key']] = True
@@ -329,7 +336,8 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         save_data = {
             "blacklist": blacklist,
             "field_filter": field_filter,
-            "active_columns": self.tabview_active_columns
+            "active_columns": self.tabview_active_columns,
+            "solr_defaults": self.solr_defaults
         }
 
         with savegame.open("w", encoding="utf-8") as save:
@@ -533,20 +541,7 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         if test_data:
             self.data_cache = handle_variants(test_data)
             if len(self.data_cache):
-                # * legacy checker things:
-                self.str_testdata_filepath.setText(path_to_file)
-                # * explorer stuff
-                self.explorer_data_file_path.setText(path_to_file)
-                self.active_data = self.data_cache[0]
-                self.active_data_index = 0
-                self.explorer_linetext_search.setPlaceholderText(f"{1} / {len(self.data_cache)}")
-                self.mthFillExplorer(self.data_cache)
-                temp_model = QStandardItemModel()
-                [temp_model.appendRow(QStandardItem(x)) for x in self.mthGatherAvailableFields(marc21=True)]
-                self.field_completer.setModel(temp_model)
-                if self.active_spcht_node:
-                    temp = self.mthCreateTempSpcht()
-                    self.mthComputeSpcht(temp)
+                self.mthSetTestData(path_to_file, self.data_cache)
             else:
                 self.console.insertPlainText(f"Loading of file {path_to_file} failed, most likely an unsupported format\n")
 
@@ -560,6 +555,21 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
             if self.actProcessTestdata(path_to_file, graph):
                 self.btn_load_testdata_retry.setDisabled(False)
                 self.linetext_subject_prefix.setText(graph)
+
+    def mthSetTestData(self, source: str, data: list):
+        self.str_testdata_filepath.setText(source)
+        # * explorer stuff
+        self.explorer_data_file_path.setText(source)
+        self.active_data = data[0]
+        self.active_data_index = 0
+        self.explorer_linetext_search.setPlaceholderText(f"{1} / {len(data)}")
+        self.mthFillExplorer(data)
+        temp_model = QStandardItemModel()
+        [temp_model.appendRow(QStandardItem(x)) for x in self.mthGatherAvailableFields(marc21=True)]
+        self.field_completer.setModel(temp_model)
+        if self.active_spcht_node:
+            temp = self.mthCreateTempSpcht()
+            self.mthComputeSpcht(temp)
 
     def actRetryTestdata(self):
         if self.data_cache:
@@ -692,6 +702,52 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         if temp:
             self.mthComputeSpcht(temp)
 
+    def actSolrLoad(self, message=None):
+        if self.solr_defaults == None:
+            self.solr_defaults = {"q": "*:*"}
+        dlg = SolrDialogue(i18n['solr_load_title'], message=message, defaults=self.solr_defaults, parent=self)
+        if dlg.exec_():
+            self.solr_defaults = dlg.getData()
+            # ? some sanity
+            if 'start' in self.solr_defaults:
+                if SpchtUtility.is_int(self.solr_defaults['start']):
+                    self.solr_defaults['start'] = int(self.solr_defaults['start'])
+                    if self.solr_defaults['start'] > __SOLR_MAX_START__:
+                        self.solr_defaults['start'] = __SOLR_MAX_START__
+                else:
+                    self.solr_defaults['start'] = 0
+            if 'rows' in self.solr_defaults:
+                if SpchtUtility.is_int(self.solr_defaults['rows']):
+                    self.solr_defaults['rows'] = int(self.solr_defaults['rows'])
+                    if self.solr_defaults['rows'] > __SOLR_MAX_ROWS__:
+                        self.solr_defaults['rows'] = __SOLR_MAX_ROWS__
+                else:
+                    self.solr_defaults['rows'] = 0
+            try:
+                result = self.mthLoadFromSolr(self.solr_defaults)
+            except SpchtErrors.ParsingError as e:
+                self.actSolrLoad(e)
+            if result and len(result) > 0:  # shouldnt that be implied by "is result"?
+                self.data_cache = result
+                self.mthSetTestData(self.solr_defaults['url'], self.data_cache)
+                # do the insert data boogaloo
+            else:
+                self.actSolrLoad(i18n['solr_load_failed'])
+
+    def mthLoadFromSolr(self, parameters):
+        para = copy.copy(parameters)
+        url = para.pop('url', None)
+        if not url:
+            return None
+        para['wt'] = "json"
+        para['rows'] = para.get('rows', 10)
+        para['start'] = para.get('start', 0)
+        str_response = local_tools.load_remote_content(url, para)
+        dict_response = local_tools.test_json(str_response)
+        if not dict_response:
+            return None
+        return local_tools.solr_handle_return(dict_response)
+
     def actFieldFilterHelper(self):
         all_fields = set()
         if self.data_cache:
@@ -789,7 +845,6 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         temp = self.mthCreateTempSpcht()
         if temp:
             self.mthComputeSpcht(temp)
-        #self.mthComputeSpcht()
 
     def mthFillNodeView(self, builder_display_data):
         floating_model = QStandardItemModel()
@@ -824,7 +879,7 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
                 details['widget'].setText("")
             self.exp_tab_node_if_decider1.setChecked(True)
 
-        # ? fills combo boxes with dynamic data
+        # ? fills widgets with dynamic data
         for fill in self.FILL:
             if fill['type'] == "combo":
                 gaseous = QStandardItemModel()
@@ -833,6 +888,7 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
                 for each in data:
                     gaseous.appendRow(QStandardItem(each))
                 fill['widget'].setModel(gaseous)
+                # ? index will be set by self.COMBOBOX
         # ? simple data that is just an arbitrary string
         for key, widget in self.LINE_EDITS.items():
             value = SpchtNode.get(key, "")
@@ -880,6 +936,11 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         else:
             self.exp_tab_node_if_decider1.setChecked(True)
             self.exp_tab_node_if_many_values.setText("")
+        # * parent
+        if 'name' in SpchtNode: # for cleanup step an empty spcht will be given
+            self.exp_tab_node_parent.setText(self.spcht_builder[SpchtNode['name']]['parent'])
+        else:
+            self.exp_tab_node_parent.setText("")
 
         # * comments
         self.exp_tab_node_comment.setText(SpchtNode.get('comment', ""))
@@ -1046,10 +1107,6 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
             raw_node['comment'] = lines[0].strip()
         for i in range(1, len(lines)):
             raw_node[f'comment{i}'] = lines[i]
-        # fallback, sub_nodes, sub_data
-        if 'fallback' in raw_node:
-            raw_node['fallback'] = raw_node['fallback']['name']
-        # for some reasons sub_nodes and sub_data is the raw name but fallback not, weird
         if SpchtUtility.is_dictkey(raw_node, 'field', 'source', 'required'):  # minimum viable node
             return raw_node
         return {}
@@ -1079,6 +1136,11 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         dlg = JsonDialogue(data)
         if dlg.exec_():
             print(dlg.getContent())
+
+    def actShowCompleteBuilder(self):
+        builder = json.dumps(self.spcht_builder.exportDict(), indent=3)
+        dlg = JsonDialogue(builder)
+        dlg.exec_()
 
     def actSetNodeParent(self, widget: QWidget):
         """
@@ -1210,7 +1272,6 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
             # smp_node['fallback'] = new_node.get('fallback') if new_node['fallback']['name'] else ''
             # smp_node['sub_nodes'] = new_node.get('sub_nodes') if new_node['sub_nodes']['name'] else ''
             # smp_node['sub_data'] = new_node.get('sub_data') if new_node['sub_data']['name'] else ''
-
             self.spcht_builder.modify(self.active_spcht_node['name'], smp_node)
             self.mthFillNodeView(self.spcht_builder.displaySpcht())
             self.explorer_toolbox.setCurrentIndex(1)

@@ -294,10 +294,12 @@ class SpchtMainWindow(object):
         self.explorer_top_layout.addWidget(self.explorer_filter_behaviour)
         # self.explore_main_vertical.addLayout(self.explorer_top_layout)
         self.explorer_data_file_path = QLineEdit(ReadOnly=True)
+        self.explorer_data_solr_button = QPushButton(i18n['load_solr'])
         self.explorer_data_load_button = QPushButton(i18n['generic_load'])
         ver_layout_18 = QVBoxLayout(self.explorer_toolbox_page0)
         hor_layout_20 = QHBoxLayout()
         hor_layout_20.addWidget(self.explorer_data_file_path)
+        hor_layout_20.addWidget(self.explorer_data_solr_button)
         hor_layout_20.addWidget(self.explorer_data_load_button)
         hor_layout_21 = QHBoxLayout()
         self.explorer_dictionary_treeview = QTreeView()
@@ -466,15 +468,16 @@ class SpchtMainWindow(object):
         self.exp_tab_node_subnode_of = QComboBox(PlaceholderText=i18n['node_subnode_of_placeholder'], ToolTip=i18n['parent_note'])
         self.exp_tab_node_subdata_of = QComboBox(PlaceholderText=i18n['node_subdata_of_placeholder'])
         self.exp_tab_node_fallback = QComboBox(PlaceholderText=i18n['node_subfallback_placeholder'])
+        self.exp_tab_node_parent = QLabel()
         exp_tab_form_inheritance.addRow(i18n['node_subdata'], self.exp_tab_node_subdata)
         exp_tab_form_inheritance.addRow(i18n['node_subdata_of'], self.exp_tab_node_subdata_of)
         exp_tab_form_inheritance.addRow(i18n['node_subnode'], self.exp_tab_node_subnode)
         exp_tab_form_inheritance.addRow(i18n['node_subnode_of'], self.exp_tab_node_subnode_of)
         exp_tab_form_inheritance.addRow(QLabel(""))
         exp_tab_form_inheritance.addRow(i18n['node_fallback'], self.exp_tab_node_fallback)
+        exp_tab_form_inheritance.addRow(i18n['node_fallback_info'], self.exp_tab_node_parent)
 
         self.tab_node_insert_add_fields = QLineEdit()
-
         # * Michelangelo Tab (i just discovered i cannot write 'miscellaneous' without googling)
         self.exp_tab_misc = QWidget()
         exp_tab_form_various = QFormLayout(self.exp_tab_misc)
@@ -482,11 +485,11 @@ class SpchtMainWindow(object):
         self.exp_tab_node_display_spcht = QPushButton(i18n['debug_spcht_json'])
         self.exp_tab_node_display_computed = QPushButton(i18n['debug_computed_json'])
         self.exp_tab_node_save_node = QPushButton("Save changes")
-        self.exp_tab_node_testlock = QPushButton("Lock Up")
+        self.exp_tab_node_builder = QPushButton("Show complete SpchtBuilder")
         exp_tab_form_various.addRow(i18n['debug_node_spcht'], self.exp_tab_node_display_spcht)
         exp_tab_form_various.addRow(i18n['debug_node_computed'], self.exp_tab_node_display_computed)
         exp_tab_form_various.addRow(i18n['debug_node_save'], self.exp_tab_node_save_node)
-        exp_tab_form_various.addRow(i18n['debug_node_lock'], self.exp_tab_node_testlock)
+        exp_tab_form_various.addRow(i18n['debug_node_lock'], self.exp_tab_node_builder)
 
         # bottom status line
         hor_layout_100 = QHBoxLayout()
@@ -839,6 +842,75 @@ class SelectionDialogue(QDialog):
             item2 = self.model_2.item(_)
             items.append(item2.text())
         return items
+
+
+class SolrDialogue(QDialog):
+    def __init__(self, title: str, defaults: dict, message=None, parent=None):
+        super().__init__(parent)
+
+        self.setWindowTitle(title)
+        self.setMinimumWidth(480)
+        self.setFixedHeight(330)
+
+        self.button_box = QDialogButtonBox(QDialogButtonBox.Save | QDialogButtonBox.Cancel)
+        self.layout = QFormLayout()
+
+        self.message = QLabel("Solr Source")
+        if message:
+            self.message.setText(message)
+        self.message.setMinimumHeight(40)
+        self.message.setFont(QFont(QApplication.font().family(), 24))
+
+        self.req_url = QLineEdit(PlaceholderText=i18n['dlg_solr_q_url'])
+        self.req_q = QLineEdit(PlaceholderText=i18n['dlg_solr_q_query'])
+        self.req_sort = QLineEdit(PlaceholderText=i18n['dlg_solr_q_sort'])
+        self.req_start = QLineEdit(PlaceholderText=i18n['dlg_solr_q_start'])
+        self.req_rows = QLineEdit(PlaceholderText=i18n['dlg_solr_q_rows'])
+        self.req_filter = QLineEdit(PlaceholderText=i18n['dlg_solr_q_filter'])
+        self.req_fields = QLineEdit(PlaceholderText=i18n['dlg_solr_q_fl'])
+
+        self.layout.addRow(self.message)
+        self.layout.addRow(i18n['dlg_solr_url'], self.req_url)
+        self.layout.addRow(QLabel(""))
+        self.layout.addRow(i18n['dlg_solr_q'], self.req_q)
+        self.layout.addRow(i18n['dlg_solr_sort'], self.req_sort)
+        self.layout.addRow(i18n['dlg_solr_start'], self.req_start)
+        self.layout.addRow(i18n['dlg_solr_rows'], self.req_rows)
+        self.layout.addRow(i18n['dlg_solr_filter'], self.req_filter)
+        self.layout.addRow(i18n['dlg_solr_fields'], self.req_fields)
+        self.layout.addRow(self.button_box)
+
+        self.setLayout(self.layout)
+
+        self.button_box.accepted.connect(self.accept)
+        self.button_box.rejected.connect(self.reject)
+
+        self.setData(defaults)
+
+    def setData(self, defaults: dict):
+        self.req_q.setText(defaults.get('q', "*.*"))
+        self.req_url.setText(defaults.get('url', ""))
+        self.req_sort.setText(defaults.get('sort', ""))
+        self.req_start.setText(str(defaults.get('start', "")))
+        self.req_rows.setText(str(defaults.get('rows', "")))
+        self.req_filter.setText(defaults.get('fq', ""))
+        self.req_fields.setText(defaults.get('fl', ""))
+
+    def getData(self):
+        elements = {
+            "url": self.req_url,
+            "q": self.req_q,
+            "sort": self.req_sort,
+            "start": self.req_start,
+            "rows": self.req_rows,
+            "fq": self.req_filter,
+            "fl": self.req_fields
+        }
+        parameters = {}
+        for widget in elements:
+            if elements[widget].text().strip() != "":
+                parameters[widget] = elements[widget].text().strip()
+        return parameters
 
 
 class JsonDialogue(QDialog):
