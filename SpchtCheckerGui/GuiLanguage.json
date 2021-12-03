@@ -1,458 +1,622 @@
 {
-   "window_title": {
-      "en": "SPCHT Format Checker & analyzer",
-      "de": "SPCHT Format Prüfer und Analysegerät"
-   },
-   "meta_language_name": {
-      "en": "English",
-      "de": "Deutsch"
-   },
-   "btn_sdf_txt": {
-      "en": "open spcht.json",
-      "de": "spcht.json Öffnen"
-   },
-   "str_sdf_file_placeholder": {
-      "en": "Click the load button to open a spcht.json file",
-      "de": "Laden Knopf drücken um einen spcht.json Deskriptor zu öffnen"
+   "act_open_spcht": {
+      "de": "Wählen Sie eine spcht.json Datei zur weitern Verarbeitung",
+      "en": "Choose a Spcht.json File for further processing"
    },
    "btn_create_spcht": {
-      "en": "New Spcht",
-      "de": "Neuer Spcht"
-   },
-   "str_jsonfile_placeholder": {
-      "en": "Click the open button after loading a spcht.json file to try out testdata",
-      "de": "Öffnen Knopf nach erfolreichen Laden des spcht.json Deskriptors drücken um Testdatein auszuprobieren"
-   },
-   "str_subject_placeholder": {
-      "en": "generic subject part",
-      "de": "generischer Teil des Sujektes"
-   },
-   "btn_testdata_txt": {
-      "en": "Testdata",
-      "de": "Testdaten"
-   },
-   "btn_testdata_tooltip": {
-      "en": "A spcht testdata file is formated in json with a list as root and each element containing the dictionary of one entry.",
-      "de": "Ein Testdaten datiert besteht auf einem einfachen Key-Value Wörterbuch oder einer Liste aus eben solchen"
+      "de": "Neuer Spcht",
+      "en": "New Spcht"
    },
    "btn_retry_tooltip": {
-      "en": "This does not only retry to load the Testdata but instead reloads the Spcht File and THEN reloads the testdata as part of its routine",
-      "de": "Dieser Knopf läd nicht die Testdaten neu sondern die Spcht.json Datei um dann diese auf die Testdaten erneut anzuwenden"
+      "de": "Dieser Knopf läd nicht die Testdaten neu sondern die Spcht.json Datei um dann diese auf die Testdaten erneut anzuwenden",
+      "en": "This does not only retry to load the Testdata but instead reloads the Spcht File and THEN reloads the testdata as part of its routine"
    },
-   "linetext_field_filter_placeholder": {
-      "en": "Filtertext, Format: field1, field2, field3",
-      "de": "\"Filtertext, Formatvorlage: \"\"Feld1, Feld2, Feld3 \"\"\""
+   "btn_sdf_txt": {
+      "de": "spcht.json Öffnen",
+      "en": "open spcht.json"
    },
-   "check_blacklist_behaviour": {
-      "en": "blacklist",
-      "de": "Blacklist"
+   "btn_testdata_tooltip": {
+      "de": "Ein Testdaten datiert besteht auf einem einfachen Key-Value Wörterbuch oder einer Liste aus eben solchen",
+      "en": "A spcht testdata file is formated in json with a list as root and each element containing the dictionary of one entry."
+   },
+   "btn_testdata_txt": {
+      "de": "Testdaten",
+      "en": "Testdata"
    },
    "builder_toolbox_load_data": {
-      "en": "Load test data dialogue",
-      "de": "Dialog zum Testdaten Laden"
-   },
-   "builder_toolbox_node_overview": {
-      "en": "Spcht Node managment",
-      "de": "Spcht Knoten Verwaltung"
+      "de": "Dialog zum Testdaten Laden",
+      "en": "Load test data dialogue"
    },
    "builder_toolbox_main_builder": {
-      "en": "Main Spcht builder view",
-      "de": "Spcht Montageplattform"
+      "de": "Spcht Montageplattform",
+      "en": "Main Spcht builder view"
    },
-   "node_name": {
-      "en": "Name",
-      "de": "Name"
+   "builder_toolbox_node_overview": {
+      "de": "Spcht Knoten Verwaltung",
+      "en": "Spcht Node managment"
    },
-   "node_name_placeholder": {
-      "en": "Unique name for a node, used to identify referenced node by fallback, sub_node & sub_data",
-      "de": "Einzigartiger Name für einen Knoten, genutzt um referenzierte Knoten für 'fallback', 'sub_node' und 'sub_data' zu erkennen"
-   },
-   "node_mandatory": {
-      "en": "Mandatory Node",
-      "de": "Notwendiger Knoten"
-   },
-   "node_uri": {
-      "en": "Node is URI",
-      "de": "Knoten ist eine URI"
-   },
-   "node_comment": {
-      "en": "Comment",
-      "de": "Kommentar"
-   },
-   "node_tag": {
-      "en": "Tag",
-      "de": "Auszeichnung"
-   },
-   "node_tag_placeholder": {
-      "en": "Language or datatype tag, written in sparql-like notation: '@en' // '^^xsd:string'",
-      "de": "Sprach- oder Datentypauszeichnung, sparql-artiger Syntax: '@de' // '^^xsd:string'"
-   },
-   "node_prepend": {
-      "en": "prepend text",
-      "de": "vorgestellter Text"
-   },
-   "node_prepend_placeholder": {
-      "en": "puts the content of this field in front of the actual value",
-      "de": "fügt den Inhalt dieses Feldes VOR dem eigentlichen Wert"
-   },
-   "node_append": {
-      "en": "appended text",
-      "de": "angehängter text"
-   },
-   "node_append_placeholder": {
-      "en": "puts the content of this field after the actual value",
-      "de": "fügt den Inhalt dieses Feldes NACH dem eigentlichen Wert"
-   },
-   "node_cut": {
-      "en": "remove regex ('cut')",
-      "de": "entferne regex ('cut')"
-   },
-   "node_cut_placeholder": {
-      "en": "replaces every match with the content of 'replace' (or nothing if its empty)",
-      "de": "ersetzt jeden Fund von 'match' mit dem Inhalt von 'replace' (oder nichts wenn dieses Feld leer ist)"
-   },
-   "node_replace": {
-      "en": "replace 'cut'",
-      "de": "ersetzt 'cut'"
-   },
-   "node_replace_placeholder": {
-      "en": "replaces the removed part from 'cut' with this content",
-      "de": "ersetzt den entfernten Teil von 'cut' mit diesem Wert"
-   },
-   "col_name": {
-      "en": "Name",
-      "de": "Name"
-   },
-   "col_source": {
-      "en": "Source",
-      "de": "Quelle"
-   },
-   "col_field": {
-      "en": "Datafield",
-      "de": "Datenfield"
-   },
-   "col_predicate": {
-      "en": "Predicate",
-      "de": "Prädikat"
-   },
-   "col_type": {
-      "en": "URI/Literal",
-      "de": "URI/Literal"
-   },
-   "col_mandatory": {
-      "en": "Mandatory",
-      "de": "Pflichtfeld"
-   },
-   "col_sub_nodes": {
-      "en": "Sub-nodes",
-      "de": "Unterknoten"
-   },
-   "col_sub_data": {
-      "en": "Sub-data",
-      "de": "Unterdaten"
+   "check_blacklist_behaviour": {
+      "de": "Blacklist",
+      "en": "blacklist"
    },
    "col_comment": {
-      "en": "Comments",
-      "de": "Kommentare"
-   },
-   "act_open_spcht": {
-      "en": "Choose a Spcht.json File for further processing",
-      "de": "Wählen Sie eine spcht.json Datei zur weitern Verarbeitung"
-   },
-   "parent_note": {
-      "en": "Either subnode, subdata or fallback are technically the same property of a spchtnode that describes its realationship to another node",
-      "de": "Sowohl 'subnode', 'subdata' als auch 'fallback' beschreiben die selbe Sache, eine Beziehung zu einem anderen Knoten und sind technisch gesehen die gleiche Eigenschaft"
-   },
-   "tab_general": {
-      "en": "             General             ",
-      "de": "             Allgemein             "
-   },
-   "tab_simpletext": {
-      "en": "Text transformation",
-      "de": "Texttransformation"
-   },
-   "generic_retry": {
-      "en": "retry",
-      "de": "wiederholen"
-   },
-   "generic_expandall": {
-      "en": "Expand all",
-      "de": "Alle erweitern"
-   },
-   "generic_collapseall": {
-      "en": "Collapse all",
-      "de": "Alle einklappen"
-   },
-   "generic_name": {
-      "en": "Name",
-      "de": "Name"
-   },
-   "generic_load": {
-      "en": "Open File",
-      "de": "Datei öffnen"
-   },
-   "generic_predicate": {
-      "en": "Predicate",
-      "de": "Prädikat"
-   },
-   "generic_source": {
-      "en": "Source",
-      "de": "Quelle"
-   },
-   "generic_objects": {
-      "en": "Objects",
-      "de": "Objekte"
-   },
-   "generic_info": {
-      "en": "Info",
-      "de": "INFO"
-   },
-   "generic_comments": {
-      "en": "Comments",
-      "de": "Kommentare"
-   },
-   "generic_add": {
-      "en": "Add",
-      "de": "Hinzufügen"
-   },
-   "generic_import": {
-      "en": "Import",
-      "de": "Importieren"
-   },
-   "generic_export": {
-      "en": "Export",
-      "de": "Exportieren"
-   },
-   "generic_compile": {
-      "en": "Compile",
-      "de": "Zu einer Datei"
-   },
-   "ex_c&p": {
-      "en": "",
-      "de": ""
-   },
-   "gui_checker": {
-      "en": "Spcht Checker",
-      "de": "Fehlersuche"
-   },
-   "generic_save": {
-      "en": "Save",
-      "de": "Speichern"
-   },
-   "node_field": {
-      "en": "Field",
-      "de": "Datenfeld"
-   },
-   "node_source": {
-      "en": "Source",
-      "de": "Quelle"
-   },
-   "node_predicate": {
-      "en": "Predicate",
-      "de": "Prädikat"
-   },
-   "node_field_placeholder": {
-      "en": "The named field in every dataset that is used to fill in the basic information",
-      "de": "Das benannte Feld in der Datenquelle um die grundlegenden Daten auszufüllen"
-   },
-   "node_predicate_placeholder": {
-      "en": "The predicate is the middle part of any given linked data triple and describes the object",
-      "de": "Das Prädikat ist der Mittelteil jedes ‚Linked-Data Triples‘ und beschreibt das folgende Objekt"
-   },
-   "node_match": {
-      "en": "match text",
-      "de": "Textfilter"
-   },
-   "node_match_placeholder": {
-      "en": "Only processes those entries that matches the Regex given, this filters partial fields",
-      "de": "Prozessiert nur die Einträge im Datensatz die dem Regex hier entsprechen"
-   },
-   "node_if_field": {
-      "en": "If-Field",
-      "de": "Vergleichsfeld"
-   },
-   "node_if_field_placeholder": {
-      "en": "Datafield that gets matched against a value to validate a complete node",
-      "de": "Datenfeld das für den Vergleich genutzt wird um zu entscheiden ob der gesammte Datensatz ignoriert wird"
-   },
-   "node_if_condition": {
-      "en": "Operator",
-      "de": "Vergleichsoperator"
-   },
-   "node_if_value": {
-      "en": "If-Value",
-      "de": "Vergleichswert"
-   },
-   "node_if_many_values": {
-      "en": "multiple if values, one match is enough",
-      "de": "Viele Vergleichswerte (ein Match genügt)"
-   },
-   "node_if_enter_btn": {
-      "en": "Input Values",
-      "de": "Eintragen"
-   },
-   "tab_if": {
-      "en": "If Operations",
-      "de": "Vergleichsbedigung"
-   },
-   "tab_mapping": {
-      "en": "Mapping",
-      "de": "Wörterbuch"
-   },
-   "tab_inheritance": {
-      "en": "Inheritance ",
-      "de": "Vererbung"
-   },
-   "tab_misc": {
-      "en": "Misc",
-      "de": "Sonstiges"
-   },
-   "node_mapping": {
-      "en": "Local Mapping",
-      "de": "Lokales Wörterbuch"
-   },
-   "node_mapping_ref": {
-      "en": "External Mapping",
-      "de": "Externes Wörterbuch"
-   },
-   "node_details": {
-      "en": "Details",
-      "de": "Details"
-   },
-   "node_mapping_ref_load": {
-      "en": "Load Mapping",
-      "de": "Wörterbuch laden"
-   },
-   "node_mapping_settings": {
-      "en": "Mapping Settings",
-      "de": "Wörterbuch Optionen"
-   },
-   "node_mapping_default": {
-      "en": "Default Value",
-      "de": "Standardwert"
-   },
-   "node_mapping_inherit": {
-      "en": "Inherit Basevalue",
-      "de": "Urprungswert nutzen"
-   },
-   "node_mapping_casesens": {
-      "en": "Case sensivity",
-      "de": "Groß/Kleinschreibung beachten"
-   },
-   "node_mapping_regex": {
-      "en": "Use Regex",
-      "de": "Regex nutzen"
-   },
-   "node_mapping_settings_default_placeholder": {
-      "en": "Value that is used if no match can be found",
-      "de": "Wert der genutzt wird wenn kein Treffer erzielt werden kann"
-   },
-   "node_subdata": {
-      "en": "Subdata",
-      "de": "Unterknoten Daten"
-   },
-   "node_subdata_placeholder": {
-      "en": "Name of the imaginary Node that defines the operations for further processing of the received data",
-      "de": "Name des imaginären Knoten der die Prozesse für die aus diesem Knoten erhaltenen Daten bündelt"
-   },
-   "node_subnode": {
-      "en": "Sub-Nodes",
-      "de": "Unterknoten Knoten"
-   },
-   "node_subnode_placeholder": {
-      "en": "Name of the imaginary Node that takes the result of this node as predicate",
-      "de": "Name des imaginären Knoten das das Ergebnis dieses Knotens als Prädikat nutzt"
-   },
-   "node_subdata_of": {
-      "en": "Sub-Data Parent",
-      "de": "Sub-Data Vorfahr"
-   },
-   "node_subnode_of": {
-      "en": "Sub-Nodes Parent",
-      "de": "Sub-Nodes Vorfahr"
-   },
-   "node_fallback": {
-      "en": "Fallback",
-      "de": "Rückfall Knoten"
-   },
-   "debug_spcht_json": {
-      "en": "Original Json before processing of fields",
-      "de": "Orginaler Spcht-Node ohne prozessierung über die Formularfelder"
-   },
-   "debug_computed_json": {
-      "en": "Computed and processed Spcht based upon the form fields",
-      "de": "Berechnerter Spcht-Knoten auf Basis der Formularfelder"
-   },
-   "gui_builder": {
-      "en": "Spcht Builder",
-      "de": "Spcht Architekt"
-   },
-   "generic_value": {
-      "en": "Value",
-      "de": "Wert"
-   },
-   "dialogue_if_value_text": {
-      "en": "List of if values, Spcht will check if any one of those values matches and if yes the entire node will proceed",
-      "de": "Liste von Werten die Spcht vergleicht, sollte ein Wert zutreffend sein wird der Knoten weiterverarbeitet"
-   },
-   "insert_before": {
-      "en": "Insert before current",
-      "de": "Vor aktuellen Einfügen"
-   },
-   "generic_delete": {
-      "en": "Delete",
-      "de": "Löschen"
-   },
-   "dialogue_if_value": {
-      "en": "Add, delete or modify if values",
-      "de": "Verändern der Wenn-Bedingungen"
-   },
-   "generic_key": {
-      "en": "Key",
-      "de": "Schlüssel"
-   },
-   "dialogue_mapping_text": {
-      "en": "Mapping will ‚translate‘ a key to a value",
-      "de": "Mapping übersetzt einen Schlüssel zu einem Wert"
-   },
-   "dialogue_mapping_title": {
-      "en": "Adjust mappings values",
-      "de": "Mapping Werte anpassen"
-   },
-   "node_mapping_setting_default_placeholder": {
-      "en": "Insert a default value here in case no key matches",
-      "de": "Dieser Wert wird genutzt falls keiner der Schlüssel passt"
-   },
-   "generic_new": {
-      "en": "New",
-      "de": "Neu"
-   },
-   "debug_node_spcht": {
-      "en": "Raw Spcht",
-      "de": "Roher Spcht"
-   },
-   "debug_node_computed": {
-      "en": "Processed Spcht",
-      "de": "Verarbeiteter Spcht"
-   },
-   "debug_node_save": {
-      "en": "Save",
-      "de": "Speichern"
-   },
-   "debug_node_lock": {
-      "en": "Debug Function",
-      "de": "Debug Function"
-   },
-   "json_dia_title": {
-      "en": "JSON View Dialogue",
-      "de": "JSON Ansicht"
-   },
-   "col_tech": {
-      "en": "used technologies",
-      "de": "Technologien"
+      "de": "Kommentare",
+      "en": "Comments"
    },
    "col_fallback": {
-      "en": "Fallback",
-      "de": "Stellvertreter"
+      "de": "Stellvertreter",
+      "en": "Fallback"
+   },
+   "col_field": {
+      "de": "Datenfield",
+      "en": "Datafield"
+   },
+   "col_mandatory": {
+      "de": "Pflichtfeld",
+      "en": "Mandatory"
+   },
+   "col_name": {
+      "de": "Name",
+      "en": "Name"
+   },
+   "col_predicate": {
+      "de": "Prädikat",
+      "en": "Predicate"
+   },
+   "col_source": {
+      "de": "Quelle",
+      "en": "Source"
+   },
+   "col_sub_data": {
+      "de": "Unterdaten",
+      "en": "Sub-data"
+   },
+   "col_sub_nodes": {
+      "de": "Unterknoten",
+      "en": "Sub-nodes"
+   },
+   "col_tech": {
+      "de": "Technologien",
+      "en": "used technologies"
+   },
+   "col_type": {
+      "de": "URI/Literal",
+      "en": "URI/Literal"
+   },
+   "debug_computed_json": {
+      "de": "Berechnerter Spcht-Knoten auf Basis der Formularfelder",
+      "en": "Computed and processed Spcht based upon the form fields"
+   },
+   "debug_node_computed": {
+      "de": "Verarbeiteter Spcht",
+      "en": "Processed Spcht"
+   },
+   "debug_node_lock": {
+      "de": "Debug Function",
+      "en": "Debug Function"
+   },
+   "debug_node_save": {
+      "de": "Speichern",
+      "en": "Save"
+   },
+   "debug_node_spcht": {
+      "de": "Roher Spcht",
+      "en": "Raw Spcht"
+   },
+   "debug_spcht_json": {
+      "de": "Orginaler Spcht-Node ohne prozessierung über die Formularfelder",
+      "en": "Original Json before processing of fields"
+   },
+   "dia_folder_selection": {
+      "de": "Basis Ordner wählen",
+      "en": "Choose base folder"
+   },
+   "dialogue_changed_title": {
+      "de": "Es gibt ungespeicherte Veränderungen",
+      "en": "There are unsaved changes"
+   },
+   "dialogue_changed_upon_new": {
+      "de": "Das Anlegen eines neuen, leeren Knoten überschreibt einen veränderten, nicht-integrierten Knoten. Diesen zu erst integrieren oder Veränderungen verwerfen?",
+      "en": "Creating a new, blank node will overwrite a changed but not yet integrated node. Integrate first oder discard those changes?"
+   },
+   "dialogue_changed_upon_save": {
+      "de": "Es gibt veränderte Knoten die noch nicht integriert sind. Alles speichern oder nur die integrierten Knoten?",
+      "en": "There are altered nodes which are not yet integrated. Either save everything or just the current fixed node."
+   },
+   "dialogue_changed_upon_switch": {
+      "de": "Wechseln zu einem anderen Knoten wird die aktuellen Veränderungen verwerfen. Diese zuerst Speichern oder Verwerfen?",
+      "en": "Changing to a differnt node will discard changes done to the current, active node. Save first or discard those changes?"
+   },
+   "dialogue_discard_changes": {
+      "de": "Das Speichern der nicht-integrierten Daten schlug fehl, diese Daten verwerfen oder die aktuelle Operation abbrechen?",
+      "en": "As saving the floating changes failed: Throw away those changes or cancel the current operation?"
+   },
+   "dialogue_discard_title": {
+      "de": "Änderungen verwerfen?",
+      "en": "Discard changes?"
+   },
+   "dialogue_filter_helper": {
+      "de": "Elemente filtern",
+      "en": "Filter elements"
+   },
+   "dialogue_if_value": {
+      "de": "Verändern der Wenn-Bedingungen",
+      "en": "Add, delete or modify if values"
+   },
+   "dialogue_if_value_text": {
+      "de": "Liste von Werten die Spcht vergleicht, sollte ein Wert zutreffend sein wird der Knoten weiterverarbeitet",
+      "en": "List of if values, Spcht will check if any one of those values matches and if yes the entire node will proceed"
+   },
+   "dialogue_mapping_text": {
+      "de": "Mapping übersetzt einen Schlüssel zu einem Wert",
+      "en": "Mapping will ‚translate‘ a key to a value"
+   },
+   "dialogue_mapping_title": {
+      "de": "Mapping Werte anpassen",
+      "en": "Adjust mappings values"
+   },
+   "dialogue_missing_content": {
+      "de": "Um den aktuellen Knoten zu speichern werden mehr Daten benötigt. Auf ‚Details‘ klicken um eine Liste fehlender Komponenten zu erhalten",
+      "en": "To save the current node more details are necessary. Click ‚Details‘ for a detailed view of missing components"
+   },
+   "dialogue_missing_content_title": {
+      "de": "Knoten braucht mehr Daten",
+      "en": "Node is missing details"
+   },
+   "dialogue_missing_details": {
+      "de": "Die folgenden Felder fehlen:",
+      "en": "The following fields are missing:"
+   },
+   "dialogue_open_spchtbuilder_failure": {
+      "de": "Öffnen der Spcht-Architekt Datei ist fehlgeschlagen, siehe Details für eine genauere Fehlermeldung",
+      "en": "Opening of Spcht Builder File failed, open details to see more informations."
+   },
+   "dialogue_open_spchtbuilder_failure_title": {
+      "de": "SpchtBuilder Öffnen fehlgeschlagen",
+      "en": "Openening of SpchtBuilder failed"
+   },
+   "dialogue_unsaved_exit": {
+      "de": "Das Verlassen des Programms wird zum Verlust von nicht gepeicherten Veränderungen führen. Verlassen oder Abbrechen?",
+      "en": "Exiting the program will lose some data. Close the program and lose some data or cancel?"
+   },
+   "dialogue_unsaved_title": {
+      "de": "Es gibt nicht gespeicherte Arbeit",
+      "en": "There are unsaved edits"
+   },
+   "dlg_open_spchtbuilder": {
+      "de": "Spcht Architekt Datei öffnen",
+      "en": "Open Spcht Builder File"
+   },
+   "dlg_save_spchtbuilder": {
+      "de": "Spcht Architekt Datei speichern",
+      "en": "Save Spcht Builder File"
+   },
+   "dlg_solr_fields": {
+      "de": "Felder",
+      "en": "Fields"
+   },
+   "dlg_solr_filter": {
+      "de": "Filter",
+      "en": "Filter"
+   },
+   "dlg_solr_q": {
+      "de": "Anfrageausdruck",
+      "en": "Query String"
+   },
+   "dlg_solr_q_filter": {
+      "de": "<feldname>:<wert> (bspw.: ‚source_id:0‘)",
+      "en": "<fieldname>:<value> (eg.: ‚source_id:0‘)"
+   },
+   "dlg_solr_q_fl": {
+      "de": "Kommagetrennte Liste von Feldern (bsp.: ‚id, author, title‘)",
+      "en": "Comma separated list of fields (eg.: ‚id, author, title‘)"
+   },
+   "dlg_solr_q_query": {
+      "de": "*.*",
+      "en": "*.*"
+   },
+   "dlg_solr_q_rows": {
+      "de": "Ganzzahlige Anzahl von Zeilen",
+      "en": "Integer number of rows"
+   },
+   "dlg_solr_q_sort": {
+      "de": "<feldname> asc | desc (bspw.: ‚id asc‘)",
+      "en": "<fieldname> asc | desc (eg.: ‚id asc‘)"
+   },
+   "dlg_solr_q_start": {
+      "de": "Ganzzahliger Startzahl",
+      "en": "Integer startnumber"
+   },
+   "dlg_solr_q_url": {
+      "de": "https://<fqnd>/solr/biblio/select",
+      "en": "https://<fqnd>/solr/biblio/select"
+   },
+   "dlg_solr_rows": {
+      "de": "Datensätze",
+      "en": "Number of datasets"
+   },
+   "dlg_solr_sort": {
+      "de": "Sortierung",
+      "en": "Sorting"
+   },
+   "dlg_solr_start": {
+      "de": "Startpunkt",
+      "en": "Starting point"
+   },
+   "dlg_solr_url": {
+      "de": "Solr Url",
+      "en": "Solr Url"
+   },
+   "ex_c&p": {
+      "de": "",
+      "en": ""
+   },
+   "explorer_delete_this_node": {
+      "de": "Knotenpunkt löschen",
+      "en": "Delete node"
+   },
+   "explorer_node_delete": {
+      "de": "Diesen Knoten löschen",
+      "en": "Delete this node"
+   },
+   "explorer_node_save": {
+      "de": "Veränderten Knote integrieren",
+      "en": "Integrated altered node"
+   },
+   "generic_add": {
+      "de": "Hinzufügen",
+      "en": "Add"
+   },
+   "generic_collapseall": {
+      "de": "Alle einklappen",
+      "en": "Collapse all"
+   },
+   "generic_comments": {
+      "de": "Kommentare",
+      "en": "Comments"
+   },
+   "generic_compile": {
+      "de": "Zu einer Datei",
+      "en": "Compile"
+   },
+   "generic_delete": {
+      "de": "Löschen",
+      "en": "Delete"
+   },
+   "generic_expandall": {
+      "de": "Alle erweitern",
+      "en": "Expand all"
+   },
+   "generic_export": {
+      "de": "Exportieren",
+      "en": "Export"
+   },
+   "generic_import": {
+      "de": "Importieren",
+      "en": "Import"
+   },
+   "generic_info": {
+      "de": "INFO",
+      "en": "Info"
+   },
+   "generic_key": {
+      "de": "Schlüssel",
+      "en": "Key"
+   },
+   "generic_load": {
+      "de": "Datei öffnen",
+      "en": "Open File"
+   },
+   "generic_name": {
+      "de": "Name",
+      "en": "Name"
+   },
+   "generic_new": {
+      "de": "Neu",
+      "en": "New"
+   },
+   "generic_objects": {
+      "de": "Objekte",
+      "en": "Objects"
+   },
+   "generic_predicate": {
+      "de": "Prädikat",
+      "en": "Predicate"
+   },
+   "generic_retry": {
+      "de": "wiederholen",
+      "en": "retry"
+   },
+   "generic_save": {
+      "de": "Speichern",
+      "en": "Save"
+   },
+   "generic_save_changes": {
+      "de": "Veränderung Speichern",
+      "en": "Save Changes"
+   },
+   "generic_source": {
+      "de": "Quelle",
+      "en": "Source"
+   },
+   "generic_value": {
+      "de": "Wert",
+      "en": "Value"
+   },
+   "gui_builder": {
+      "de": "Spcht Architekt",
+      "en": "Spcht Builder"
+   },
+   "gui_checker": {
+      "de": "Fehlersuche",
+      "en": "Spcht Checker"
+   },
+   "insert_before": {
+      "de": "Vor aktuellen Einfügen",
+      "en": "Insert before current"
+   },
+   "json_dia_title": {
+      "de": "JSON Ansicht",
+      "en": "JSON View Dialogue"
+   },
+   "linetext_field_filter_placeholder": {
+      "de": "\"Filtertext, Formatvorlage: \"\"Feld1, Feld2, Feld3 \"\"\"",
+      "en": "Filtertext, Format: field1, field2, field3"
+   },
+   "load_solr": {
+      "de": "Solr",
+      "en": "Solr"
+   },
+   "meta_language_name": {
+      "de": "Deutsch",
+      "en": "English"
+   },
+   "node_append": {
+      "de": "angehängter text",
+      "en": "appended text"
+   },
+   "node_append_placeholder": {
+      "de": "fügt den Inhalt dieses Feldes NACH dem eigentlichen Wert",
+      "en": "puts the content of this field after the actual value"
+   },
+   "node_comment": {
+      "de": "Kommentar",
+      "en": "Comment"
+   },
+   "node_cut": {
+      "de": "entferne regex ('cut')",
+      "en": "remove regex ('cut')"
+   },
+   "node_cut_placeholder": {
+      "de": "ersetzt jeden Fund von 'match' mit dem Inhalt von 'replace' (oder nichts wenn dieses Feld leer ist)",
+      "en": "replaces every match with the content of 'replace' (or nothing if its empty)"
+   },
+   "node_details": {
+      "de": "Details",
+      "en": "Details"
+   },
+   "node_fallback": {
+      "de": "Rückfall Knoten",
+      "en": "Fallback"
+   },
+   "node_field": {
+      "de": "Datenfeld",
+      "en": "Field"
+   },
+   "node_field_placeholder": {
+      "de": "Das benannte Feld in der Datenquelle um die grundlegenden Daten auszufüllen",
+      "en": "The named field in every dataset that is used to fill in the basic information"
+   },
+   "node_if_condition": {
+      "de": "Vergleichsoperator",
+      "en": "Operator"
+   },
+   "node_if_enter_btn": {
+      "de": "Eintragen",
+      "en": "Input Values"
+   },
+   "node_if_field": {
+      "de": "Vergleichsfeld",
+      "en": "If-Field"
+   },
+   "node_if_field_placeholder": {
+      "de": "Datenfeld das für den Vergleich genutzt wird um zu entscheiden ob der gesammte Datensatz ignoriert wird",
+      "en": "Datafield that gets matched against a value to validate a complete node"
+   },
+   "node_if_many_values": {
+      "de": "Viele Vergleichswerte (ein Match genügt)",
+      "en": "multiple if values, one match is enough"
+   },
+   "node_if_value": {
+      "de": "Vergleichswert",
+      "en": "If-Value"
+   },
+   "node_mandatory": {
+      "de": "Notwendiger Knoten",
+      "en": "Mandatory Node"
+   },
+   "node_mapping": {
+      "de": "Lokales Wörterbuch",
+      "en": "Local Mapping"
+   },
+   "node_mapping_casesens": {
+      "de": "Groß/Kleinschreibung beachten",
+      "en": "Case sensivity"
+   },
+   "node_mapping_default": {
+      "de": "Standardwert",
+      "en": "Default Value"
+   },
+   "node_mapping_inherit": {
+      "de": "Urprungswert nutzen",
+      "en": "Inherit Basevalue"
+   },
+   "node_mapping_ref": {
+      "de": "Externes Wörterbuch",
+      "en": "External Mapping"
+   },
+   "node_mapping_ref_load": {
+      "de": "Wörterbuch laden",
+      "en": "Load Mapping"
+   },
+   "node_mapping_regex": {
+      "de": "Regex nutzen",
+      "en": "Use Regex"
+   },
+   "node_mapping_setting_default_placeholder": {
+      "de": "Dieser Wert wird genutzt falls keiner der Schlüssel passt",
+      "en": "Insert a default value here in case no key matches"
+   },
+   "node_mapping_settings": {
+      "de": "Wörterbuch Optionen",
+      "en": "Mapping Settings"
+   },
+   "node_mapping_settings_default_placeholder": {
+      "de": "Wert der genutzt wird wenn kein Treffer erzielt werden kann",
+      "en": "Value that is used if no match can be found"
+   },
+   "node_match": {
+      "de": "Textfilter",
+      "en": "match text"
+   },
+   "node_match_placeholder": {
+      "de": "Prozessiert nur die Einträge im Datensatz die dem Regex hier entsprechen",
+      "en": "Only processes those entries that matches the Regex given, this filters partial fields"
+   },
+   "node_name": {
+      "de": "Name",
+      "en": "Name"
+   },
+   "node_name_placeholder": {
+      "de": "Einzigartiger Name für einen Knoten, genutzt um referenzierte Knoten für 'fallback', 'sub_node' und 'sub_data' zu erkennen",
+      "en": "Unique name for a node, used to identify referenced node by fallback, sub_node & sub_data"
+   },
+   "node_predicate": {
+      "de": "Prädikat",
+      "en": "Predicate"
+   },
+   "node_predicate_placeholder": {
+      "de": "Das Prädikat ist der Mittelteil jedes ‚Linked-Data Triples‘ und beschreibt das folgende Objekt",
+      "en": "The predicate is the middle part of any given linked data triple and describes the object"
+   },
+   "node_prepend": {
+      "de": "vorgestellter Text",
+      "en": "prepend text"
+   },
+   "node_prepend_placeholder": {
+      "de": "fügt den Inhalt dieses Feldes VOR dem eigentlichen Wert",
+      "en": "puts the content of this field in front of the actual value"
+   },
+   "node_replace": {
+      "de": "ersetzt 'cut'",
+      "en": "replace 'cut'"
+   },
+   "node_replace_placeholder": {
+      "de": "ersetzt den entfernten Teil von 'cut' mit diesem Wert",
+      "en": "replaces the removed part from 'cut' with this content"
+   },
+   "node_source": {
+      "de": "Quelle",
+      "en": "Source"
+   },
+   "node_subdata": {
+      "de": "Unterknoten Daten",
+      "en": "Subdata"
+   },
+   "node_subdata_of": {
+      "de": "Sub-Data Vorfahr",
+      "en": "Sub-Data Parent"
+   },
+   "node_subdata_placeholder": {
+      "de": "Name des imaginären Knoten der die Prozesse für die aus diesem Knoten erhaltenen Daten bündelt",
+      "en": "Name of the imaginary Node that defines the operations for further processing of the received data"
+   },
+   "node_subnode": {
+      "de": "Unterknoten Knoten",
+      "en": "Sub-Nodes"
+   },
+   "node_subnode_of": {
+      "de": "Sub-Nodes Vorfahr",
+      "en": "Sub-Nodes Parent"
+   },
+   "node_subnode_placeholder": {
+      "de": "Name des imaginären Knoten das das Ergebnis dieses Knotens als Prädikat nutzt",
+      "en": "Name of the imaginary Node that takes the result of this node as predicate"
+   },
+   "node_tag": {
+      "de": "Auszeichnung",
+      "en": "Tag"
+   },
+   "node_tag_placeholder": {
+      "de": "Sprach- oder Datentypauszeichnung, sparql-artiger Syntax: '@de' // '^^xsd:string'",
+      "en": "Language or datatype tag, written in sparql-like notation: '@en' // '^^xsd:string'"
+   },
+   "node_uri": {
+      "de": "Knoten ist eine URI",
+      "en": "Node is URI"
+   },
+   "parent_note": {
+      "de": "Sowohl 'subnode', 'subdata' als auch 'fallback' beschreiben die selbe Sache, eine Beziehung zu einem anderen Knoten und sind technisch gesehen die gleiche Eigenschaft",
+      "en": "Either subnode, subdata or fallback are technically the same property of a spchtnode that describes its realationship to another node"
+   },
+   "solr_load_title": {
+      "de": "Lade Daten von einer Solr Quelle",
+      "en": "Load data from a solr source"
+   },
+   "str_jsonfile_placeholder": {
+      "de": "Öffnen Knopf nach erfolreichen Laden des spcht.json Deskriptors drücken um Testdatein auszuprobieren",
+      "en": "Click the open button after loading a spcht.json file to try out testdata"
+   },
+   "str_sdf_file_placeholder": {
+      "de": "Laden Knopf drücken um einen spcht.json Deskriptor zu öffnen",
+      "en": "Click the load button to open a spcht.json file"
+   },
+   "str_subject_placeholder": {
+      "de": "generischer Teil des Sujektes",
+      "en": "generic subject part"
+   },
+   "tab_general": {
+      "de": "             Allgemein             ",
+      "en": "             General             "
+   },
+   "tab_if": {
+      "de": "Vergleichsbedigung",
+      "en": "If Operations"
+   },
+   "tab_inheritance": {
+      "de": "Vererbung",
+      "en": "Inheritance "
+   },
+   "tab_mapping": {
+      "de": "Wörterbuch",
+      "en": "Mapping"
+   },
+   "tab_misc": {
+      "de": "Sonstiges",
+      "en": "Misc"
+   },
+   "tab_simpletext": {
+      "de": "Texttransformation",
+      "en": "Text transformation"
+   },
+   "window_title": {
+      "de": "SPCHT Format Prüfer und Analysegerät",
+      "en": "SPCHT Format Checker & analyzer"
+   },
+   "explorer_new_node": {
+      "de": "Neuer Knoten",
+      "en": "New Node"
+   },
+   "explorer_new_builder": {
+      "de": "Neues Projekt",
+      "en": "New Project"
+   },
+   "dialogue_confirm_delete_title": {
+      "de": "Knoten wirklich löschen",
+      "en": "Confirm deletion of node"
+   },
+   "dialogue_confirm_delete": {
+      "de": "Diesen Knoten wirklich löschen, er kann nicht wiederhergestellt werden. Andere Knoten die diesen Knoten als Elter sehen werden :MAIN: zugeordnet",
+      "en": "Delete this node? It cannot be restored. Other nodes that see this one as their parent will be assigned to :MAIN:"
    }
 }

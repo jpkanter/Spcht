@@ -31,6 +31,7 @@ import SpchtErrors
 import uuid
 import copy
 
+import SpchtUtility
 import local_tools
 
 RESERVED_NAMES = [":MAIN:", ":UNUSED:", ":ROOT:"]
@@ -42,6 +43,8 @@ class SimpleSpchtNode:
         self.properties = dict()
         self.properties['name'] = name  # TODO: should probably make sure this is actual possible
         self.parent = parent
+        if import_dict:
+            self.import_dictionary(import_dict)
         # using this as a dictionary proxy for now
 
     def get(self, key, default=None):
@@ -99,6 +102,15 @@ class SimpleSpchtNode:
         self._parent = parent
         self.properties['parent'] = parent
 
+    def import_dictionary(self, data: dict):
+        # this is like the worst import procedure i can imagine, it checks nothing
+        for key in data:
+            try:
+                self[key] = data[key]
+            except KeyError:
+                if key == "parent" and isinstance(data['parent'], str):
+                    self.parent = data['parent']
+
 
 class SpchtNodeGroup:
     def __init__(self, name: str):
@@ -110,7 +122,7 @@ class SpchtBuilder:
 
     def __init__(self, import_dict=None, unique_names=None, spcht_base_path=None):
         self._repository = {}
-        self._root = SimpleSpchtNode(":ROOT:", parent=":ROOT:")
+        self.root = SimpleSpchtNode(":ROOT:", parent=":ROOT:")
         self.cwd = spcht_base_path
         self._references = {}
         if unique_names is None:
@@ -149,10 +161,20 @@ class SpchtBuilder:
 
     def remove(self, UniqueName: str):
         # removes one specific key as long as it isnt referenced anywhere
-        for each in self._repository:
-            for key in SpchtConstants.BUILDER_REFERENCING_KEYS:
-                if key in each and each[key] == UniqueName:
-                    raise SpchtErrors.OperationalError("Cannot delete this node, its referenced elsewhere:")
+        for field in SpchtConstants.BUILDER_SINGLE_REFERENCE:
+            if field in self[UniqueName]: # actually this is only fallback, will set anyone who is fallback of this to Main
+                self[self[UniqueName][field]].parent = ":MAIN:"
+        chainbreakers = []
+        for field in SpchtConstants.BUILDER_LIST_REFERENCE:
+            if field in self[UniqueName]:
+                chainbreakers.append(self[UniqueName][field])
+        for name in self._repository:
+            # ? to assign multiple fields to one node a field name is created that is just ever expressed as the value
+            # ? of sub_data and sub_nodes, therefore child element have to hear from this
+            for unreal_field in chainbreakers:
+                if self[name].parent == unreal_field:
+                    self[name].parent = ":UNUSED:"
+
         self._repository.pop(UniqueName)
 
     def modify(self, OriginalName: str, UniqueSpchtNode: SimpleSpchtNode):
@@ -204,10 +226,10 @@ class SpchtBuilder:
 
     def exportDict(self):
         a = dict()
-        a['meta'] = {'created': datetime.date.today().isoformat()}
+        a['meta'] = {'created': str(datetime.date.today().isoformat())}
         b = dict()
-        b[':ROOT:'] = self._root.properties
-        b[':ROOT:']['parent'] = self._root.parent
+        b[':ROOT:'] = self.root.properties
+        b[':ROOT:']['parent'] = self.root.parent
         for key in self._repository:
             b[key] = self._repository[key].properties
             b[key]['parent'] = self._repository[key].parent
@@ -215,12 +237,48 @@ class SpchtBuilder:
         a['references'] = self._references  # all referenced data that could be loaded
         return a
 
+    def importDict(self, spchtbuilder_point_json: dict):
+        # TODO: make this throw exceptions to better gauge the reason for rejection
+        if not SpchtUtility.is_dictkey(spchtbuilder_point_json, "nodes", "references"):
+            return False
+        # sanity check for references
+        if not isinstance(spchtbuilder_point_json['references'], dict) or not isinstance(spchtbuilder_point_json['nodes'], dict):
+            return False
+        # check for duplicates
+        uniques = set()
+        for name in spchtbuilder_point_json['nodes']:
+            if name in uniques:
+                return False
+            uniques.add(name)
+            if 'sub_nodes' in spchtbuilder_point_json['nodes'][name]:
+                uniques.add(spchtbuilder_point_json['nodes'][name]['sub_nodes'])
+            if 'sub_data' in spchtbuilder_point_json['nodes'][name]:
+                uniques.add(spchtbuilder_point_json['nodes'][name]['sub_data'])
+        # getting a fresh node
+        throwaway_builder = SpchtBuilder()
+        self.root = copy.deepcopy(throwaway_builder.root)
+        self._repository = {}
+        self._references = {}
+        for name in spchtbuilder_point_json['nodes']:
+            if name == ":ROOT:":
+                self.root = spchtbuilder_point_json['nodes'][':ROOT:']
+            else:
+                self._repository[name] = SimpleSpchtNode(name, import_dict=spchtbuilder_point_json['nodes'][name])
+
+        for ref in spchtbuilder_point_json['references']:
+            self._references[ref] = {}
+            for key, value in spchtbuilder_point_json['references'][ref].items():
+                if isinstance(value, (dict, list)):
+                    return False
+                self._references[ref][key] = value
+        return True
+
     def createSpcht(self):
         # exports an actual Spcht dictionary
-        root_node = {"id_source": self._root['source'],
-                     "id_field": self._root['field'],
+        root_node = {"id_source": self.root['source'],
+                     "id_field": self.root['field'],
                      "nodes": self.compileSpcht()}
-        if 'fallback' in self._root:
+        if 'fallback' in self.root:
             fallback = self.compileNodeByParent(":ROOT:")
             root_node.update({'id_fallback': fallback[0]})
         return root_node
@@ -230,12 +288,33 @@ class SpchtBuilder:
         # this still misses the root node
         return self.compileNodeByParent(":MAIN:")
 
-    def compileNodeByParent(self, parent: str):
+    def compileNodeByParent(self, parent: str, mode="conservative"):
+        """
+        Compiles a node by common parent, has two modes:
+
+        * conservative (default) - will discard all nodes that do not possess the minimum Spcht requirements
+        * reckless - will add any node, regardless if the resulting spcht might not be useable
+        :param parent:
+        :type parent:
+        :param mode:
+        :type mode:
+        :return:
+        :rtype:
+        """
         parent = str(parent)
         node_list = []
         for key, top_node in self._repository.items():
             if top_node.parent == parent:
-                node_list.append(self.compileNode(key))
+                one_node = self.compileNode(key)
+                if mode == "reckless":
+                    node_list.append(one_node)
+                else:
+                    # * this has the potential to wreck entire chains if the top node is incorrect
+                    if not SpchtUtility.is_dictkey(one_node, "field", "source", "predicate", "required"):
+                        continue
+                    if str(one_node['field']).strip() == "" or str(one_node['predicate']).strip() == "":
+                        continue
+                    node_list.append(one_node)
         return node_list
 
     def compileNode(self, name: str):
@@ -275,6 +354,8 @@ class SpchtBuilder:
         """
         try:
             if 'predicate' not in self._repository[sub_node_name].properties:
+                if self._repository[sub_node_name].parent == ":MAIN" or self._repository[sub_node_name].parent == ":ROOT:":
+                    return ""
                 return self.inheritPredicate(self._repository[sub_node_name].parent)
             else:
                 return self._repository[sub_node_name]['predicate']
@@ -314,8 +395,8 @@ class SpchtBuilder:
             raise SpchtErrors.ParsingError("Cannot read SpchtDict, lack of 'nodes'")
         self._repository = self._recursiveSpchtImport(spcht['nodes'], base_path)
         # ! import :ROOT:
-        self._root['field'] = spcht['id_field']
-        self._root['source'] = spcht['id_source']
+        self.root['field'] = spcht['id_field']
+        self.root['source'] = spcht['id_source']
         # this special case of root fallbacks makes for a good headache
         if 'id_fallback' in spcht:
             root_fallbacks = self._recursiveSpchtImport([spcht['id_fallback']], base_path, parent=":ROOT:")
@@ -324,7 +405,7 @@ class SpchtBuilder:
             # ? live normally in the repository
             for key in root_fallbacks:
                 if root_fallbacks[key]['parent'] == ":ROOT:":
-                    self._root['fallback'] = key
+                    self.root['fallback'] = key
                     break
             self._repository.update(root_fallbacks)
 
