@@ -1,7 +1,7 @@
 ;de;en
-act_open_spcht;Wählen Sie eine spcht.json Datei zur weitern Verarbeitung;Choose a Spcht.json File for further processing
+act_open_spcht;Wählen Sie eine spcht.json Datei zur weiteren Verarbeitung;Choose a Spcht.json File for further processing
 btn_create_spcht;Neuer Spcht;New Spcht
-btn_retry_tooltip;Dieser Knopf läd nicht die Testdaten neu sondern die Spcht.json Datei um dann diese auf die Testdaten erneut anzuwenden;This does not only retry to load the Testdata but instead reloads the Spcht File and THEN reloads the testdata as part of its routine
+btn_retry_tooltip;Dieser Knopf läd nicht die Testdaten neu sondern die Spcht.json Datei um dann diese auf die Testdaten erneut anzuwenden;This does not only retry to load the testdata but instead reloads the Spcht File and THEN reloads the testdata as part of its routine
 btn_sdf_txt;spcht.json Öffnen;open spcht.json
 btn_testdata_tooltip;Ein Testdaten datiert besteht auf einem einfachen Key-Value Wörterbuch oder einer Liste aus eben solchen;A spcht testdata file is formated in json with a list as root and each element containing the dictionary of one entry.
 btn_testdata_txt;Testdaten;Testdata
@@ -11,7 +11,7 @@ builder_toolbox_node_overview;Spcht Knoten Verwaltung;Spcht Node managment
 check_blacklist_behaviour;Blacklist;blacklist
 col_comment;Kommentare;Comments
 col_fallback;Stellvertreter;Fallback
-col_field;Datenfield;Datafield
+col_field;Datenfeld;Datafield
 col_mandatory;Pflichtfeld;Mandatory
 col_name;Name;Name
 col_predicate;Prädikat;Predicate
@@ -20,7 +20,7 @@ col_sub_data;Unterdaten;Sub-data
 col_sub_nodes;Unterknoten;Sub-nodes
 col_tech;Technologien;used technologies
 col_type;URI/Literal;URI/Literal
-debug_computed_json;Berechnerter Spcht-Knoten auf Basis der Formularfelder;Computed and processed Spcht based upon the form fields
+debug_computed_json;Berechneter Spcht-Knoten auf Basis der Formularfelder;Computed and processed Spcht based upon the form fields
 debug_node_computed;Verarbeiteter Spcht;Processed Spcht
 debug_node_lock;Debug Function;Debug Function
 debug_node_save;Speichern;Save
@@ -28,9 +28,9 @@ debug_node_spcht;Roher Spcht;Raw Spcht
 debug_spcht_json;Orginaler Spcht-Node ohne prozessierung über die Formularfelder;Original Json before processing of fields
 dia_folder_selection;Basis Ordner wählen;Choose base folder
 dialogue_changed_title;Es gibt ungespeicherte Veränderungen;There are unsaved changes
-dialogue_changed_upon_new;Das Anlegen eines neuen, leeren Knoten überschreibt einen veränderten, nicht-integrierten Knoten. Diesen zu erst integrieren oder Veränderungen verwerfen?;Creating a new, blank node will overwrite a changed but not yet integrated node. Integrate first oder discard those changes?
+dialogue_changed_upon_new;Das Anlegen eines neuen, leeren Knoten überschreibt einen veränderten, nicht-integrierten Knoten. Diesen zu erst integrieren oder Veränderungen verwerfen?;Creating a new, blank node will overwrite a changed but not yet integrated node. Integrate first or discard those changes?
 dialogue_changed_upon_save;Es gibt veränderte Knoten die noch nicht integriert sind. Alles speichern oder nur die integrierten Knoten?;There are altered nodes which are not yet integrated. Either save everything or just the current fixed node.
-dialogue_changed_upon_switch;Wechseln zu einem anderen Knoten wird die aktuellen Veränderungen verwerfen. Diese zuerst Speichern oder Verwerfen?;Changing to a differnt node will discard changes done to the current, active node. Save first or discard those changes?
+dialogue_changed_upon_switch;Wechseln zu einem anderen Knoten wird die aktuellen Veränderungen verwerfen. Diese zuerst Speichern oder Verwerfen?;Changing to a different node will discard changes done to the current, active node. Save first or discard those changes?
 dialogue_discard_changes;Das Speichern der nicht-integrierten Daten schlug fehl, diese Daten verwerfen oder die aktuelle Operation abbrechen?;As saving the floating changes failed: Throw away those changes or cancel the current operation?
 dialogue_discard_title;Änderungen verwerfen?;Discard changes?
 dialogue_filter_helper;Elemente filtern;Filter elements
@@ -42,8 +42,10 @@ dialogue_missing_content;Um den aktuellen Knoten zu speichern werden mehr Daten 
 dialogue_missing_content_title;Knoten braucht mehr Daten;Node is missing details
 dialogue_missing_details;Die folgenden Felder fehlen:;The following fields are missing:
 dialogue_open_spchtbuilder_failure;Öffnen der Spcht-Architekt Datei ist fehlgeschlagen, siehe Details für eine genauere Fehlermeldung;Opening of Spcht Builder File failed, open details to see more informations.
-dialogue_open_spchtbuilder_failure_title;SpchtBuilder Öffnen fehlgeschlagen;Openening of SpchtBuilder failed
-dialogue_unsaved_exit;Das Verlassen des Programms wird zum Verlust von nicht gepeicherten Veränderungen führen. Verlassen oder Abbrechen?;Exiting the program will lose some data. Close the program and lose some data or cancel?
+dialogue_open_spchtbuilder_failure_title;SpchtBuilder Öffnen fehlgeschlagen;Opening of SpchtBuilder failed
+dialogue_unsaved_exit;Das Verlassen des Programms wird zum Verlust von nicht gsepeicherten Veränderungen führen. Verlassen oder Abbrechen?;Exiting the program will lose some data. Close the program and lose some data or cancel?
+dialogue_unsaved_load;Das Erstellen eines neuen SpchtBuilders/Architekten ersetzt die aktuell geladenen Daten vollständig. Dieser hat aktuell Veränderungen die noch nicht gespeichert wurden. Fortfahren?;Creating a new SpchtBuilder will overwrite the current loaded instance, which has unsaved changes to it. Those will be lost. Continue?
+dialogue_unsaved_create;An der aktuellen Spcht/SpchtBuilder Datei wurden Veränderungen vorgenommen. Die neue Datei wird diese überschreiben. Fortfahren?;The current Spcht/SpchtBuilder File was altered. The newly loaded one will discard these changes. Continue?
 dialogue_unsaved_title;Es gibt nicht gespeicherte Arbeit;There are unsaved edits
 dlg_open_spchtbuilder;Spcht Architekt Datei öffnen;Open Spcht Builder File
 dlg_save_spchtbuilder;Spcht Architekt Datei speichern;Save Spcht Builder File
@@ -100,18 +102,18 @@ node_cut_placeholder;ersetzt jeden Fund von 'match' mit dem Inhalt von 'replace'
 node_details;Details;Details
 node_fallback;Rückfall Knoten;Fallback
 node_field;Datenfeld;Field
-node_field_placeholder;Das benannte Feld in der Datenquelle um die grundlegenden Daten auszufüllen;The named field in every dataset that is used to fill in the basic information
+node_field_placeholder;Das benannte Feld in der Datenquelle um die grundlegenden Daten auszufüllen;The named field in every data set that is used to fill in the basic information
 node_if_condition;Vergleichsoperator;Operator
 node_if_enter_btn;Eintragen;Input Values
 node_if_field;Vergleichsfeld;If-Field
-node_if_field_placeholder;Datenfeld das für den Vergleich genutzt wird um zu entscheiden ob der gesammte Datensatz ignoriert wird;Datafield that gets matched against a value to validate a complete node
+node_if_field_placeholder;Datenfeld das für den Vergleich genutzt wird um zu entscheiden ob der gesamte Datensatz ignoriert wird;Datafield that gets matched against a value to validate a complete node
 node_if_many_values;Viele Vergleichswerte (ein Match genügt);multiple if values, one match is enough
 node_if_value;Vergleichswert;If-Value
 node_mandatory;Notwendiger Knoten;Mandatory Node
 node_mapping;Lokales Wörterbuch;Local Mapping
-node_mapping_casesens;Groß/Kleinschreibung beachten;Case sensivity
+node_mapping_casesens;Groß/Kleinschreibung beachten;Case sensitivity
 node_mapping_default;Standardwert;Default Value
-node_mapping_inherit;Urprungswert nutzen;Inherit Basevalue
+node_mapping_inherit;Ursprungswert nutzen;Inherit base value
 node_mapping_ref;Externes Wörterbuch;External Mapping
 node_mapping_ref_load;Wörterbuch laden;Load Mapping
 node_mapping_regex;Regex nutzen;Use Regex
@@ -140,11 +142,11 @@ node_tag_placeholder;Sprach- oder Datentypauszeichnung, sparql-artiger Syntax: '
 node_uri;Knoten ist eine URI;Node is URI
 parent_note;Sowohl 'subnode', 'subdata' als auch 'fallback' beschreiben die selbe Sache, eine Beziehung zu einem anderen Knoten und sind technisch gesehen die gleiche Eigenschaft;Either subnode, subdata or fallback are technically the same property of a spchtnode that describes its realationship to another node
 solr_load_title;Lade Daten von einer Solr Quelle;Load data from a solr source
-str_jsonfile_placeholder;Öffnen Knopf nach erfolreichen Laden des spcht.json Deskriptors drücken um Testdatein auszuprobieren;Click the open button after loading a spcht.json file to try out testdata
+str_jsonfile_placeholder;Öffnen Knopf nach erfolgreichen Laden des spcht.json Deskriptors drücken um Testdatein auszuprobieren;Click the open button after loading a spcht.json file to try out testdata
 str_sdf_file_placeholder;Laden Knopf drücken um einen spcht.json Deskriptor zu öffnen;Click the load button to open a spcht.json file
-str_subject_placeholder;generischer Teil des Sujektes;generic subject part
+str_subject_placeholder;generischer Teil des Subjektes;generic subject part
 tab_general;             Allgemein             ;             General             
-tab_if;Vergleichsbedigung;If Operations
+tab_if;Vergleichsbedingung;If Operations
 tab_inheritance;Vererbung;Inheritance 
 tab_mapping;Wörterbuch;Mapping
 tab_misc;Sonstiges;Misc
@@ -154,3 +156,13 @@ explorer_new_node;Neuer Knoten;New Node
 explorer_new_builder;Neues Projekt;New Project
 dialogue_confirm_delete_title;Knoten wirklich löschen;Confirm deletion of node
 dialogue_confirm_delete;Diesen Knoten wirklich löschen, er kann nicht wiederhergestellt werden. Andere Knoten die diesen Knoten als Elter sehen werden :MAIN: zugeordnet;Delete this node? It cannot be restored. Other nodes that see this one as their parent will be assigned to :MAIN:
+explorer_orphan_node;Knote von :MAIN: lösen & speichern;Severe connection to :MAIN: and save
+explorer_reunite_node;Knoten an :MAIN: binden & speichern;Reestablish connection to :MAIN: and save
+explorer_orphan_unite_label;Knoten lösen & verbinden;(Dis)connect node
+tooltip_orphan_node;Alle Knoten stehen in der Regel in einer Beziehung zueinander, wenn eine Spcht Beschreibungsdatei exportiert wird wird das oberste Mitglied namens ‚:MAIN:‘ rekursiv abgelaufen und davon ausgehend alle Unterknoten erstellt. Dieser Knopf löst diesen Knoten aus dem derzeitigen Gefüge sodass sein Inhalt nicht in einer exportierten Datei auftauchen würde. Dies kann genutzt werden um bestimmte Einstellungen temporär heraus zu nehmen. Der entsprechende Knoten verbleibt in der Architekt Datei, und kann zu einem späteren Zeitpunkt wieder zugeordnet werden.;In general, all nodes are in some relationship to the core node called :MAIN:, when a new spcht file is generated, starting from ‘:MAIN:’ the procedure recursivly walks down the parent-child relationships to create the actual SPCHT file. This function untethers the node from this structure. It wont be part of a generated SPCHT but still saved in a spchtbuilder-file.
+tooltip_subgroup_name;Ein Knoten kann jeweils nur einen übergeordneten Knoten besitzen. Um dennoch die Beziehung von ‚sub_data‘ und ‚sub_nodes‘ darzustellen wird daher ein Hilfsname verwendet. Dies ist der Name der hier festgelegt wird, ein gemeinsames Banner unter dem sich alle untergeordneten Knoten sammeln können und der klar macht welcher Art die Eltern-Kind Beziehung der Knoten ist. Der Name   dieses „Banners“ muss in einzigartig sein und darf auch nicht der Name eines anderen Knotens sein.;Any given node can only possess one parent node, a child node does not know which kind of relationship it has to a higher tier node. To distinguish this kind of relationship temporary names are created that serve as ‚banner‘ to rally under. The ‚banner‘ name must be unique among node-names and other ‚banners‘
+node_parent_info;Übergeordneter Knoten;Superior node
+tooltip_fallback;'Fallbacks‘ werden in umgekehrter Richtung zu ‚sub_data‘ und ‚sub_nodes‘ festgelegt. Hier bestimmt der übergeordnete Knoten wer sein Ersatz sein wird. Nur Knoten die direkt an ‚:MAIN:‘ hängen oder unbenutzt sind stehen zur Auswahl.;Fallbacks are designated in reverse order than ‘sub_data’ and ‘sub_nodes’. A node defines his fallback node and with that, sets his child. Only nodes that are currently assigned to ‘:MAIN:’ or to nothing can be chosen. If you wish to assign a node currently ‘serving’ another you have to reassign that node first to ‘:MAIN:’ or nothing
+explorer_orphan_not_available;Unterknoten können nicht verwaist werden;Sub nodes of something cannot be orphaned
+explorer_clone_node;Knoten klonen;Clone node
+explorer_edit_root;Wurzel Knoten editieren;Edit root node

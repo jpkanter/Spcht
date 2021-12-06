@@ -143,7 +143,7 @@ class Spcht_i18n:
         except FileNotFoundError:
             logger.error(f"Cannot find designated file {csv_file}")
             return False
-        lang = {(_): re.sub(r"(\n$)|(\r$)|(\n\r$)", "", x) for _, x in enumerate(all_lines[0].split(seperator)) if _ > 0}
+        lang = {_: re.sub(r"(\n$)|(\r$)|(\n\r$)", "", x) for _, x in enumerate(all_lines[0].split(seperator)) if _ > 0}
         print(lang)
         translation = defaultdict(dict)
         # every element except the first as a dictionary
@@ -158,5 +158,6 @@ class Spcht_i18n:
         try:
             with codecs.open(language_file, "w", encoding='utf-8') as languages:
                 json.dump(translation, languages, indent=3, ensure_ascii=False)
+                print(f"Entries: {len(translation)}")
         except FileExistsError:
             logger.warning(f"File {language_file} already exists and cannot be overwritten")

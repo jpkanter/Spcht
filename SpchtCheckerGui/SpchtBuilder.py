@@ -34,7 +34,7 @@ import copy
 import SpchtUtility
 import local_tools
 
-RESERVED_NAMES = [":MAIN:", ":UNUSED:", ":ROOT:"]
+RESERVED_NAMES = [":ROOT:", ":UNUSED:", ":MAIN:"]
 
 
 class SimpleSpchtNode:
@@ -142,8 +142,8 @@ class SpchtBuilder:
         self._repository = repository
 
     def __getitem__(self, item):
-        if item in self.repository:
-            return self.repository[item]
+        if item in self._repository:
+            return self._repository[item]
         else:
             raise KeyError(f"SpchtBuilder::Cannot access key '{item}'.")
 
@@ -178,6 +178,14 @@ class SpchtBuilder:
         self._repository.pop(UniqueName)
 
     def modify(self, OriginalName: str, UniqueSpchtNode: SimpleSpchtNode):
+        """
+        Modifies a node in the repository with a new Node. The actual new name if changed might be different from
+        what was given due the uniqueness rule
+        :param str OriginalName: name of the node that is about to be changed
+        :param SimpleSpchtNode UniqueSpchtNode: a complete node
+        :return: The Name of the new node
+        :rtype: str
+        """
         if OriginalName not in self._repository:
             raise KeyError(f"Cannot update node {OriginalName} as it does not exist")
         # ! reinstate fallback relationships
@@ -209,6 +217,7 @@ class SpchtBuilder:
                         node[key] = UniqueSpchtNode['name']
             self._repository.pop(OriginalName)
         self._repository[UniqueSpchtNode['name']] = UniqueSpchtNode
+        return UniqueSpchtNode['name']
 
     def getNodesByParent(self, parent):
         """
@@ -492,6 +501,27 @@ class SpchtBuilder:
         """
         return copy.copy(self._references.get(rel_path, {}))
 
+    def parkNode(self, node_name: str) -> bool:
+        """
+        Parks a node in the :UNUSED: category so that it does not get exported to a spcht file but is still available
+        If the node is already parked it gets reassigned to :MAIN:
+        :param str node_name: unique name of an existing node
+        :return: Returns true if the parking actually suceeded
+        :rtype: bool
+        """
+        if node_name not in self._repository:
+            raise KeyError(f"SpchtBuilder::Cannot access element '{node_name}'.")
+        print(self._repository[node_name].parent)
+        if self._repository[node_name].parent == ":MAIN:":
+            self._repository[node_name].parent = ":UNUSED:"
+        elif self._repository[node_name].parent == ":UNUSED:":
+            print("unused")
+            self._repository[node_name].parent = ":MAIN:"
+        else:
+            return False
+        return True
+
+
     def getSolidParents(self):
         return [key for key in self._repository]
 
@@ -503,14 +533,14 @@ class SpchtBuilder:
         """
         return [x for x in self._repository if 'fallback' not in self._repository[x]]
 
-    def getSubdataParents(self):
+    def getSubnodeParents(self):
         names = []
         for node in self._repository.values():
             if 'sub_nodes' in node.properties:
                 names.append(node.properties['sub_nodes'])
         return names
 
-    def getSubnodeParents(self):
+    def getSubdataParents(self):
         names = []
         for node in self._repository.values():
             if 'sub_data' in node.properties:
@@ -543,7 +573,10 @@ class SpchtBuilder:
         :return: a new, unique name
         :rtype: str
         """
-        all_clear = True # i fear this is the easiest way, but i am not happy with it
+        if name in RESERVED_NAMES:  # using a reserved name gets you a new one right from the repository
+            name = self._names.giveName()
+            return self.createNewName(name, mode, alt_repository)
+        all_clear = True  # i fear this is the easiest way, but i am not happy with it
         if alt_repository:
             for key in alt_repository:
                 if key == name:

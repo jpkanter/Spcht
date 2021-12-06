@@ -1,6 +1,6 @@
 {
    "act_open_spcht": {
-      "de": "Wählen Sie eine spcht.json Datei zur weitern Verarbeitung",
+      "de": "Wählen Sie eine spcht.json Datei zur weiteren Verarbeitung",
       "en": "Choose a Spcht.json File for further processing"
    },
    "btn_create_spcht": {
@@ -9,7 +9,7 @@
    },
    "btn_retry_tooltip": {
       "de": "Dieser Knopf läd nicht die Testdaten neu sondern die Spcht.json Datei um dann diese auf die Testdaten erneut anzuwenden",
-      "en": "This does not only retry to load the Testdata but instead reloads the Spcht File and THEN reloads the testdata as part of its routine"
+      "en": "This does not only retry to load the testdata but instead reloads the Spcht File and THEN reloads the testdata as part of its routine"
    },
    "btn_sdf_txt": {
       "de": "spcht.json Öffnen",
@@ -48,7 +48,7 @@
       "en": "Fallback"
    },
    "col_field": {
-      "de": "Datenfield",
+      "de": "Datenfeld",
       "en": "Datafield"
    },
    "col_mandatory": {
@@ -84,7 +84,7 @@
       "en": "URI/Literal"
    },
    "debug_computed_json": {
-      "de": "Berechnerter Spcht-Knoten auf Basis der Formularfelder",
+      "de": "Berechneter Spcht-Knoten auf Basis der Formularfelder",
       "en": "Computed and processed Spcht based upon the form fields"
    },
    "debug_node_computed": {
@@ -117,7 +117,7 @@
    },
    "dialogue_changed_upon_new": {
       "de": "Das Anlegen eines neuen, leeren Knoten überschreibt einen veränderten, nicht-integrierten Knoten. Diesen zu erst integrieren oder Veränderungen verwerfen?",
-      "en": "Creating a new, blank node will overwrite a changed but not yet integrated node. Integrate first oder discard those changes?"
+      "en": "Creating a new, blank node will overwrite a changed but not yet integrated node. Integrate first or discard those changes?"
    },
    "dialogue_changed_upon_save": {
       "de": "Es gibt veränderte Knoten die noch nicht integriert sind. Alles speichern oder nur die integrierten Knoten?",
@@ -125,7 +125,7 @@
    },
    "dialogue_changed_upon_switch": {
       "de": "Wechseln zu einem anderen Knoten wird die aktuellen Veränderungen verwerfen. Diese zuerst Speichern oder Verwerfen?",
-      "en": "Changing to a differnt node will discard changes done to the current, active node. Save first or discard those changes?"
+      "en": "Changing to a different node will discard changes done to the current, active node. Save first or discard those changes?"
    },
    "dialogue_discard_changes": {
       "de": "Das Speichern der nicht-integrierten Daten schlug fehl, diese Daten verwerfen oder die aktuelle Operation abbrechen?",
@@ -173,11 +173,19 @@
    },
    "dialogue_open_spchtbuilder_failure_title": {
       "de": "SpchtBuilder Öffnen fehlgeschlagen",
-      "en": "Openening of SpchtBuilder failed"
+      "en": "Opening of SpchtBuilder failed"
    },
    "dialogue_unsaved_exit": {
-      "de": "Das Verlassen des Programms wird zum Verlust von nicht gepeicherten Veränderungen führen. Verlassen oder Abbrechen?",
+      "de": "Das Verlassen des Programms wird zum Verlust von nicht gsepeicherten Veränderungen führen. Verlassen oder Abbrechen?",
       "en": "Exiting the program will lose some data. Close the program and lose some data or cancel?"
+   },
+   "dialogue_unsaved_load": {
+      "de": "Das Erstellen eines neuen SpchtBuilders/Architekten ersetzt die aktuell geladenen Daten vollständig. Dieser hat aktuell Veränderungen die noch nicht gespeichert wurden. Fortfahren?",
+      "en": "Creating a new SpchtBuilder will overwrite the current loaded instance, which has unsaved changes to it. Those will be lost. Continue?"
+   },
+   "dialogue_unsaved_create": {
+      "de": "An der aktuellen Spcht/SpchtBuilder Datei wurden Veränderungen vorgenommen. Die neue Datei wird diese überschreiben. Fortfahren?",
+      "en": "The current Spcht/SpchtBuilder File was altered. The newly loaded one will discard these changes. Continue?"
    },
    "dialogue_unsaved_title": {
       "de": "Es gibt nicht gespeicherte Arbeit",
@@ -405,7 +413,7 @@
    },
    "node_field_placeholder": {
       "de": "Das benannte Feld in der Datenquelle um die grundlegenden Daten auszufüllen",
-      "en": "The named field in every dataset that is used to fill in the basic information"
+      "en": "The named field in every data set that is used to fill in the basic information"
    },
    "node_if_condition": {
       "de": "Vergleichsoperator",
@@ -420,7 +428,7 @@
       "en": "If-Field"
    },
    "node_if_field_placeholder": {
-      "de": "Datenfeld das für den Vergleich genutzt wird um zu entscheiden ob der gesammte Datensatz ignoriert wird",
+      "de": "Datenfeld das für den Vergleich genutzt wird um zu entscheiden ob der gesamte Datensatz ignoriert wird",
       "en": "Datafield that gets matched against a value to validate a complete node"
    },
    "node_if_many_values": {
@@ -441,15 +449,15 @@
    },
    "node_mapping_casesens": {
       "de": "Groß/Kleinschreibung beachten",
-      "en": "Case sensivity"
+      "en": "Case sensitivity"
    },
    "node_mapping_default": {
       "de": "Standardwert",
       "en": "Default Value"
    },
    "node_mapping_inherit": {
-      "de": "Urprungswert nutzen",
-      "en": "Inherit Basevalue"
+      "de": "Ursprungswert nutzen",
+      "en": "Inherit base value"
    },
    "node_mapping_ref": {
       "de": "Externes Wörterbuch",
@@ -564,7 +572,7 @@
       "en": "Load data from a solr source"
    },
    "str_jsonfile_placeholder": {
-      "de": "Öffnen Knopf nach erfolreichen Laden des spcht.json Deskriptors drücken um Testdatein auszuprobieren",
+      "de": "Öffnen Knopf nach erfolgreichen Laden des spcht.json Deskriptors drücken um Testdatein auszuprobieren",
       "en": "Click the open button after loading a spcht.json file to try out testdata"
    },
    "str_sdf_file_placeholder": {
@@ -572,7 +580,7 @@
       "en": "Click the load button to open a spcht.json file"
    },
    "str_subject_placeholder": {
-      "de": "generischer Teil des Sujektes",
+      "de": "generischer Teil des Subjektes",
       "en": "generic subject part"
    },
    "tab_general": {
@@ -580,7 +588,7 @@
       "en": "             General             "
    },
    "tab_if": {
-      "de": "Vergleichsbedigung",
+      "de": "Vergleichsbedingung",
       "en": "If Operations"
    },
    "tab_inheritance": {
@@ -618,5 +626,45 @@
    "dialogue_confirm_delete": {
       "de": "Diesen Knoten wirklich löschen, er kann nicht wiederhergestellt werden. Andere Knoten die diesen Knoten als Elter sehen werden :MAIN: zugeordnet",
       "en": "Delete this node? It cannot be restored. Other nodes that see this one as their parent will be assigned to :MAIN:"
+   },
+   "explorer_orphan_node": {
+      "de": "Knote von :MAIN: lösen & speichern",
+      "en": "Severe connection to :MAIN: and save"
+   },
+   "explorer_reunite_node": {
+      "de": "Knoten an :MAIN: binden & speichern",
+      "en": "Reestablish connection to :MAIN: and save"
+   },
+   "explorer_orphan_unite_label": {
+      "de": "Knoten lösen & verbinden",
+      "en": "(Dis)connect node"
+   },
+   "tooltip_orphan_node": {
+      "de": "Alle Knoten stehen in der Regel in einer Beziehung zueinander, wenn eine Spcht Beschreibungsdatei exportiert wird wird das oberste Mitglied namens ‚:MAIN:‘ rekursiv abgelaufen und davon ausgehend alle Unterknoten erstellt. Dieser Knopf löst diesen Knoten aus dem derzeitigen Gefüge sodass sein Inhalt nicht in einer exportierten Datei auftauchen würde. Dies kann genutzt werden um bestimmte Einstellungen temporär heraus zu nehmen. Der entsprechende Knoten verbleibt in der Architekt Datei, und kann zu einem späteren Zeitpunkt wieder zugeordnet werden.",
+      "en": "In general, all nodes are in some relationship to the core node called :MAIN:, when a new spcht file is generated, starting from ‘:MAIN:’ the procedure recursivly walks down the parent-child relationships to create the actual SPCHT file. This function untethers the node from this structure. It wont be part of a generated SPCHT but still saved in a spchtbuilder-file."
+   },
+   "tooltip_subgroup_name": {
+      "de": "Ein Knoten kann jeweils nur einen übergeordneten Knoten besitzen. Um dennoch die Beziehung von ‚sub_data‘ und ‚sub_nodes‘ darzustellen wird daher ein Hilfsname verwendet. Dies ist der Name der hier festgelegt wird, ein gemeinsames Banner unter dem sich alle untergeordneten Knoten sammeln können und der klar macht welcher Art die Eltern-Kind Beziehung der Knoten ist. Der Name   dieses „Banners“ muss in einzigartig sein und darf auch nicht der Name eines anderen Knotens sein.",
+      "en": "Any given node can only possess one parent node, a child node does not know which kind of relationship it has to a higher tier node. To distinguish this kind of relationship temporary names are created that serve as ‚banner‘ to rally under. The ‚banner‘ name must be unique among node-names and other ‚banners‘"
+   },
+   "node_parent_info": {
+      "de": "Übergeordneter Knoten",
+      "en": "Superior node"
+   },
+   "tooltip_fallback": {
+      "de": "'Fallbacks‘ werden in umgekehrter Richtung zu ‚sub_data‘ und ‚sub_nodes‘ festgelegt. Hier bestimmt der übergeordnete Knoten wer sein Ersatz sein wird. Nur Knoten die direkt an ‚:MAIN:‘ hängen oder unbenutzt sind stehen zur Auswahl.",
+      "en": "Fallbacks are designated in reverse order than ‘sub_data’ and ‘sub_nodes’. A node defines his fallback node and with that, sets his child. Only nodes that are currently assigned to ‘:MAIN:’ or to nothing can be chosen. If you wish to assign a node currently ‘serving’ another you have to reassign that node first to ‘:MAIN:’ or nothing"
+   },
+   "explorer_orphan_not_available": {
+      "de": "Unterknoten können nicht verwaist werden",
+      "en": "Sub nodes of something cannot be orphaned"
+   },
+   "explorer_clone_node": {
+      "de": "Knoten klonen",
+      "en": "Clone node"
+   },
+   "explorer_edit_root": {
+      "de": "Wurzel Knoten editieren",
+      "en": "Edit root node"
    }
 }

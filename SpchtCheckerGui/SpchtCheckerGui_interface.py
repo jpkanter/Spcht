@@ -79,7 +79,6 @@ class SpchtMainWindow(object):
         # * Window Setup
         MainWindow.setBaseSize(1280, 720)
         MainWindow.setMinimumSize(1440, 960)
-        MainWindow.setWindowTitle(i18n['window_title'])
         MainWindow.setWindowFlags(QtCore.Qt.WindowMinimizeButtonHint & QtCore.Qt.WindowMaximizeButtonHint)
 
         checker_wrapper = QWidget()
@@ -314,13 +313,14 @@ class SpchtMainWindow(object):
         hor_layour_23 = QHBoxLayout()
         self.explorer_node_add_btn = QPushButton(i18n['explorer_new_node'], FixedWidth=150, icon=QApplication.style().standardIcon(QStyle.SP_FileDialogNewFolder))
         self.explorer_node_create_btn = QPushButton(i18n['explorer_new_builder'], FixedWidth=150, icon=QApplication.style().standardIcon(QStyle.SP_FileIcon))
+        self.explorer_node_clone_btn = QPushButton(i18n['explorer_clone_node'], FixedWidth=150)  # ! there is srsly no icon for copy, cut or paste
+        self.explorer_node_edit_root_btn = QPushButton(i18n['explorer_edit_root'], FixedWidth=150)
         self.explorer_node_import_btn = QPushButton(i18n['generic_import'], FixedWidth=150)
         self.explorer_node_export_btn = QPushButton(i18n['generic_export'], FixedWidth=150)
         self.explorer_node_load_btn = QPushButton(i18n['generic_load'], FixedWidth=150, icon=QApplication.style().standardIcon(QStyle.SP_DialogOpenButton))
         self.explorer_node_save_btn = QPushButton(i18n['generic_save'], FixedWidth=150, icon=QApplication.style().standardIcon(QStyle.SP_DialogSaveButton))
         self.explorer_node_compile_btn = QPushButton(i18n['generic_compile'], FixedWidth=150, icon=QApplication.style().standardIcon(QStyle.SP_DialogApplyButton))
         self.mthSpchtBuilderBtnStatus(0)
-        self.explorer_node_spcht_filepath = QLabel("", sizePolicy=self.policy_expanding, MaximumWidth=9999)
         hor_layour_22.addWidget(self.explorer_node_load_btn)
         hor_layour_22.addWidget(self.explorer_node_save_btn)
         hor_layour_22.addStretch(255)
@@ -329,7 +329,10 @@ class SpchtMainWindow(object):
         hor_layour_22.addWidget(self.explorer_node_compile_btn)
 
         hor_layour_23.addWidget(self.explorer_node_add_btn)
-        hor_layour_23.addWidget(self.explorer_node_spcht_filepath)
+        hor_layour_23.addWidget(self.explorer_node_clone_btn)
+        hor_layour_23.addStretch(1)
+        hor_layour_23.addWidget(self.explorer_node_edit_root_btn)
+        hor_layour_23.addStretch(1)
         hor_layour_23.addWidget(self.explorer_node_create_btn)
 
         self.explorer_node_treeview = QTreeView()
@@ -462,11 +465,14 @@ class SpchtMainWindow(object):
         # * Inheritance Tab
         self.exp_tab_inheritance = QWidget()
         exp_tab_form_inheritance = QFormLayout(self.exp_tab_inheritance)
-        self.exp_tab_node_subdata = QLineEdit(PlaceholderText=i18n['node_subdata_placeholder'])
-        self.exp_tab_node_subnode = QLineEdit(PlaceholderText=i18n['node_subnode_placeholder'])
+        self.exp_tab_node_subdata = QLineEdit(PlaceholderText=i18n['node_subdata_placeholder'], ToolTip=i18n['tooltip_subgroup_name'])
+        self.exp_tab_node_subnode = QLineEdit(PlaceholderText=i18n['node_subnode_placeholder'], ToolTip=i18n['tooltip_subgroup_name'])
         self.exp_tab_node_subnode_of = QComboBox(PlaceholderText=i18n['node_subnode_of_placeholder'], ToolTip=i18n['parent_note'])
         self.exp_tab_node_subdata_of = QComboBox(PlaceholderText=i18n['node_subdata_of_placeholder'])
-        self.exp_tab_node_fallback = QComboBox(PlaceholderText=i18n['node_subfallback_placeholder'])
+        self.exp_tab_node_fallback = QComboBox(PlaceholderText=i18n['node_subfallback_placeholder'], ToolTip=i18n['tooltip_fallback'])
+        self.exp_tab_node_orphan_node = QPushButton(i18n['explorer_orphan_node'],
+                                                    icon=QApplication.style().standardIcon(QStyle.SP_FileLinkIcon),
+                                                    ToolTip=i18n['tooltip_orphan_node'])
         self.exp_tab_node_parent = QLabel()
         exp_tab_form_inheritance.addRow(i18n['node_subdata'], self.exp_tab_node_subdata)
         exp_tab_form_inheritance.addRow(i18n['node_subdata_of'], self.exp_tab_node_subdata_of)
@@ -474,7 +480,9 @@ class SpchtMainWindow(object):
         exp_tab_form_inheritance.addRow(i18n['node_subnode_of'], self.exp_tab_node_subnode_of)
         exp_tab_form_inheritance.addRow(QLabel(""))
         exp_tab_form_inheritance.addRow(i18n['node_fallback'], self.exp_tab_node_fallback)
-        exp_tab_form_inheritance.addRow(i18n['node_fallback_info'], self.exp_tab_node_parent)
+        exp_tab_form_inheritance.addRow(i18n['node_parent_info'], self.exp_tab_node_parent)
+        exp_tab_form_inheritance.addRow(QLabel(""))
+        exp_tab_form_inheritance.addRow(i18n['explorer_orphan_unite_label'], self.exp_tab_node_orphan_node)
 
         self.tab_node_insert_add_fields = QLineEdit()
         # * Michelangelo Tab (i just discovered i cannot write 'miscellaneous' without googling)
@@ -487,6 +495,7 @@ class SpchtMainWindow(object):
         self.exp_tab_node_delete_node = QPushButton(i18n['explorer_delete_this_node'], icon=QApplication.style().standardIcon(QStyle.SP_DialogDiscardButton))
         self.exp_tab_node_builder = QPushButton("Show complete SpchtBuilder")
         exp_tab_form_various.addRow(i18n['explorer_node_save'], self.exp_tab_node_save_node)
+        exp_tab_form_various.addRow(QLabel(""))
         exp_tab_form_various.addRow(i18n['explorer_node_delete'], self.exp_tab_node_delete_node)
         exp_tab_form_various.addRow(QLabel(""))
         exp_tab_form_various.addRow(QLabel(""))

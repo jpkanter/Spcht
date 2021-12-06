@@ -34,7 +34,7 @@ from datetime import datetime
 from pathlib import Path
 
 import appdirs
-from PySide2.QtGui import QStandardItemModel, QStandardItem, QFontDatabase, QIcon, QScreen
+from PySide2.QtGui import QStandardItemModel, QStandardItem, QIcon, QScreen
 from PySide2.QtWidgets import *
 from PySide2 import QtWidgets, QtCore
 
@@ -43,8 +43,8 @@ from dateutil.relativedelta import relativedelta
 import SpchtConstants
 import SpchtErrors
 import local_tools
-from SpchtBuilder import SpchtBuilder, SimpleSpchtNode
-from SpchtCore import Spcht, SpchtThird, SpchtTriple
+from SpchtBuilder import SpchtBuilder, SimpleSpchtNode, RESERVED_NAMES
+from SpchtCore import Spcht
 
 import SpchtUtility
 from SpchtCheckerGui_interface import SpchtMainWindow, ListDialogue, JsonDialogue, SelectionDialogue, QLogHandler, SolrDialogue, resource_path, i18n, __appauthor__, __appname__
@@ -52,6 +52,8 @@ from SpchtCheckerGui_interface import SpchtMainWindow, ListDialogue, JsonDialogu
 __SOLR_MAX_START__ = 25000
 __SOLR_MAX_ROWS__ = 500
 __SOLR_DEFAULT_QUERY__ = "*.*"
+
+__TITLE_VERSION__ = "061221.12:17"
 
 
 logging.basicConfig(level=logging.DEBUG)
@@ -135,22 +137,21 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         super().__init__(parent)
         # * condensly generates the names for SpchtView Headers
         self.node_headers = [{'key': x, 'header': i18n[f'col_{x}']} for x in SpchtBuilder.displaySpchtHeaders()]
-        self.data_cache = None
-        self.spcht_builder = None
-        self.active_spcht_node = None
-        self.active_data = None
-        self.active_data_tables = {}
-        self.active_data_index = 0
+        self.spcht_builder = None   # the builder upon all SpchtBuilder activity is based on
+        self.active_spcht_node = None  # the current, in the node view openend SpchtNode
+        self.active_data_tables = {}  # additional data that cannot be easily displayed in the view
+        self.data_cache = None  # repository of data an example Spcht can work upon
+        self.active_data = None   # the one entry that is currently active to work upon
+        self.active_data_index = 0  # index in the datacache of the current data
 
         # governs Quality of Life Features:
-        self.META_unsaved = False
-        self.META_changed = False
+        self.META_unsaved = False  # nodes were altered but not yet saved to a file
+        self.META_changed = False  # the current node was altered and that change not saved to the SpchtBuilder
         self.ERROR_missing_nodes = []
         # ! this creates the entire ui, small line, big cause
         self.create_ui(self)
         self.taube = Spcht(schema_path=resource_path("./SpchtSchema.json"))
-
-
+        self.setWindowTitle(f"{i18n['window_title']} - {__TITLE_VERSION__}")
 
         # * Event Binds
         self.surpress_comboevent = False
@@ -170,15 +171,7 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
 
     def closeEvent(self, event):
         if self.META_unsaved:
-            dlg = QMessageBox(parent=self)
-            dlg.setIcon(QMessageBox.Warning)
-            dlg.setWindowTitle(i18n['dialogue_unsaved'])
-            dlg.setText(i18n['dialogue_unsaved_exit'])
-            dlg.setStandardButtons(QMessageBox.Close | QMessageBox.Cancel)
-            dlg.setDefaultButton(QMessageBox.Close)
-            dlg.setEscapeButton(QMessageBox.Cancel)
-            returnal = dlg.exec_()
-            if returnal == QMessageBox.Cancel:
+            if not self.utlUnsavedPrompt(i18n['dialogue_unsaved_exit']):
                 event.ignore()
                 return
         self.utlSaveUserSettings()
@@ -201,8 +194,8 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
                       "sub_nodes": self.exp_tab_node_subnode}
         self.COMBOBOX = [{'key': "source", 'widget': self.exp_tab_node_source},
                          {'key': "if_condition", 'widget': self.exp_tab_node_if_condition},
-                         {'key': "parent", 'widget': self.exp_tab_node_subdata_of},
-                         {'key': "parent", 'widget': self.exp_tab_node_subnode_of},
+                         # {'key': "parent", 'widget': self.exp_tab_node_subdata_of},  # ? the problem here is that they
+                         # {'key': "parent", 'widget': self.exp_tab_node_subnode_of},  # ? are exclusive and overwrite each other
                          {'key': "fallback", 'widget': self.exp_tab_node_fallback}]
         self.CHECKBOX = {"required": {
                             "widget": self.exp_tab_node_mandatory,
@@ -306,7 +299,8 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
 
         self.exp_tab_node_display_spcht.clicked.connect(lambda: self.actDisplayJson(1))
         self.exp_tab_node_display_computed.clicked.connect(lambda: self.actDisplayJson(0))
-        self.exp_tab_node_save_node.clicked.connect(self.saveBuilderNode)
+        self.exp_tab_node_save_node.clicked.connect(self.mthSaveBuilderNode)
+        self.exp_tab_node_orphan_node.clicked.connect(self.orphanNode)
         self.exp_tab_node_delete_node.clicked.connect(self.deleteBuilderNode)
         self.exp_tab_node_builder.clicked.connect(self.actShowCompleteBuilder)
 
@@ -396,12 +390,8 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
             self.mthPopulateTextViews()
             self.utlWriteStatus("Loaded spcht discriptor file")
             self.mthSpchtBuilderBtnStatus(1)
-            self.explorer_node_spcht_filepath.setText(path_To_File)
+            self.explorer_toolbox.setItemText(1, f"{i18n['builder_toolbox_node_overview']} - {path_To_File}")
             self.spcht_builder = SpchtBuilder(spcht_data, spcht_base_path=str(Path(path_To_File).parent))
-            # ? debug - spchtbuilder to console
-            self.console.append("All SpchtBuilder Entries\n")
-            for key, entry in self.spcht_builder.repository.items():
-                self.console.append(f"{key} - {str([f'{k}={v}' for k, v in entry.properties.items()])}\n")
             self.mthFillNodeView(self.spcht_builder.displaySpcht())
             self.explorer_toolbox.setCurrentIndex(1)
         else:
@@ -501,6 +491,9 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
             self.central_widget.setCurrentIndex(0)
 
     def actLoadSpcht(self):
+        if self.META_unsaved:
+            if not self.utlUnsavedPrompt(i18n['dialogue_unsaved_load']):
+                return
         path_To_File, file_type = QtWidgets.QFileDialog.getOpenFileName(self, "Open spcht descriptor file", "../", "Spcht Json File (*.spcht.json);;Json File (*.json);;Every file (*.*)")
 
         if not path_To_File:
@@ -716,6 +709,10 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
     def actCreateTempAndCompute(self):
         temp = self.mthCreateTempSpcht()
         if temp:
+            if temp['name'] != self.active_spcht_node['name']:
+                self.explorer_toolbox.setItemText(2, f"{i18n['builder_toolbox_main_builder']} - {self.active_spcht_node['name']} -> {temp['name']}")
+            else:
+                self.explorer_toolbox.setItemText(2, f"{i18n['builder_toolbox_main_builder']} - {self.active_spcht_node['name']}")
             self.mthComputeSpcht(temp)
 
     def actSolrLoad(self, message=None):
@@ -869,19 +866,28 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
             if _ == 0:
                 continue
             floating_model.horizontalHeaderItem(_).setDragEnabled(True)
+        skip = 0
+        special_nodes = RESERVED_NAMES  # reserved names from spcht builder, eg :ROOT:, :MAIN: and :UNUSED:
+        for prio in special_nodes:
+            if prio in builder_display_data:
+                floating_model.setItem(skip, 0, self.utlTreeviewLine(prio, builder_display_data[prio]))
+                builder_display_data.pop(prio)
+                skip += 1
         for big_i, (parent, group) in enumerate(builder_display_data.items()):
-            top_node = QStandardItem(parent)
-            for i, each in enumerate(group):
-                for index, key in enumerate(self.node_headers):
-                    element = QStandardItem(each.get(key['key'], ""))
-                    element.setEditable(False)
-                    top_node.setChild(i, index, element)
-            floating_model.setItem(big_i, 0, top_node)
-            top_node.setEditable(False)
+            floating_model.setItem(big_i + skip, 0, self.utlTreeviewLine(parent, group))
         self.explorer_node_treeview.setModel(floating_model)
         self.explorer_node_treeview.expandAll()
         self.mthHideTabviewColumns()
-        #self.explorer_node_treeview.setColumnHidden(5, True)
+
+    def utlTreeviewLine(self, parent, props) -> QStandardItem:
+        top_node = QStandardItem(parent)
+        for i, each in enumerate(props):
+            for index, key in enumerate(self.node_headers):
+                element = QStandardItem(each.get(key['key'], ""))
+                element.setEditable(False)
+                top_node.setChild(i, index, element)
+        top_node.setEditable(False)
+        return top_node
 
     def mthSetSpchtTabView(self, SpchtNode=None):  # aka NodeToForms
         if not SpchtNode:
@@ -953,10 +959,19 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
             self.exp_tab_node_if_decider1.setChecked(True)
             self.exp_tab_node_if_many_values.setText("")
         # * parent
-        if 'name' in SpchtNode: # for cleanup step an empty spcht will be given
+        if 'name' in SpchtNode:  # for cleanup step an empty spcht will be given
             self.exp_tab_node_parent.setText(self.spcht_builder[SpchtNode['name']]['parent'])
-        else:
+        else:  # available
             self.exp_tab_node_parent.setText("")
+        if 'parent' in SpchtNode:
+            self.exp_tab_node_orphan_node.setDisabled(False)
+            if SpchtNode['parent'] == ":MAIN:":
+                self.exp_tab_node_orphan_node.setText(i18n['explorer_orphan_node'])
+            elif SpchtNode['parent'] == ":UNUSED:":
+                self.exp_tab_node_orphan_node.setText(i18n['explorer_reunite_node'])
+            else:
+                self.exp_tab_node_orphan_node.setText(i18n['explorer_orphan_not_available'])
+                self.exp_tab_node_orphan_node.setDisabled(True)
 
         # * comments
         self.exp_tab_node_comment.setText(SpchtNode.get('comment', ""))
@@ -967,35 +982,14 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
             return
         # * big copy & paste block for security & convinience
         if self.META_changed:
-            dlg = QMessageBox(parent=self)
-            dlg.setIcon(QMessageBox.Warning)
-            dlg.setWindowTitle(i18n['dialogue_changed_title'])
-            dlg.setText(i18n['dialogue_changed_upon_switch'])
-            dlg.setStandardButtons(QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel)
-            dlg.setDefaultButton(QMessageBox.Save)
-            dlg.setEscapeButton(QMessageBox.Cancel)
-            returnal = dlg.exec_()
-            if returnal == QMessageBox.Cancel:
+            if not self.utlChangedPrompt(i18n['dialogue_changed_upon_switch']):
                 return
-            elif returnal == QMessageBox.Save:
-                # message box galore
-                if not self.saveBuilderNode():
-                    dlg = QMessageBox(parent=self)
-                    dlg.setIcon(QMessageBox.Critical)
-                    dlg.setWindowTitle(i18n['dialogue_discard_title'])
-                    dlg.setText(i18n['dialogue_discard_changes'])
-                    dlg.setStandardButtons(QMessageBox.Discard | QMessageBox.Cancel)
-                    dlg.setDefaultButton(QMessageBox.Discard)
-                    dlg.setEscapeButton(QMessageBox.Cancel)
-                    returnal = dlg.exec_()
-                    if returnal == QMessageBox.Cancel:
-                        return
-        # * end of the big block
 
         item = indizes[0] # name of the node, should better be unique
         nodeName = item.model().itemFromIndex(item).text()
         if nodeName in self.spcht_builder.repository:
             self.active_spcht_node = self.spcht_builder.compileNode(nodeName)
+            self.explorer_toolbox.setItemText(2, f"{i18n['builder_toolbox_main_builder']} - {self.active_spcht_node['name']}")
             self.mthSetSpchtTabView(self.spcht_builder[nodeName].properties)
             self.mthComputeSpcht()
             self.mthLockTabview(False)
@@ -1105,6 +1099,11 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
                 raw_node[y['key']] = value
             else:
                 raw_node.pop(y['key'], None)
+        # * special combo boxes (puts this whole complex system in question doesnt it?
+        sub_data = str(self.exp_tab_node_subdata_of.currentText()).strip()
+        sub_nodes = str(self.exp_tab_node_subnode_of.currentText()).strip()
+        if sub_nodes or sub_data:
+             raw_node['parent'] = sub_nodes if sub_nodes else sub_data
         for key, details in self.CHECKBOX.items():
             raw_node[key] = details['bool'][details['widget'].isChecked()]
         for key, data in self.active_data_tables.items():
@@ -1260,30 +1259,9 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         if not self.spcht_builder:
             return
         # in case the last node wasnt saved
-        if self.META_unsaved:
-            dlg = QMessageBox(parent=self)
-            dlg.setIcon(QMessageBox.Warning)
-            dlg.setWindowTitle(i18n['dialogue_changed_title'])
-            dlg.setText(i18n['dialogue_changed_upon_save'])
-            dlg.setStandardButtons(QMessageBox.Save | QMessageBox.SaveAll | QMessageBox.Cancel)
-            dlg.setDefaultButton(QMessageBox.SaveAll)
-            dlg.setEscapeButton(QMessageBox.Cancel)
-            returnal = dlg.exec_()
-            if returnal == QMessageBox.Cancel:
+        if self.META_changed:
+            if not self.utlChangedPrompt(i18n['dialogue_changed_upon_save']):
                 return
-            elif returnal == QMessageBox.SaveAll:
-                if not self.saveBuilderNode():
-                    dlg = QMessageBox(parent=self)
-                    dlg.setIcon(QMessageBox.Critical)
-                    dlg.setWindowTitle(i18n['dialogue_discard_title'])
-                    dlg.setText(i18n['dialogue_discard_changes'])
-                    dlg.setStandardButtons(QMessageBox.Discard | QMessageBox.Cancel)
-                    dlg.setDefaultButton(QMessageBox.Discard)
-                    dlg.setEscapeButton(QMessageBox.Cancel)
-                    returnal = dlg.exec_()
-                    if returnal == QMessageBox.Cancel:
-                        return
-            # QMessageBox.Save is just what normally would happen here
 
         path_To_File, file_type = QtWidgets.QFileDialog.getSaveFileName(self, i18n['dlg_save_spchtbuilder'], "./",
                                                                         "Spcht Json File (*.spchtbuilder.json);;Json File (*.json);;Every file (*.*)")
@@ -1296,11 +1274,17 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
                 logging.warning(f"Cannot overwrite file {path_To_File}")
 
     def actCreateSpchtBuilder(self):
+        if self.META_unsaved:
+            if not self.utlUnsavedPrompt(i18n['dialogue_unsaved_create']):
+                return
         path = QFileDialog.getExistingDirectory(self, i18n['dia_folder_selection'])
         if path:
             self.mthCreateSpchtBuilder(path)
 
     def actOpenSpchtBuilder(self):
+        if self.META_unsaved:
+            if not self.utlUnsavedPrompt(i18n['dialogue_unsaved_load']):
+                return
         path_To_File, file_type = QtWidgets.QFileDialog.getOpenFileName(self, i18n['dlg_open_spchtbuilder'], "./",
                                                                         "Spcht Json File (*.spchtbuilder.json);;Json File (*.json);;Every file (*.*)")
         if path_To_File:
@@ -1327,12 +1311,11 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
                 self.spcht_builder = leiharbeiter
                 self.utlWriteStatus("Loaded SpchtBuilder.json file")
                 self.mthSpchtBuilderBtnStatus(1)
-                self.explorer_node_spcht_filepath.setText(path_To_File)
+                self.explorer_toolbox.setItemText(1, f"{i18n['builder_toolbox_node_overview']} - {path_To_File}")
                 self.mthFillNodeView(self.spcht_builder.displaySpcht())
                 self.explorer_toolbox.setCurrentIndex(1)
             else:
                 print("failed to load import")
-
 
     def mthCreateSpchtBuilder(self, directory):
         self.mthSpchtBuilderBtnStatus(1)
@@ -1340,34 +1323,16 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         self.spcht_builder.root['field'] = "id"
         self.spcht_builder.root['source'] = "dict"
         self.mthFillNodeView(self.spcht_builder.displaySpcht())
+        self.mthLockTabview(True)
+        self.active_spcht_node = None
+        self.active_data = None
         self.META_unsaved = True
         self.META_changed = False
 
     def actCreateSpchtNode(self):
         if self.META_changed:
-            dlg = QMessageBox(parent=self)
-            dlg.setIcon(QMessageBox.Warning)
-            dlg.setWindowTitle(i18n['dialogue_changed_title'])
-            dlg.setText(i18n['dialogue_changed_upon_new'])
-            dlg.setStandardButtons(QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel)
-            dlg.setDefaultButton(QMessageBox.Save)
-            dlg.setEscapeButton(QMessageBox.Cancel)
-            returnal = dlg.exec_()
-            if returnal == QMessageBox.Cancel:
+            if not self.utlChangedPrompt(i18n['dialogue_changed_upon_new']):
                 return
-            elif returnal == QMessageBox.Save:
-                # message box galore
-                if not self.saveBuilderNode():
-                    dlg = QMessageBox(parent=self)
-                    dlg.setIcon(QMessageBox.Critical)
-                    dlg.setWindowTitle(i18n['dialogue_discard_title'])
-                    dlg.setText(i18n['dialogue_discard_changes'])
-                    dlg.setStandardButtons(QMessageBox.Discard | QMessageBox.Cancel)
-                    dlg.setDefaultButton(QMessageBox.Discard)
-                    dlg.setEscapeButton(QMessageBox.Cancel)
-                    returnal = dlg.exec_()
-                    if returnal == QMessageBox.Cancel:
-                        return
 
         new_node = self.spcht_builder._names.giveName()
         emptyNode = SimpleSpchtNode(new_node, parent=":MAIN:")
@@ -1396,7 +1361,7 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         with codecs.open(path, "w", encoding='utf-8') as spcht_file:
             json.dump(self.spcht_builder.createSpcht(), spcht_file, indent=3, ensure_ascii=False)
 
-    def saveBuilderNode(self):
+    def mthSaveBuilderNode(self):
         if not self.active_spcht_node:
             return
         new_node = self.mthNodeFormsToSpcht(self.active_spcht_node)
@@ -1407,7 +1372,7 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
             # smp_node['fallback'] = new_node.get('fallback') if new_node['fallback']['name'] else ''
             # smp_node['sub_nodes'] = new_node.get('sub_nodes') if new_node['sub_nodes']['name'] else ''
             # smp_node['sub_data'] = new_node.get('sub_data') if new_node['sub_data']['name'] else ''
-            self.spcht_builder.modify(self.active_spcht_node['name'], smp_node)
+            new_name = self.spcht_builder.modify(self.active_spcht_node['name'], smp_node)
             self.mthFillNodeView(self.spcht_builder.displaySpcht())
             self.explorer_toolbox.setCurrentIndex(1)
             # resetting interface
@@ -1416,7 +1381,8 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
             self.active_data_tables = {}
             self.META_changed = False
             self.META_unsaved = True
-            return True
+            self.explorer_toolbox.setItemText(2, i18n['builder_toolbox_main_builder'])
+            return new_name
         else:
             dlg = QMessageBox(parent=self)
             dlg.setIcon(QMessageBox.Information)
@@ -1426,6 +1392,18 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
             dlg.setStandardButtons(QMessageBox.Ok)
             dlg.exec_()
             return False
+
+    def orphanNode(self):
+        """
+        Unmoores a node from :MAIN: or retethers it
+        """
+        if not self.active_spcht_node:
+            return
+        node_name = self.mthSaveBuilderNode()
+        print(node_name)
+        if node_name:
+            self.spcht_builder.parkNode(node_name)  # yes, i extended SpchtBuilder for that
+            self.mthFillNodeView(self.spcht_builder.displaySpcht())  # second time, a bit redundant
 
     def deleteBuilderNode(self):
         if not self.active_spcht_node:
@@ -1508,6 +1486,45 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
             if each['key'] == "name":
                 continue
             self.explorer_node_treeview.setColumnHidden(_, not self.tabview_active_columns[each['key']])
+
+    def utlUnsavedPrompt(self, text):
+        dlg = QMessageBox(parent=self)
+        dlg.setIcon(QMessageBox.Warning)
+        dlg.setWindowTitle(i18n['dialogue_unsaved_title'])
+        dlg.setText(text)
+        dlg.setStandardButtons(QMessageBox.Close | QMessageBox.Cancel)
+        dlg.setDefaultButton(QMessageBox.Close)
+        dlg.setEscapeButton(QMessageBox.Cancel)
+        returnal = dlg.exec_()
+        if returnal == QMessageBox.Cancel:
+            return False
+        return True
+
+    def utlChangedPrompt(self, text):
+        dlg = QMessageBox(parent=self)
+        dlg.setIcon(QMessageBox.Warning)
+        dlg.setWindowTitle(i18n['dialogue_changed_title'])
+        dlg.setText(text)
+        dlg.setStandardButtons(QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel)
+        dlg.setDefaultButton(QMessageBox.Save)
+        dlg.setEscapeButton(QMessageBox.Cancel)
+        returnal = dlg.exec_()
+        if returnal == QMessageBox.Cancel:
+            return False
+        elif returnal == QMessageBox.Save:
+            # message box galore
+            if not self.mthSaveBuilderNode():
+                dlg = QMessageBox(parent=self)
+                dlg.setIcon(QMessageBox.Critical)
+                dlg.setWindowTitle(i18n['dialogue_discard_title'])
+                dlg.setText(i18n['dialogue_discard_changes'])
+                dlg.setStandardButtons(QMessageBox.Discard | QMessageBox.Cancel)
+                dlg.setDefaultButton(QMessageBox.Discard)
+                dlg.setEscapeButton(QMessageBox.Cancel)
+                returnal = dlg.exec_()
+                if returnal == QMessageBox.Cancel:
+                    return False
+        return True
 
 
 if __name__ == "__main__":
