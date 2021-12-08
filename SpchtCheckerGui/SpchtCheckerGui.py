@@ -53,7 +53,7 @@ __SOLR_MAX_START__ = 25000
 __SOLR_MAX_ROWS__ = 500
 __SOLR_DEFAULT_QUERY__ = "*.*"
 
-__TITLE_VERSION__ = "081221.11:49"
+__TITLE_VERSION__ = "081221.15:32"
 
 
 logging.basicConfig(level=logging.DEBUG)
