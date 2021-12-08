@@ -53,7 +53,7 @@ __SOLR_MAX_START__ = 25000
 __SOLR_MAX_ROWS__ = 500
 __SOLR_DEFAULT_QUERY__ = "*.*"
 
-__TITLE_VERSION__ = "061221.12:17"
+__TITLE_VERSION__ = "081221.11:49"
 
 
 logging.basicConfig(level=logging.DEBUG)
@@ -204,6 +204,10 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
                         "type": {
                             "widget": self.exp_tab_node_uri,
                             "bool": {False: "literal", True: "uri"}
+                        },
+                        "predicate_inheritance": {
+                            "widget": self.exp_tab_node_predicate_inheritance,
+                            "bool": {False: False, True: True}
                         }
                         }
         self.CLEARONLY = [
@@ -654,7 +658,7 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         self.mthProgressMode(False)
         return True
 
-    def utlWriteStatus(self, text):
+    def utlWriteStatus(self, text):  # criminally underutilized
         self.notifybar.showMessage(time_log(text, time_string="%H:%M:%S", spacer=" ", end=""))
 
     def mthProgressMode(self, mode):
@@ -985,10 +989,10 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
             if not self.utlChangedPrompt(i18n['dialogue_changed_upon_switch']):
                 return
 
-        item = indizes[0] # name of the node, should better be unique
+        item = indizes[0]  # name of the node, should better be unique
         nodeName = item.model().itemFromIndex(item).text()
         if nodeName in self.spcht_builder.repository:
-            self.active_spcht_node = self.spcht_builder.compileNode(nodeName)
+            self.active_spcht_node = self.spcht_builder.compileNode(nodeName, always_inherit=True)
             self.explorer_toolbox.setItemText(2, f"{i18n['builder_toolbox_main_builder']} - {self.active_spcht_node['name']}")
             self.mthSetSpchtTabView(self.spcht_builder[nodeName].properties)
             self.mthComputeSpcht()
@@ -1073,10 +1077,11 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
                 # ? can compile accordingly to properly collapse the dependencies..
                 temp_builder = copy.deepcopy(self.spcht_builder)
                 smp = SimpleSpchtNode(temp['name'])
-                smp.properties = temp
-                smp.parent = temp.get('parent', ":MAIN:")
+                smp.import_dictionary(temp)
+                #smp.parent = temp.get('parent', self.active_spcht_node.get('parent', ":MAIN:"))
+                #smp.predicate_inheritance = temp.get('predicate_inheritance', True)
                 temp_builder.modify(self.active_spcht_node['name'], smp)
-                temp = temp_builder.compileNode(temp['name'])
+                temp = temp_builder.compileNode(temp['name'], always_inherit=True)
                 temp = temp_builder.compileNodeReference(temp)
                 return temp
             return None
@@ -1103,7 +1108,7 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         sub_data = str(self.exp_tab_node_subdata_of.currentText()).strip()
         sub_nodes = str(self.exp_tab_node_subnode_of.currentText()).strip()
         if sub_nodes or sub_data:
-             raw_node['parent'] = sub_nodes if sub_nodes else sub_data
+            raw_node['parent'] = sub_nodes if sub_nodes else sub_data
         for key, details in self.CHECKBOX.items():
             raw_node[key] = details['bool'][details['widget'].isChecked()]
         for key, data in self.active_data_tables.items():
@@ -1152,6 +1157,7 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         for i in range(1, len(lines)):
             raw_node[f'comment{i}'] = lines[i]
         if SpchtUtility.is_dictkey(raw_node, 'field', 'source', 'required'):  # minimum viable node
+            # after we have checked if everything is there...we delete things if we are in a very specific scenario
             return raw_node
         self.ERROR_missing_nodes = []  # basically an out or order error message, i should probably throw an exception instead
         for element in ["field", "source", "required"]:
@@ -1342,7 +1348,7 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         emptyNode['predicate'] = ""
         self.spcht_builder.add(emptyNode)
         self.mthFillNodeView(self.spcht_builder.displaySpcht())
-        self.active_spcht_node = self.spcht_builder.compileNode(new_node)
+        self.active_spcht_node = self.spcht_builder.compileNode(new_node, always_inherit=True)
         self.mthSetSpchtTabView(self.spcht_builder[new_node].properties)
         self.mthComputeSpcht()
         self.mthLockTabview(False)

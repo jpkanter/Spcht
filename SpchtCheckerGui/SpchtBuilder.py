@@ -36,6 +36,8 @@ import local_tools
 
 RESERVED_NAMES = [":ROOT:", ":UNUSED:", ":MAIN:"]
 
+logger = logging.getLogger(__name__)
+
 
 class SimpleSpchtNode:
 
@@ -43,6 +45,7 @@ class SimpleSpchtNode:
         self.properties = dict()
         self.properties['name'] = name  # TODO: should probably make sure this is actual possible
         self.parent = parent
+        self.predicate_inheritance = True
         if import_dict:
             self.import_dictionary(import_dict)
         # using this as a dictionary proxy for now
@@ -64,6 +67,15 @@ class SimpleSpchtNode:
         if key not in self.properties:
             raise KeyError(key)
         return self.properties.pop(key, default)
+
+    def items(self):
+        return self.properties.items()
+
+    def values(self):
+        return self.properties.values()
+
+    def keys(self):
+        return self.properties.keys()
 
     def __repr__(self):
         return f"Parent={self.parent} - " + str(self.properties)
@@ -93,6 +105,15 @@ class SimpleSpchtNode:
         """
         return self.properties.__iter__()
 
+    def __contains__(self, item):
+        """
+        Just a passthrough to the properties for ease of use
+        :param item:
+        :return: True if item is in , False if not
+        :rtype: bool
+        """
+        return item in self.properties
+
     @property
     def parent(self):
         return self._parent
@@ -102,6 +123,18 @@ class SimpleSpchtNode:
         self._parent = parent
         self.properties['parent'] = parent
 
+    @property
+    def predicate_inheritance(self):
+        return self._predicate_inheritance
+
+    @predicate_inheritance.setter
+    def predicate_inheritance(self, status: bool):
+        try:
+            self._predicate_inheritance = bool(status)
+            self.properties['predicate_inheritance'] = self._predicate_inheritance
+        except TypeError:
+            logger.warning("SpchtBuilder::SimpleSpchtNode: set predicate_inheritance encountered non-bool-able value")
+
     def import_dictionary(self, data: dict):
         # this is like the worst import procedure i can imagine, it checks nothing
         for key in data:
@@ -110,12 +143,8 @@ class SimpleSpchtNode:
             except KeyError:
                 if key == "parent" and isinstance(data['parent'], str):
                     self.parent = data['parent']
-
-
-class SpchtNodeGroup:
-    def __init__(self, name: str):
-        self.name = name
-        self.repository = dict()
+                if key == "predicate_inheritance" and isinstance(data['predicate_inheritance'], bool):
+                    self.predicate_inheritance = data['predicate_inheritance']
 
 
 class SpchtBuilder:
@@ -147,11 +176,26 @@ class SpchtBuilder:
         else:
             raise KeyError(f"SpchtBuilder::Cannot access key '{item}'.")
 
+    def __contains__(self, item) -> bool:  # mirror mirror
+        return item in self._repository
+
+    def __iter__(self):
+        return self._repository.__iter__()
+
     def get(self, key, default=None):
         if key in self.repository:
             return self.repository[key]
         else:
             return default
+
+    def values(self):
+        return self._repository.values()
+
+    def items(self):
+        return self._repository.items()
+
+    def keys(self):
+        return self._repository.keys()
 
     def add(self, UniqueSpchtNode: SimpleSpchtNode):
         UniqueSpchtNode['name'] = self.createNewName(UniqueSpchtNode['name'])
@@ -168,7 +212,7 @@ class SpchtBuilder:
         for field in SpchtConstants.BUILDER_LIST_REFERENCE:
             if field in self[UniqueName]:
                 chainbreakers.append(self[UniqueName][field])
-        for name in self._repository:
+        for name in self:
             # ? to assign multiple fields to one node a field name is created that is just ever expressed as the value
             # ? of sub_data and sub_nodes, therefore child element have to hear from this
             for unreal_field in chainbreakers:
@@ -186,7 +230,7 @@ class SpchtBuilder:
         :return: The Name of the new node
         :rtype: str
         """
-        if OriginalName not in self._repository:
+        if OriginalName not in self:
             raise KeyError(f"Cannot update node {OriginalName} as it does not exist")
         # ! reinstate fallback relationships
         if OriginalName != UniqueSpchtNode['name']:
@@ -194,29 +238,34 @@ class SpchtBuilder:
 
         # ! you can actually set a node to be its own parent, it wont be exported that ways as no recursion will find it
         # ! if you manually set a node a parent that already has a fallback that relationship will be usurped
-        old_fallback = self._repository[OriginalName].get('fallback', None)
+        old_fallback = self[OriginalName].get('fallback', None)
         new_fallback = UniqueSpchtNode.get('fallback', None)
         if old_fallback or new_fallback:  # we only have to iterate once through the thing
-            for name in self._repository:
-                if 'fallback' in self._repository[name]:
+            for name in self:
+                if 'fallback' in self[name]:
                     if old_fallback != new_fallback:
-                        if self._repository[name]['fallback'] == new_fallback:  # the other nodes loses its fallback
-                            self._repository[name].pop('fallback', None)
+                        if self[name]['fallback'] == new_fallback:  # the other nodes loses its fallback
+                            self[name].pop('fallback', None)
                         if name == old_fallback:
-                            self._repository[name].parent = ":MAIN:"  # default back into the orphanage called :MAIN:
+                            self[name].parent = ":MAIN:"  # default back into the orphanage called :MAIN:
                 if name == new_fallback:  # the target of the old fallback gets a new parent
-                    self._repository[name].parent = UniqueSpchtNode['name']  # also accidentally updates the fallback in case the node is now named differently
+                    self[name].parent = UniqueSpchtNode['name']  # also accidentally updates the fallback in case the node is now named differently
 
         if OriginalName != UniqueSpchtNode['name']:  # * second time we do this because the fallback fix from above needed the name earlier
             # ? this is actually a rather hard decision, do i want to discard the name automatically or give choice to the user?
             # if UniqueSpchtNode['name'] in self._repository:
             #    raise SpchtErrors.OperationalError("Cannot modify node with new name as another node already exists")
-            for node in self._repository:  # updates referenced names
+            for node in self:  # updates referenced names
                 for key in SpchtConstants.BUILDER_REFERENCING_KEYS:
                     if key in node and node[key] == OriginalName:
                         node[key] = UniqueSpchtNode['name']
-            self._repository.pop(OriginalName)
-        self._repository[UniqueSpchtNode['name']] = UniqueSpchtNode
+            self._repository.pop(OriginalName)  # i have not implemented pop for this one occasion
+        self._repository[UniqueSpchtNode['name']] = UniqueSpchtNode  # also not set item because .modify is the way
+        # * replace predicate
+        if UniqueSpchtNode.predicate_inheritance:
+            if self[UniqueSpchtNode['name']].parent in self and self[UniqueSpchtNode['name']].parent not in RESERVED_NAMES:
+                if 'fallback' in self[self[UniqueSpchtNode['name']].parent] and self[self[UniqueSpchtNode['name']].parent]['fallback'] == UniqueSpchtNode['name']:
+                    self[UniqueSpchtNode['name']]['predicate'] = self[self[UniqueSpchtNode['name']].parent]['predicate']
         return UniqueSpchtNode['name']
 
     def getNodesByParent(self, parent):
@@ -228,7 +277,7 @@ class SpchtBuilder:
         :rtype: SimpleSpchtNode
         """
         children = []
-        for node in self._repository.values():
+        for node in self.values():
             if node.parent == parent:
                 children.append(copy.copy(node))
         return children
@@ -239,9 +288,10 @@ class SpchtBuilder:
         b = dict()
         b[':ROOT:'] = self.root.properties
         b[':ROOT:']['parent'] = self.root.parent
-        for key in self._repository:
-            b[key] = self._repository[key].properties
-            b[key]['parent'] = self._repository[key].parent
+        for key in self:
+            b[key] = self[key].properties
+            b[key]['parent'] = self[key].parent
+            b[key]['predicate_inheritance'] = self[key].predicate_inheritance
         a['nodes'] = b
         a['references'] = self._references  # all referenced data that could be loaded
         return a
@@ -280,6 +330,7 @@ class SpchtBuilder:
                 if isinstance(value, (dict, list)):
                     return False
                 self._references[ref][key] = value
+        self._enrichPredicates()
         return True
 
     def createSpcht(self):
@@ -297,63 +348,67 @@ class SpchtBuilder:
         # this still misses the root node
         return self.compileNodeByParent(":MAIN:")
 
-    def compileNodeByParent(self, parent: str, mode="conservative"):
+    def compileNodeByParent(self, parent: str, mode="conservative", always_inherit=False) -> list:
         """
         Compiles a node by common parent, has two modes:
 
         * conservative (default) - will discard all nodes that do not possess the minimum Spcht requirements
         * reckless - will add any node, regardless if the resulting spcht might not be useable
-        :param parent:
+        :param str parent:
         :type parent:
-        :param mode:
-        :type mode:
-        :return:
-        :rtype:
+        :param str mode: either 'conservative' or 'reckless' for node adding behaviour
+        :param always_inherit: if True this will ignore faulty inheritance settings
+        :return: a list of nodes
+        :rtype: list
         """
         parent = str(parent)
         node_list = []
-        for key, top_node in self._repository.items():
+        for key, top_node in self.items():
             if top_node.parent == parent:
-                one_node = self.compileNode(key)
+                one_node = self.compileNode(key, always_inherit)
                 if mode == "reckless":
                     node_list.append(one_node)
                 else:
                     # * this has the potential to wreck entire chains if the top node is incorrect
-                    if not SpchtUtility.is_dictkey(one_node, "field", "source", "predicate", "required"):
+                    if not SpchtUtility.is_dictkey(one_node, "field", "source"):
                         continue
-                    if str(one_node['field']).strip() == "" or str(one_node['predicate']).strip() == "":
+                    if 'predicate' not in self[key] or self[key]['predicate'].strip() == "":
+                        # if for some reasons there is no predicate AND the default true inheritance setting is False
+                        # this node is obviously faulty and has to be ignored, this can only happen if someone
+                        # would recklessly modify the Nodes in the repository without using .modify...i think
+                        if not one_node['predicate_inheritance']:
+                            continue
+                    if str(one_node['field']).strip() == "":
                         continue
                     node_list.append(one_node)
         return node_list
 
-    def compileNode(self, name: str):
+    def compileNode(self, name: str, always_inherit=False):
         name = str(name)
-        if name not in self._repository:
+        if name not in self:
             return None
         pure_dict = {}
-        for key, item in self._repository[name].properties.items():
-            if key in SpchtConstants.BUILDER_LIST_REFERENCE:
-                children_nodes = self.getNodesByParent(item)
+        for key, item in self[name].items():
+            if key in SpchtConstants.BUILDER_LIST_REFERENCE:  # sub_nodes & sub_data
                 node_group = []
-                for child_node in children_nodes:
+                for child_node in self.getNodesByParent(item):
                     node_group.append(self.compileNode(child_node['name']))
                 pure_dict[key] = node_group
             elif key in SpchtConstants.BUILDER_SINGLE_REFERENCE:
                 pure_dict[key] = self.compileNode(item)
-            elif key == 'parent':  # parent added to object for some convenience but its not technically in the schema
+            elif key in SpchtConstants.BUILDER_NON_SPCHT:
                 continue
             else:
                 pure_dict[key] = item
-            if 'predicate' not in pure_dict:
-                predicate = self.inheritPredicate(name)  # find root predicate name
-                if predicate:
-                    pure_dict['predicate'] = predicate
+        if 'predicate' not in pure_dict and always_inherit:
+            predicate = self.inheritPredicate(name)  # find root predicate name
+            if predicate:
+                pure_dict['predicate'] = predicate
         return pure_dict
 
     def inheritPredicate(self, sub_node_name: str):
         """
-        Sub-Nodes are not required to have the predicate redefined as those get inherited from the parent,
-        fallbacks for example wont have a predicate but can inherit one from their ancestors
+        Fallbacks are not required to have the predicate redefined as those get inherited from the parent,
 
         This will fail horribly when used on something that actually has no parent in its chain
         :param sub_node_name: unique name of that sub_node
@@ -362,14 +417,16 @@ class SpchtBuilder:
         :rtype: str
         """
         try:
-            if 'predicate' not in self._repository[sub_node_name].properties:
-                if self._repository[sub_node_name].parent == ":MAIN" or self._repository[sub_node_name].parent == ":ROOT:":
+            if 'predicate' not in self[sub_node_name] or self[sub_node_name]['predicate'].strip() == "":
+                if self[sub_node_name].parent not in self or self[sub_node_name].parent in RESERVED_NAMES:
                     return ""
-                return self.inheritPredicate(self._repository[sub_node_name].parent)
+                elif 'fallback' in self[self[sub_node_name].parent] and self[self[sub_node_name].parent]['fallback'] == sub_node_name:
+                    return self.inheritPredicate(self[sub_node_name].parent)
+                else:
+                    return ""
             else:
-                return self._repository[sub_node_name]['predicate']
+                return self[sub_node_name]['predicate']
         except KeyError as e:
-            print(self._repository.get(sub_node_name))
             logging.warning(f"Could not inherit predicate for {sub_node_name} - {e}")
             return ""
 
@@ -377,7 +434,7 @@ class SpchtBuilder:
         # gives a reprensentation for SpchtCheckerGui
         curated_keys = ["name", "source", "field", "type", "mandatory", "sub_nodes", "sub_data", "predicate", "fallback", "comment"]
         grouped_dict = defaultdict(list)
-        for node, each in self._repository.items():
+        for node, each in self.items():
             curated_data = {key: each.get(key, "") for key in curated_keys}
             # tech usage:
             techs = []
@@ -417,6 +474,7 @@ class SpchtBuilder:
                     self.root['fallback'] = key
                     break
             self._repository.update(root_fallbacks)
+        self._enrichPredicates()
 
     def _recursiveSpchtImport(self, spcht_nodes: list, base_path, parent=":MAIN:") -> dict:
         temp_spcht = {}
@@ -509,21 +567,20 @@ class SpchtBuilder:
         :return: Returns true if the parking actually suceeded
         :rtype: bool
         """
-        if node_name not in self._repository:
+        if node_name not in self:
             raise KeyError(f"SpchtBuilder::Cannot access element '{node_name}'.")
         print(self._repository[node_name].parent)
-        if self._repository[node_name].parent == ":MAIN:":
-            self._repository[node_name].parent = ":UNUSED:"
-        elif self._repository[node_name].parent == ":UNUSED:":
+        if self[node_name].parent == ":MAIN:":
+            self[node_name].parent = ":UNUSED:"
+        elif self[node_name].parent == ":UNUSED:":
             print("unused")
-            self._repository[node_name].parent = ":MAIN:"
+            self[node_name].parent = ":MAIN:"
         else:
             return False
         return True
 
-
     def getSolidParents(self):
-        return [key for key in self._repository]
+        return [key for key in self]  # is this not the same as self.keys()?
 
     def getChildlessParents(self):
         """
@@ -531,31 +588,58 @@ class SpchtBuilder:
         :return: list of all nodes without fallback
         :rtype: list
         """
-        return [x for x in self._repository if 'fallback' not in self._repository[x]]
+        return [x for x in self if 'fallback' not in self[x]]
 
     def getSubnodeParents(self):
         names = []
-        for node in self._repository.values():
+        for node in self.values():
             if 'sub_nodes' in node.properties:
                 names.append(node.properties['sub_nodes'])
         return names
 
     def getSubdataParents(self):
         names = []
-        for node in self._repository.values():
+        for node in self.values():
             if 'sub_data' in node.properties:
                 names.append(node.properties['sub_data'])
         return names
 
     def getAllParents(self):
         names = []
-        for key, node in self._repository.items():
+        for key, node in self.items():
             if 'sub_data' in node.properties:
                 names.append(node.properties['sub_data'])
             if 'sub_nodes' in node.properties:
                 names.append(node.properties['sub_nodes'])
             names.append(key)
         return names
+
+    def _enrichPredicates(self):
+        """
+        This solves a meta problem. In the original version, handwritten fallbacks wont have their own predicate
+        as the schema doesnt demand them and it would be illogical to have a different predicate for a fallback node,
+        but as a fallback node is not lesser than any other one node it can have its own fallback. The Spcht script
+        just inherits the predicate from its direct ancestor, the Gui program does the same but this means, if you
+        somewhen down the line change the predicate and still have fallbacks, those wont change with them, this is now
+        the default, as long as the link exists a change in the predicate of a node that has fallbacks will also change
+        the predicate of all fallback nodes, EXCEPT there is an extra flag set to not do so. This flag has to be
+        initialized somewhere, and this is the moment, used right after importing data
+        :return: nothing
+        :rtype: nothing
+        """
+        for name, node in self.items():
+            if node.parent in self or node.parent in RESERVED_NAMES:
+                continue
+            if 'predicate' not in node or node['predicate'].strip() == "":
+                self[name]['predicate'] = ""
+                if 'fallback' in self[node.parent] and self[node.parent]['fallback'] == name:
+                    self[name]['predicate'] = self.inheritPredicate(name)
+                    self[name].predicate_inheritance = True
+                    print(f"{name} inherits from {node.parent}: {self[name]['predicate']}")
+            else:
+                if 'fallback' in self[node.parent] and self[node.parent]['fallback'] == name:
+                    if node['predicate'] != self[node.parent]['predicate']:
+                        self[name].predicate_inheritance = False
 
     def createNewName(self, name: str, mode="add", alt_repository=None) -> str:
         """
@@ -589,11 +673,11 @@ class SpchtBuilder:
             if name not in alt_repository:
                 return name
         else:  # checks for direct names and duplicated parent names
-            for key in self._repository:
+            for key in self:
                 if key == name:
                     all_clear = False
                     break
-                if self._repository[key].parent == name:
+                if self[key].parent == name:
                     all_clear = False
                     break
         if all_clear:

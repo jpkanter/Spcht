@@ -370,6 +370,9 @@ class SpchtMainWindow(object):
         #line 5
         self.exp_tab_node_predicate = QLineEdit(PlaceholderText=i18n['node_predicate_placeholder'])
         exp_tab_form_general.addRow(i18n['node_predicate'], self.exp_tab_node_predicate)
+        #line 5.5
+        self.exp_tab_node_predicate_inheritance = QCheckBox(i18n['node_predicate_inheritance'], ToolTip=i18n['node_predicate_inheritance_tooltip'])
+        exp_tab_form_general.addRow(i18n['node_predicate_inheritance_short'], self.exp_tab_node_predicate_inheritance)
         #line 6
         self.exp_tab_node_comment = QTextEdit()
         exp_tab_form_general.addRow(i18n['node_comment'], self.exp_tab_node_comment)

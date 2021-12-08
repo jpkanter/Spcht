@@ -79,6 +79,7 @@ BUILDER_SPCHT_TECH = ['alternatives', 'mapping', 'joined_map', 'match', 'append'
 BUILDER_REFERENCING_KEYS = ["sub_nodes", "sub_data", "fallback"]
 BUILDER_SINGLE_REFERENCE = ["fallback"]
 BUILDER_LIST_REFERENCE = ["sub_nodes", "sub_data"]
+BUILDER_NON_SPCHT = ["parent", "predicate_inheritance"]  # additional convenience keys for the SimpleSpchtNodes which are not Spcht
 
 RANDOM_NAMES = ['Trafalgar', 'Miranda', 'Kathmandu', 'Venerable', 'Crazy Horse', 'Peerless', 'Qiuxing', 'Swordfish', 'Berlin', 'Perseverance', 'Manila',
 'Nishizawa', 'Courageous', 'Mongol', 'Dubai', 'Tiger Shark', 'Atlas', 'Melbourne', 'Buffalo', 'Baghdad', 'Jubilant',

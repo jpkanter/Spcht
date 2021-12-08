@@ -166,3 +166,6 @@ tooltip_fallback;'Fallbacks‘ werden in umgekehrter Richtung zu ‚sub_data‘ 
 explorer_orphan_not_available;Unterknoten können nicht verwaist werden;Sub nodes of something cannot be orphaned
 explorer_clone_node;Knoten klonen;Clone node
 explorer_edit_root;Wurzel Knoten editieren;Edit root node
+node_predicate_inheritance_tooltip;Wenn dieser Knoten als ‚Fallback‘ eines Anderen eingestellt wird wird er sein eigenes Prädikat ignorieren und stattdessen das Prädikat des übergeordneten Knotens übernehmen. Dieses Verhalten ist standardmäßig aktiviert da angenommen wird das ‚Fallbacks‘ eine alternative Datenquelle darstellen die aber prinzipiell das Gleiche beschreiben;If this node is used as ‚fallback‘ it will inherit the predicate of its upper node instead of using its own predicate tag. This inheritance is used as a simplification as the assumed use case would be another data source for the same kind of data.
+node_predicate_inheritance_short;Vererbung als Fallback;Inheritance as Fallback
+node_predicate_inheritance;Nutzen des Eltern-Prädikats wenn als Fallback genutzt;Use Parent-predicate when used as fallback

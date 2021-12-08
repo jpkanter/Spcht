@@ -666,5 +666,17 @@
    "explorer_edit_root": {
       "de": "Wurzel Knoten editieren",
       "en": "Edit root node"
+   },
+   "node_predicate_inheritance_tooltip": {
+      "de": "Wenn dieser Knoten als ‚Fallback‘ eines Anderen eingestellt wird wird er sein eigenes Prädikat ignorieren und stattdessen das Prädikat des übergeordneten Knotens übernehmen. Dieses Verhalten ist standardmäßig aktiviert da angenommen wird das ‚Fallbacks‘ eine alternative Datenquelle darstellen die aber prinzipiell das Gleiche beschreiben",
+      "en": "If this node is used as ‚fallback‘ it will inherit the predicate of its upper node instead of using its own predicate tag. This inheritance is used as a simplification as the assumed use case would be another data source for the same kind of data."
+   },
+   "node_predicate_inheritance_short": {
+      "de": "Vererbung als Fallback",
+      "en": "Inheritance as Fallback"
+   },
+   "node_predicate_inheritance": {
+      "de": "Nutzen des Eltern-Prädikats wenn als Fallback genutzt",
+      "en": "Use Parent-predicate when used as fallback"
    }
 }
