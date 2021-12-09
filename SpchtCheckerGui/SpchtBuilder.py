@@ -259,6 +259,19 @@ class SpchtBuilder:
                 self[self[OriginalName].parent]['fallback'] == OriginalName):  # bracket style ifs in python are quite rare..seems weird, would work without
             self[self[OriginalName].parent].pop('fallback', None)
 
+        # * updating of references - quite similar to fallback but not based on name
+        for prop in SpchtConstants.BUILDER_LIST_REFERENCE:
+            old_node = self[OriginalName].get(prop, None)
+            new_node = UniqueSpchtNode.get(prop, None)
+            if old_node:
+                for key, node in self.items():
+                    if not new_node and node.parent == old_node:  # basically deleting the old node
+                        node.parent = ":UNUSED:"
+                    if new_node and node.parent == old_node:  # reassigning to the renamed
+                        node.parent = new_node
+
+
+
         if OriginalName != UniqueSpchtNode['name']:  # * second time we do this because the fallback fix from above needed the name earlier
             for name, node in self.items():  # updates referenced names
                 for key in SpchtConstants.BUILDER_REFERENCING_KEYS:
