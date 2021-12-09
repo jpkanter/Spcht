@@ -234,35 +234,40 @@ class SpchtBuilder:
             raise KeyError(f"Cannot update node {OriginalName} as it does not exist")
         # ! reinstate fallback relationships
         if OriginalName != UniqueSpchtNode['name']:
+            # ? this is actually a rather hard decision, do i want to discard the name automatically or give choice to the user?
+            # if UniqueSpchtNode['name'] in self._repository:
+            #    raise SpchtErrors.OperationalError("Cannot modify node with new name as another node already exists")
             UniqueSpchtNode['name'] = self.createNewName(UniqueSpchtNode['name'])
 
         # ! you can actually set a node to be its own parent, it wont be exported that ways as no recursion will find it
         # ! if you manually set a node a parent that already has a fallback that relationship will be usurped
         old_fallback = self[OriginalName].get('fallback', None)
         new_fallback = UniqueSpchtNode.get('fallback', None)
-        if old_fallback or new_fallback:  # we only have to iterate once through the thing
-            for name in self:
-                if 'fallback' in self[name]:
-                    if old_fallback != new_fallback:
-                        if self[name]['fallback'] == new_fallback:  # the other nodes loses its fallback
-                            self[name].pop('fallback', None)
-                        if name == old_fallback:
-                            self[name].parent = ":MAIN:"  # default back into the orphanage called :MAIN:
-                if name == new_fallback:  # the target of the old fallback gets a new parent
-                    self[name].parent = UniqueSpchtNode['name']  # also accidentally updates the fallback in case the node is now named differently
+        if old_fallback or new_fallback:
+            if old_fallback in self and old_fallback != new_fallback:
+                self[old_fallback].parent = ":UNUSED:"
+            if new_fallback in self:
+                self[new_fallback].parent = UniqueSpchtNode['name']
+                for name, node in self.items():
+                    if 'fallback' in node and node['fallback'] == new_fallback:
+                        node.pop('fallback', "")  # in case old == new this is of no consequence and gets overwritten in the end
+        # * consistency check - i had a random bug that my interface set the parent to nothing / :MAIN: and i got aware
+        # * the fallbacking node does not know about this, therefore we have to account for that
+        if (self[OriginalName].parent != UniqueSpchtNode.parent and            # ? so this is over specific, actually it
+                self[OriginalName].parent in self and                          # ? would be enough to just check if
+                'fallback' in self[self[OriginalName].parent] and              # ? parent is in self for fallback
+                self[self[OriginalName].parent]['fallback'] == OriginalName):  # bracket style ifs in python are quite rare..seems weird, would work without
+            self[self[OriginalName].parent].pop('fallback', None)
 
         if OriginalName != UniqueSpchtNode['name']:  # * second time we do this because the fallback fix from above needed the name earlier
-            # ? this is actually a rather hard decision, do i want to discard the name automatically or give choice to the user?
-            # if UniqueSpchtNode['name'] in self._repository:
-            #    raise SpchtErrors.OperationalError("Cannot modify node with new name as another node already exists")
-            for node in self:  # updates referenced names
+            for name, node in self.items():  # updates referenced names
                 for key in SpchtConstants.BUILDER_REFERENCING_KEYS:
                     if key in node and node[key] == OriginalName:
                         node[key] = UniqueSpchtNode['name']
             self._repository.pop(OriginalName)  # i have not implemented pop for this one occasion
         self._repository[UniqueSpchtNode['name']] = UniqueSpchtNode  # also not set item because .modify is the way
         # * replace predicate
-        if UniqueSpchtNode.predicate_inheritance:
+        if UniqueSpchtNode.predicate_inheritance:  # tl;dr: if you are a fallback your predicate gets overwritten if not stated otherwise
             if self[UniqueSpchtNode['name']].parent in self and self[UniqueSpchtNode['name']].parent not in RESERVED_NAMES:
                 if 'fallback' in self[self[UniqueSpchtNode['name']].parent] and self[self[UniqueSpchtNode['name']].parent]['fallback'] == UniqueSpchtNode['name']:
                     self[UniqueSpchtNode['name']]['predicate'] = self[self[UniqueSpchtNode['name']].parent]['predicate']
@@ -404,6 +409,7 @@ class SpchtBuilder:
             predicate = self.inheritPredicate(name)  # find root predicate name
             if predicate:
                 pure_dict['predicate'] = predicate
+        pure_dict['parent'] = self[name].parent
         return pure_dict
 
     def inheritPredicate(self, sub_node_name: str):
@@ -618,7 +624,7 @@ class SpchtBuilder:
         """
         This solves a meta problem. In the original version, handwritten fallbacks wont have their own predicate
         as the schema doesnt demand them and it would be illogical to have a different predicate for a fallback node,
-        but as a fallback node is not lesser than any other one node it can have its own fallback. The Spcht script
+        but as a fallback node is not lesser than any other one node it can have its own predicate. The Spcht script
         just inherits the predicate from its direct ancestor, the Gui program does the same but this means, if you
         somewhen down the line change the predicate and still have fallbacks, those wont change with them, this is now
         the default, as long as the link exists a change in the predicate of a node that has fallbacks will also change
@@ -628,14 +634,13 @@ class SpchtBuilder:
         :rtype: nothing
         """
         for name, node in self.items():
-            if node.parent in self or node.parent in RESERVED_NAMES:
+            if node.parent not in self or node.parent in RESERVED_NAMES:
                 continue
             if 'predicate' not in node or node['predicate'].strip() == "":
                 self[name]['predicate'] = ""
                 if 'fallback' in self[node.parent] and self[node.parent]['fallback'] == name:
                     self[name]['predicate'] = self.inheritPredicate(name)
                     self[name].predicate_inheritance = True
-                    print(f"{name} inherits from {node.parent}: {self[name]['predicate']}")
             else:
                 if 'fallback' in self[node.parent] and self[node.parent]['fallback'] == name:
                     if node['predicate'] != self[node.parent]['predicate']:

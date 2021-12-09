@@ -53,7 +53,7 @@ __SOLR_MAX_START__ = 25000
 __SOLR_MAX_ROWS__ = 500
 __SOLR_DEFAULT_QUERY__ = "*.*"
 
-__TITLE_VERSION__ = "081221.15:32"
+__TITLE_VERSION__ = "091221.14:15"
 
 
 logging.basicConfig(level=logging.DEBUG)
@@ -147,6 +147,7 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         # governs Quality of Life Features:
         self.META_unsaved = False  # nodes were altered but not yet saved to a file
         self.META_changed = False  # the current node was altered and that change not saved to the SpchtBuilder
+        self.META_adoption = False  # if the parent of a note changes
         self.ERROR_missing_nodes = []
         # ! this creates the entire ui, small line, big cause
         self.create_ui(self)
@@ -194,8 +195,8 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
                       "sub_nodes": self.exp_tab_node_subnode}
         self.COMBOBOX = [{'key': "source", 'widget': self.exp_tab_node_source},
                          {'key': "if_condition", 'widget': self.exp_tab_node_if_condition},
-                         # {'key': "parent", 'widget': self.exp_tab_node_subdata_of},  # ? the problem here is that they
-                         # {'key': "parent", 'widget': self.exp_tab_node_subnode_of},  # ? are exclusive and overwrite each other
+                         {'key': "parent", 'widget': self.exp_tab_node_subdata_of},  # ? the problem here is that they
+                         {'key': "parent", 'widget': self.exp_tab_node_subnode_of},  # ? are exclusive and overwrite each other
                          {'key': "fallback", 'widget': self.exp_tab_node_fallback}]
         self.CHECKBOX = {"required": {
                             "widget": self.exp_tab_node_mandatory,
@@ -294,7 +295,7 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         self.exp_tab_node_if_decider1.toggled.connect(self.actDelayedSpchtComputing)
         self.exp_tab_node_if_decider2.toggled.connect(self.actDelayedSpchtComputing)
 
-        self.exp_tab_node_fallback.currentIndexChanged.connect(lambda: self.actSetNodeParent(self.exp_tab_node_fallback))
+        self.exp_tab_node_fallback.currentIndexChanged.connect(self.actFallbackWarning)
         self.exp_tab_node_subdata_of.currentIndexChanged.connect(lambda: self.actSetNodeParent(self.exp_tab_node_subdata_of))
         self.exp_tab_node_subnode_of.currentIndexChanged.connect(lambda: self.actSetNodeParent(self.exp_tab_node_subnode_of))
 
@@ -896,6 +897,7 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
     def mthSetSpchtTabView(self, SpchtNode=None):  # aka NodeToForms
         if not SpchtNode:
             SpchtNode = {}  # PEP no likey when setting to immutable as default
+        self.surpress_comboevent = True
 
         # ? just clears all the fields that do not get assigned a value by default
         for details in self.CLEARONLY:
@@ -976,9 +978,12 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
             else:
                 self.exp_tab_node_orphan_node.setText(i18n['explorer_orphan_not_available'])
                 self.exp_tab_node_orphan_node.setDisabled(True)
+        self.META_adoption = True
 
         # * comments
         self.exp_tab_node_comment.setText(SpchtNode.get('comment', ""))
+        # * release:
+        self.surpress_comboevent = False
 
     def mthDisplayNodeDetails(self):
         indizes = self.explorer_node_treeview.selectedIndexes()
@@ -1109,6 +1114,8 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         sub_nodes = str(self.exp_tab_node_subnode_of.currentText()).strip()
         if sub_nodes or sub_data:
             raw_node['parent'] = sub_nodes if sub_nodes else sub_data
+        else:
+            raw_node['parent'] = self.active_spcht_node['parent']
         for key, details in self.CHECKBOX.items():
             raw_node[key] = details['bool'][details['widget'].isChecked()]
         for key, data in self.active_data_tables.items():
@@ -1206,10 +1213,27 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         """
         if self.surpress_comboevent:
             return
-        # ! TODO: something not right, only works for last entry / fallback
+        self.surpress_comboevent = True  # we are doing single threading here, no further events
+        if self.META_adoption:
+            dlg = QMessageBox()
+            dlg.setIcon(QMessageBox.Information)
+            dlg.setWindowTitle(i18n['dialogue_parent_change_title'])
+            dlg.setText(i18n['dialogue_parent_change'])
+            dlg.setStandardButtons(QMessageBox.Ok | QMessageBox.Cancel)
+            if dlg.exec_() == QMessageBox.Cancel:
+                print(self.active_spcht_node.get("parent", ""))
+                index = widget.findText(self.active_spcht_node.get("parent", ""), QtCore.Qt.MatchFixedString)
+                if index > 0:
+                    widget.setCurrentIndex(index)
+                else:
+                    widget.setCurrentIndex(0)
+                self.surpress_comboevent = False
+                return
+            else:
+                self.META_adoption = False
+                self.META_changed = True
         value = str(widget.currentText()).strip()
         if value != "":
-            self.surpress_comboevent = True
             for entry in self.COMBOBOX:
                 if entry['key'] == "parent":
                     entry['widget'].setCurrentIndex(0)
@@ -1218,7 +1242,7 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
                 widget.setCurrentIndex(index)
             else:
                 widget.setCurrentIndex(0)
-            self.surpress_comboevent = False
+        self.surpress_comboevent = False
 
     def mthSpchtBuilderBtnStatus(self, status: int):
         if status == 0:
@@ -1373,8 +1397,9 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         new_node = self.mthNodeFormsToSpcht(self.active_spcht_node)
         if new_node:
             smp_node = SimpleSpchtNode(new_node['name'])
-            smp_node.properties = new_node
-            smp_node.parent = new_node.get('parent', ":MAIN:")
+            smp_node.import_dictionary(new_node)
+            #smp_node.properties = new_node
+            #smp_node.parent = new_node.get('parent', ":MAIN:")
             # smp_node['fallback'] = new_node.get('fallback') if new_node['fallback']['name'] else ''
             # smp_node['sub_nodes'] = new_node.get('sub_nodes') if new_node['sub_nodes']['name'] else ''
             # smp_node['sub_data'] = new_node.get('sub_data') if new_node['sub_data']['name'] else ''
@@ -1406,7 +1431,6 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         if not self.active_spcht_node:
             return
         node_name = self.mthSaveBuilderNode()
-        print(node_name)
         if node_name:
             self.spcht_builder.parkNode(node_name)  # yes, i extended SpchtBuilder for that
             self.mthFillNodeView(self.spcht_builder.displaySpcht())  # second time, a bit redundant
@@ -1481,6 +1505,36 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         else:
             self.tabview_active_columns[key] = True
         self.mthHideTabviewColumns()
+
+    def actFallbackWarning(self):
+        if self.surpress_comboevent:
+            return
+        fallback = self.exp_tab_node_fallback.currentText()
+        node_fallback = self.spcht_builder[self.active_spcht_node['name']].get('fallback', "")
+        if fallback == node_fallback:
+            return
+        alarm = False  # just do escape the 20x indent
+        for name, node in self.spcht_builder.items():
+            if 'fallback' not in node:
+                continue
+            if node['fallback'] == fallback:
+                alarm = True
+                break
+        if not alarm:
+            return
+        dlg = QMessageBox()
+        dlg.setText(i18n['dialogue_overwrite_fallback'])
+        dlg.setWindowTitle(i18n['dialogue_overwrite_fallback_title'])
+        dlg.setIcon(QMessageBox.Warning)
+        dlg.setStandardButtons(QMessageBox.Ok | QMessageBox.Reset)
+        self.surpress_comboevent = True
+        if dlg.exec_() == QMessageBox.Reset:
+            idx = self.exp_tab_node_fallback.findText(node_fallback, QtCore.Qt.MatchFixedString)
+            if idx > 0:
+                self.exp_tab_node_fallback.setCurrentIndex(idx)
+            else:
+                self.exp_tab_node_fallback.setCurrentIndex(0)
+        self.surpress_comboevent = False
 
     def actDisplayAllTabviewColumns(self):
         for key in self.tabview_active_columns:
