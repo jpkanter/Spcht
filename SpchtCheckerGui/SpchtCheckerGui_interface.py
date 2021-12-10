@@ -261,7 +261,7 @@ class SpchtMainWindow(object):
         self.explorer_toolbox = QToolBox()
         self.explorer_toolbox.setMinimumWidth(800)
         self.explorer_filtered_data = QTableWidget()
-        self.explorer_spcht_result = QTextEdit()
+        self.explorer_spcht_result = QTextEdit(Font=self.FIXEDFONT)
         SpchtMainWindow.massSetProperty(self.explorer_spcht_result,
                                         self.explorer_filtered_data,
                                         maximumWidth=400,
@@ -302,7 +302,14 @@ class SpchtMainWindow(object):
         hor_layout_20.addWidget(self.explorer_data_load_button)
         hor_layout_21 = QHBoxLayout()
         self.explorer_dictionary_treeview = QTreeView()
+        self.explorer_arbitrary_data = QTextEdit(Hidden=True, Font=self.FIXEDFONT)  # arbitrary
+        bla = self.explorer_arbitrary_data.palette()  # copies palette with current design
+        bla.setColor(QPalette.Window, QColor.fromRgb(251, 241, 199))
+        bla.setColor(QPalette.WindowText, QColor.fromRgb(60, 131, 54))
+        self.explorer_arbitrary_data.setPalette(bla)  # and copies it back after some changes
+        JsonHighlighter(self.explorer_arbitrary_data.document())
         hor_layout_21.addWidget(self.explorer_dictionary_treeview)
+        hor_layout_21.addWidget(self.explorer_arbitrary_data)
         ver_layout_18.addLayout(self.explorer_top_layout)
         ver_layout_18.addLayout(hor_layout_20)
         ver_layout_18.addLayout(hor_layout_21)

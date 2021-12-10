@@ -90,6 +90,81 @@ def time_log(line: str, time_string="%Y.%m.%d-%H:%M:%S", spacer="\n", end="\n"):
     return f"{datetime.now().strftime(time_string)}{spacer}{line}{end}"
 
 
+def confirm_flatness(data: dict or list) -> bool:
+    """
+    Takes some data, presumed dictionary or list and checks if its all flat or nested
+    :param dict or list data:
+    :return: True or False if not so flat
+    :rtype: bool
+    """
+    if isinstance(data, dict):
+        for item in data.values():
+            if isinstance(item, dict):
+                return False
+            if isinstance(item, list):
+                for each in item:
+                    if isinstance(each, (list, dict)):
+                        return False
+    elif isinstance(data, list):
+        for entry in data:
+            if isinstance(entry, list):
+                return False
+            if isinstance(entry, dict):
+                for item in entry.values():
+                    if isinstance(item, dict):
+                        return False
+                    if isinstance(item, list):
+                        for each in item:
+                            if isinstance(each, (list, dict)):
+                                return False
+    return True
+
+def data_object_keys(data):
+    all_fields = set()
+    if isinstance(data, dict):
+        for field in recurse_dictionary(data):
+            all_fields.add(field)
+    if isinstance(data, list):
+        variants = recurse_list(data)
+        if variants:
+            for each in variants:
+                all_fields.add(f"[]>{each}")
+        # no else, if there are only values of values the set is empty as their is nothing to talk to
+    return all_fields
+
+def recurse_dictionary(dictionary: dict):
+    result_set = set()
+    for key, element in dictionary.items():
+        if isinstance(element, dict):
+            for each in recurse_dictionary(dictionary[key]):
+                result_set.add(f"{key}>{each}")
+        elif isinstance(element, list):
+            variants = recurse_list(dictionary[key])
+            if variants:
+                for each in variants:
+                    result_set.add(f"{key}>{each}")
+            else:
+                result_set.add(key)
+        else:
+            result_set.add(key)
+    return result_set
+
+def recurse_list(multivalue: list):
+    # returns an empty set if only actual values were found
+    result_set = set()
+    for element in multivalue:
+        if isinstance(element, dict):
+            for each in recurse_dictionary(element):
+                result_set.add(f"[]>{each}")
+        elif isinstance(element, list):
+            variants = recurse_list(element)
+            if variants:
+                for each in variants:
+                    result_set.add(f"[]>{each}")
+            else:
+                result_set.add(f"[]>[]")
+    return result_set
+
 def handle_variants(dictlist: dict or list) -> list:
     """
     When loading json test data there multiple formatstructures possible, for now its either direct export from solr
@@ -109,7 +184,7 @@ def handle_variants(dictlist: dict or list) -> list:
         if 'response' in dictlist:
             if 'docs' in dictlist['response']:
                 return handle_variants(dictlist['response']['docs'])
-    return {}
+    return []
     # return dictlist  # this will most likely throw an exception, we kinda want that
 
 
@@ -508,33 +583,37 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         self.linetext_spcht_filepath.setText(path_To_File)
         self.mthLoadSpcht(path_To_File)
 
-    def mthGatherAvailableFields(self, data=None, marc21=False):
+    def mthGatherAvailableFields(self, data=None, marc21=False, deepdive=False):
         if not data:
             data = self.data_cache
         if not data:
             return []
-        all_fields = []
+        all_fields = set()
         for _, block in enumerate(data):
-            for key in block.keys():
-                all_fields.append(key)
+            if not deepdive:
+                for key in block.keys():
+                    all_fields.add(key)
+            else:  # methods for arbitrary data
+                for each in data_object_keys(block):
+                    all_fields.add(each)
             if 'fullrecord' in block and marc21:
                 temp_marc = SpchtUtility.marc2list(block['fullrecord'])
                 for main_key, top_value in temp_marc.items():
                     if isinstance(top_value, list):
                         for param_list in top_value:
                             for sub_key in param_list:
-                                all_fields.append(f"{main_key}:{sub_key}")
-                                all_fields.append(f"{main_key:03d}:{sub_key}")
+                                all_fields.add("{main_key}:{sub_key}")
+                                all_fields.add(f"{main_key:03d}:{sub_key}")
                     elif isinstance(top_value, dict):
                         for sub_key in top_value:
-                            all_fields.append(f"{main_key}:{sub_key}")
-                            all_fields.append(f"{main_key:03d}:{sub_key}")  # i think this is faster than if-ing my way through
+                            all_fields.add(f"{main_key}:{sub_key}")
+                            all_fields.add(f"{main_key:03d}:{sub_key}")  # i think this is faster than if-ing my way through
             if _ > 100:
                 # ? having halt conditions like this always seems arbitrary but i really struggle to imagine how much more
                 # ? unique keys one hopes to get after 100 entries. On my fairly beefy machine the processing for 500
                 # ? entries was 3,01 seconds, for 10K it was around 46 seconds. The 600ms for 100 seem acceptable
                 break
-        return list(set(all_fields))
+        return list(all_fields)
 
     def actLoadTestData(self, graph_prompt=False):
         path_to_file, type = QtWidgets.QFileDialog.getOpenFileName(self, "Open explorable data", "../", "Json File (*.json);;Every file (*.*)")
@@ -554,8 +633,12 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
             return False
         if test_data:
             self.data_cache = handle_variants(test_data)
-            if len(self.data_cache):
+            if len(self.data_cache) and confirm_flatness(self.data_cache):
+                self.utlWriteStatus("Testdata loaded, normal solr format")
                 self.mthSetTestData(path_to_file, self.data_cache)
+            elif len(test_data):
+                self.mthSetWorkableTestData(path_to_file, test_data)
+                self.utlWriteStatus("Test loaded, unusal format, data for LiveSpcht useable bot not exploreable")
             else:
                 self.console.insertPlainText(f"Loading of file {path_to_file} failed, most likely an unsupported format\n")
 
@@ -581,6 +664,42 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         temp_model = QStandardItemModel()
         [temp_model.appendRow(QStandardItem(x)) for x in self.mthGatherAvailableFields(marc21=True)]
         self.field_completer.setModel(temp_model)
+        self.explorer_field_filter.setDisabled(False)
+        self.explorer_field_filter_helper.setDisabled(False)
+        self.explorer_filter_behaviour.setDisabled(False)
+        self.explorer_dictionary_treeview.setHidden(False)
+        self.explorer_arbitrary_data.setHidden(True)
+        if self.active_spcht_node:
+            temp = self.mthCreateTempSpcht()
+            self.mthComputeSpcht(temp)
+
+    def mthSetWorkableTestData(self, source: str, data):
+        """
+        Some data might be not exactly within specs but still readable with sub_nodes, sub_data and source:tree
+        :param str source: path to file
+        :param data:
+        :return: nothing
+        :rtype: None
+        """
+        self.explorer_data_file_path.setText(source)
+
+        self.explorer_field_filter.setDisabled(True)
+        self.explorer_field_filter_helper.setDisabled(True)
+        self.explorer_filter_behaviour.setDisabled(True)
+        self.explorer_dictionary_treeview.setHidden(True)
+        self.explorer_arbitrary_data.setHidden(False)
+
+        if isinstance(data, dict):
+            data = list(data)
+        self.data_cache = data
+        self.active_data = data[0]
+        self.active_data_index = 0
+        self.explorer_linetext_search.setPlaceholderText(f"{1} / {len(data)}")
+        temp_model = QStandardItemModel()
+        [temp_model.appendRow(QStandardItem(x)) for x in self.mthGatherAvailableFields(data, marc21=True, deepdive=True)]
+        self.field_completer.setModel(temp_model)
+        self.explorer_arbitrary_data.setText(json.dumps(data, indent=3))
+
         if self.active_spcht_node:
             temp = self.mthCreateTempSpcht()
             self.mthComputeSpcht(temp)
@@ -1024,7 +1143,8 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         if "fullrecord" in element0:
             element0.pop("fullrecord")
         habicht._raw_dict = element0
-        habicht._m21_dict = SpchtUtility.marc2list(copy.copy(self.active_data).get('fullrecord'))
+        if 'fullrecord' in self.active_data:
+            habicht._m21_dict = SpchtUtility.marc2list(self.active_data['fullrecord'])
         self.explorer_filtered_data.setRowCount(len(used_fields))
         self.explorer_filtered_data.setColumnCount(2)
         self.explorer_filtered_data.setHorizontalHeaderLabels(["Key", "Value"])

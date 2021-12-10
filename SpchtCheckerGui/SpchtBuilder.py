@@ -355,18 +355,18 @@ class SpchtBuilder:
         # exports an actual Spcht dictionary
         root_node = {"id_source": self.root['source'],
                      "id_field": self.root['field'],
-                     "nodes": self.compileSpcht()}
+                     "nodes": self.compileSpcht(purity=True)}
         if 'fallback' in self.root:
-            fallback = self.compileNodeByParent(":ROOT:")
+            fallback = self.compileNodeByParent(":ROOT:", purity=True)
             root_node.update({'id_fallback': fallback[0]})
         return root_node
 
-    def compileSpcht(self):
+    def compileSpcht(self, purity=False):
         # exports a compiled Spcht dictionary with all references solved
         # this still misses the root node
-        return self.compileNodeByParent(":MAIN:")
+        return self.compileNodeByParent(":MAIN:", purity=purity)
 
-    def compileNodeByParent(self, parent: str, mode="conservative", always_inherit=False) -> list:
+    def compileNodeByParent(self, parent: str, mode="conservative", always_inherit=False, purity=False) -> list:
         """
         Compiles a node by common parent, has two modes:
 
@@ -376,6 +376,7 @@ class SpchtBuilder:
         :type parent:
         :param str mode: either 'conservative' or 'reckless' for node adding behaviour
         :param always_inherit: if True this will ignore faulty inheritance settings
+        :param bool purity: for export only, throws all non-format keys away
         :return: a list of nodes
         :rtype: list
         """
@@ -383,7 +384,7 @@ class SpchtBuilder:
         node_list = []
         for key, top_node in self.items():
             if top_node.parent == parent:
-                one_node = self.compileNode(key, always_inherit)
+                one_node = self.compileNode(key, always_inherit, purity=purity)
                 if mode == "reckless":
                     node_list.append(one_node)
                 else:
@@ -394,14 +395,14 @@ class SpchtBuilder:
                         # if for some reasons there is no predicate AND the default true inheritance setting is False
                         # this node is obviously faulty and has to be ignored, this can only happen if someone
                         # would recklessly modify the Nodes in the repository without using .modify...i think
-                        if not one_node['predicate_inheritance']:
+                        if 'predicate_inheritance' in one_node and not one_node['predicate_inheritance']:
                             continue
                     if str(one_node['field']).strip() == "":
                         continue
                     node_list.append(one_node)
         return node_list
 
-    def compileNode(self, name: str, always_inherit=False):
+    def compileNode(self, name: str, always_inherit=False, purity=False):
         name = str(name)
         if name not in self:
             return None
@@ -410,19 +411,25 @@ class SpchtBuilder:
             if key in SpchtConstants.BUILDER_LIST_REFERENCE:  # sub_nodes & sub_data
                 node_group = []
                 for child_node in self.getNodesByParent(item):
-                    node_group.append(self.compileNode(child_node['name']))
+                    node_group.append(self.compileNode(child_node['name']), always_inherit=always_inherit, purity=purity)
                 pure_dict[key] = node_group
             elif key in SpchtConstants.BUILDER_SINGLE_REFERENCE:
-                pure_dict[key] = self.compileNode(item)
+                pure_dict[key] = self.compileNode(item, always_inherit=always_inherit, purity=purity)
             elif key in SpchtConstants.BUILDER_NON_SPCHT:
                 continue
             else:
                 pure_dict[key] = item
-        if 'predicate' not in pure_dict and always_inherit:
-            predicate = self.inheritPredicate(name)  # find root predicate name
-            if predicate:
-                pure_dict['predicate'] = predicate
-        pure_dict['parent'] = self[name].parent
+        parent_predicate = self.inheritPredicate(name)
+        if parent_predicate:
+            if pure_dict.get('predicate_inheritance', False):  # can only inherit if being fallback
+                pure_dict.pop('predicate')
+            if pure_dict.get('predicate', "").strip == "" and always_inherit:
+                pure_dict['predicate'] = parent_predicate
+        if purity:
+            pure_dict.pop('parent', None)
+            pure_dict.pop('predicate_inheritance', None)
+        else:
+            pure_dict['parent'] = self[name].parent
         return pure_dict
 
     def inheritPredicate(self, sub_node_name: str):
