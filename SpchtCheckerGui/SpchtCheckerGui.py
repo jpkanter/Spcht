@@ -119,6 +119,7 @@ def confirm_flatness(data: dict or list) -> bool:
                                 return False
     return True
 
+
 def data_object_keys(data):
     all_fields = set()
     if isinstance(data, dict):
@@ -131,6 +132,7 @@ def data_object_keys(data):
                 all_fields.add(f"[]>{each}")
         # no else, if there are only values of values the set is empty as their is nothing to talk to
     return all_fields
+
 
 def recurse_dictionary(dictionary: dict):
     result_set = set()
@@ -149,6 +151,7 @@ def recurse_dictionary(dictionary: dict):
             result_set.add(key)
     return result_set
 
+
 def recurse_list(multivalue: list):
     # returns an empty set if only actual values were found
     result_set = set()
@@ -164,6 +167,7 @@ def recurse_list(multivalue: list):
             else:
                 result_set.add(f"[]>[]")
     return result_set
+
 
 def handle_variants(dictlist: dict or list) -> list:
     """
@@ -333,6 +337,7 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         #self.explorer_center_search_button.clicked.connect(self.test_button)
         self.explorer_node_create_btn.clicked.connect(self.actCreateSpchtBuilder)
         self.explorer_node_add_btn.clicked.connect(self.actCreateSpchtNode)
+        self.explorer_node_clone_btn.clicked.connect(self.actCloneSpchtNode)
         self.explorer_node_import_btn.clicked.connect(self.actLoadSpcht)
         self.explorer_node_load_btn.clicked.connect(self.actOpenSpchtBuilder)
         self.explorer_node_export_btn.clicked.connect(self.actExportSpchtNode)
@@ -1494,6 +1499,31 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         self.mthFillNodeView(self.spcht_builder.displaySpcht())
         self.active_spcht_node = self.spcht_builder.compileNode(new_node, always_inherit=True)
         self.mthSetSpchtTabView(self.spcht_builder[new_node].properties)
+        self.mthComputeSpcht()
+        self.mthLockTabview(False)
+        self.explorer_tabview.setCurrentIndex(0)
+        self.explorer_toolbox.setCurrentIndex(2)
+        self.META_changed = True
+
+    def actCloneSpchtNode(self):
+        indizes = self.explorer_node_treeview.selectedIndexes()
+        if not indizes:
+            return
+        item = indizes[0]
+        nodeName = item.model().itemFromIndex(item).text()
+        if nodeName not in self.spcht_builder:
+            return
+
+        if self.META_changed:
+            if not self.utlChangedPrompt(i18n['dialogue_changed_upon_switch']):
+                return
+
+        new_node = copy.deepcopy(self.spcht_builder[nodeName])
+        new_node['name'] = f"Copy {nodeName}"
+        new_name = self.spcht_builder.add(new_node)
+        self.mthFillNodeView(self.spcht_builder.displaySpcht())
+        self.active_spcht_node = self.spcht_builder.compileNode(new_name, always_inherit=True)
+        self.mthSetSpchtTabView(self.spcht_builder[new_name].properties)
         self.mthComputeSpcht()
         self.mthLockTabview(False)
         self.explorer_tabview.setCurrentIndex(0)

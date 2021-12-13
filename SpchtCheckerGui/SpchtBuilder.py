@@ -199,9 +199,18 @@ class SpchtBuilder:
 
     def add(self, UniqueSpchtNode: SimpleSpchtNode):
         UniqueSpchtNode['name'] = self.createNewName(UniqueSpchtNode['name'])
+        for key in SpchtConstants.BUILDER_LIST_REFERENCE:
+            if key in UniqueSpchtNode:
+                UniqueSpchtNode[key] = self.createNewName(UniqueSpchtNode[key], mode="add")
+        for key in SpchtConstants.BUILDER_SINGLE_REFERENCE:  # for now just throw away nodes, maybe implement duplicate
+            if key in UniqueSpchtNode:                       # for recursion
+                UniqueSpchtNode.pop(key, None)
+        if UniqueSpchtNode['parent'] in self:  # aka its a direct ancestor
+            UniqueSpchtNode['parent'] = ":UNUSED:"
         # if UniqueSpchtNode['name'] in self._repository:
         #     raise KeyError("Cannot add a name that is already inside")
         self._repository[UniqueSpchtNode['name']] = UniqueSpchtNode
+        return UniqueSpchtNode['name']
 
     def remove(self, UniqueName: str):
         # removes one specific key as long as it isnt referenced anywhere
@@ -269,8 +278,6 @@ class SpchtBuilder:
                         node.parent = ":UNUSED:"
                     if new_node and node.parent == old_node:  # reassigning to the renamed
                         node.parent = new_node
-
-
 
         if OriginalName != UniqueSpchtNode['name']:  # * second time we do this because the fallback fix from above needed the name earlier
             for name, node in self.items():  # updates referenced names
@@ -411,7 +418,7 @@ class SpchtBuilder:
             if key in SpchtConstants.BUILDER_LIST_REFERENCE:  # sub_nodes & sub_data
                 node_group = []
                 for child_node in self.getNodesByParent(item):
-                    node_group.append(self.compileNode(child_node['name']), always_inherit=always_inherit, purity=purity)
+                    node_group.append(self.compileNode(child_node['name'], always_inherit=always_inherit, purity=purity))
                 pure_dict[key] = node_group
             elif key in SpchtConstants.BUILDER_SINGLE_REFERENCE:
                 pure_dict[key] = self.compileNode(item, always_inherit=always_inherit, purity=purity)
