@@ -230,6 +230,39 @@ class SpchtBuilder:
 
         self._repository.pop(UniqueName)
 
+    def clone(self, node_name: str, parent_overwrite=None) -> str:
+        """
+        Clones a given node in the SpchtBuilder, if there are any children or even sub-data/sub-nodes those will be
+        copied aswell and linked relativly to this node. If this node is fallback of something :UNUSED: will be the new
+        parent, otherwise
+        :param str node_name: Name of a node inside the SpchtBuilder
+        :param str parent_overwrite:  This can be used recursivly, if parent overwrite is active, parent wont be replaced
+        :return: the name of the new node
+        :rtype: str
+        """
+        if node_name not in self:
+            raise KeyError(f"Cannot clone node {node_name} as it does not exist")
+
+        new_node = copy.deepcopy(self[node_name])
+        new_name = self.createNewName(new_node['name'], mode="number")
+        new_node['name'] = new_name
+        if new_node.parent in self:  # aka. its a fallback of something
+            new_node.parent = ":UNUSED:"
+        if parent_overwrite:
+            new_node.parent = parent_overwrite
+        # if parent :MAIN: it stays :MAIN:, same for :UNUSED:, if part of sub_node/sub_data stays aswell
+        for ref in SpchtConstants.BUILDER_SINGLE_REFERENCE:
+            if ref in new_node:
+                new_node[ref] = self.clone(self[node_name][ref], parent_overwrite=new_name)
+        for ref in SpchtConstants.BUILDER_LIST_REFERENCE:
+            if ref in new_node:
+                new_node[ref] = self.createNewName(new_node[ref], mode="number")
+                old_keys = [x for x in self.keys() if self[x].parent == self[node_name][ref]]
+                for node in old_keys:
+                    self.clone(node, parent_overwrite=new_node[ref])
+        self._repository[new_name] = new_node
+        return new_name
+
     def modify(self, OriginalName: str, UniqueSpchtNode: SimpleSpchtNode):
         """
         Modifies a node in the repository with a new Node. The actual new name if changed might be different from

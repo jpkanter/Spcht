@@ -321,6 +321,7 @@ class SpchtMainWindow(object):
         self.explorer_node_add_btn = QPushButton(i18n['explorer_new_node'], FixedWidth=150, icon=QApplication.style().standardIcon(QStyle.SP_FileDialogNewFolder))
         self.explorer_node_create_btn = QPushButton(i18n['explorer_new_builder'], FixedWidth=150, icon=QApplication.style().standardIcon(QStyle.SP_FileIcon))
         self.explorer_node_clone_btn = QPushButton(i18n['explorer_clone_node'], FixedWidth=150)  # ! there is srsly no icon for copy, cut or paste
+        self.explorer_node_duplicate_btn = QPushButton(i18n['explorer_duplicate_node'], FixedWidth=150)  # ! there is srsly no icon for copy, cut or paste
         self.explorer_node_edit_root_btn = QPushButton(i18n['explorer_edit_root'], FixedWidth=150)
         self.explorer_node_import_btn = QPushButton(i18n['generic_import'], FixedWidth=150)
         self.explorer_node_export_btn = QPushButton(i18n['generic_export'], FixedWidth=150)
@@ -336,6 +337,7 @@ class SpchtMainWindow(object):
         hor_layour_22.addWidget(self.explorer_node_compile_btn)
 
         hor_layour_23.addWidget(self.explorer_node_add_btn)
+        hor_layour_23.addWidget(self.explorer_node_duplicate_btn)
         hor_layour_23.addWidget(self.explorer_node_clone_btn)
         hor_layour_23.addStretch(1)
         hor_layour_23.addWidget(self.explorer_node_edit_root_btn)
