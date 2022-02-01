@@ -29,17 +29,17 @@ import json
 import sys
 import logging
 
-import WorkOrder
-import local_tools
-from local_tools import load_from_json
-from main_arguments import arguments
+import SpchtCore.WorkOrder as WorkOrder
+import Utils.local_tools as local_tools
+from Utils.local_tools import load_from_json
+from Utils.main_arguments import arguments
+from SpchtCore.SpchtCore import Spcht
 
 try:
     from termcolor import colored  # only needed for debug print
 except ModuleNotFoundError:
     def colored(text, *args, **kwargs):
         return text  # throws args away returns non colored text
-from SpchtCore import Spcht
 
 __VERSION__ = "0.8"
 

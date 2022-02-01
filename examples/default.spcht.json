@@ -39,8 +39,9 @@
             "required": "optional",
             "fallback": {
                 "source": "marc",
-                "field": "245",
-                "subfields": ["a", "b"]
+                "field": "245:a",
+                "insert_into": "{} {}",
+                "insert_add_fields": [{"field": "245:b"}]
             }
         },
         {

@@ -31,7 +31,7 @@ from pymarc.exceptions import RecordLengthInvalid, RecordLeaderInvalid, BaseAddr
     RecordDirectoryInvalid, NoFieldsFound
 from jsonschema import validate, ValidationError, SchemaError, RefResolutionError
 # own imports
-from SpchtConstants import SPCHT_BOOL_OPS
+from Utils.SpchtConstants import SPCHT_BOOL_OPS
 
 logger = logging.getLogger(__name__)
 

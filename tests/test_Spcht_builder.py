@@ -23,7 +23,7 @@
 
 import unittest
 import json
-from SpchtCheckerGui.SpchtBuilder import SpchtBuilder, SpchtNodeGroup
+from solr2triplestore.SpchtCheckerGui import SpchtBuilder
 
 # ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 # ! these test are for now not functional as i use data that change at any time

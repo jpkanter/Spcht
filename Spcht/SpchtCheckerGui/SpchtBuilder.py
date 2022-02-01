@@ -31,10 +31,10 @@ import random
 
 # own imports
 
-import SpchtConstants
-import SpchtErrors
-import SpchtUtility
-import local_tools
+import Utils.SpchtConstants as SpchtConstants
+import SpchtCore.SpchtErrors as SpchtErrors
+import SpchtCore.SpchtUtility as SpchtUtility
+import Utils.local_tools as local_tools
 
 RESERVED_NAMES = [":ROOT:", ":UNUSED:", ":MAIN:"]
 

@@ -33,9 +33,9 @@ currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentfram
 parentdir = os.path.dirname(currentdir)
 sys.path.insert(0, parentdir)
 
-from SpchtCore import Spcht
-from local_tools import load_from_json
-import SpchtUtility
+from SpchtCore.SpchtCore import Spcht
+from Utils.local_tools import load_from_json
+import SpchtCore.SpchtUtility as SpchtUtility
 
 """
 This only tests if the actual processing is still working and actually takes place, it does not replace an actual

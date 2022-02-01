@@ -3,13 +3,13 @@
 block_cipher = None
 
 
-a = Analysis(['SpchtCheckerGui/SpchtCheckerGui.py'],
-			 pathex=['./'],
+a = Analysis(['./solr2triplestore-bridge/SpchtCheckerGui.py'],
+			 pathex=['./solr2triplestore-bridge/'],
              binaries=[],
              datas=[
-			       ('./SpchtCheckerGui/GuiLanguage.json', '.'),
-			       ('./SpchtSchema.json', '.'),
-			       ('./SpchtCheckerGui/woodpecker.png', '.')
+			       ('./solr2triplestore-bridge/SpchtCheckerGui/GuiLanguage.json', '.'),
+			       ('./solr2triplestore-bridge/SpchtSchema.json', '.'),
+			       ('./solr2triplestore-bridge/SpchtCheckerGui/woodpecker.png', '.')
 			       ],
              hiddenimports=[],
              hookspath=[],

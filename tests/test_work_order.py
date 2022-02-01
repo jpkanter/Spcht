@@ -24,8 +24,8 @@
 import json
 import os
 
-import WorkOrder
-import local_tools
+import SpchtCore.WorkOrder as WorkOrder
+import Utils.local_tools as local_tools
 
 
 """

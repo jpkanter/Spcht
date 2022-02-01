@@ -29,11 +29,11 @@ import sys
 import uuid
 from pathlib import Path
 
-import SpchtConstants
-import SpchtUtility
-from SpchtUtility import if_possible_make_this_numerical, insert_list_into_str
+import Utils.SpchtConstants as SpchtConstants
+import SpchtCore.SpchtUtility as SpchtUtility
+from SpchtCore.SpchtUtility import if_possible_make_this_numerical, insert_list_into_str, schema_validation, regex_validation
 
-import SpchtErrors
+import SpchtCore.SpchtErrors as SpchtErrors
 try:
     from termcolor import colored  # only needed for debug print
 except ModuleNotFoundError:
@@ -391,7 +391,7 @@ class Spcht:
         self.debug_print("Spcht Dir:", colored(spcht_path.parent, "cyan"))
         if not descriptor:  # load json goes wrong if something is wrong with the json
             return False
-        status, msg = SpchtUtility.schema_validation(descriptor, self._schema_path)
+        status, msg = schema_validation(descriptor, self._schema_path)
         if not status:
             self.debug_print(colored(msg, "red"))
             return False
@@ -416,7 +416,7 @@ class Spcht:
                 self.debug_print("spcht_ref", colored(e, "red"))
                 # raise ValueError(f"ValueError while working through Reference Nodes: '{e}'")
                 return False
-        status, msg = SpchtUtility.regex_validation(new_node)
+        status, msg = regex_validation(new_node)
         if not status:
             self.debug_print(f"Regex validation failed, message: {msg}")
             return False
@@ -961,8 +961,8 @@ class Spcht:
         # dictionaries give their keys when iterating over them, it would probably be more clear to do *dict.keys() but
         # that has the same result as just doing *obj --- this doesnt matter anymore cause i was wrong in the thing
         # that triggered this text, but the change to is_dictkey is made and this information is still useful
-        if sub_dict['if_condition'] in SpchtUtility.SPCHT_BOOL_OPS:
-            condition = SpchtUtility.SPCHT_BOOL_OPS[sub_dict['if_condition']]
+        if sub_dict['if_condition'] in SpchtConstants.SPCHT_BOOL_OPS:
+            condition = SpchtConstants.SPCHT_BOOL_OPS[sub_dict['if_condition']]
         else:
             return False  # if your comparator is false nothing can be true
 
@@ -1913,7 +1913,7 @@ class SpchtNode:
 
     @if_condition.setter
     def if_condition(self, if_condition: str):
-        if if_condition.lower() in SpchtUtility.SPCHT_BOOL_OPS:
+        if if_condition.lower() in SpchtConstants.SPCHT_BOOL_OPS:
             self._if_condition = if_condition.lower()
         else:
             self._if_condition = None

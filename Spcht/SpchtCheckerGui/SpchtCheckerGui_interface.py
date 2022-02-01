@@ -31,6 +31,7 @@ import logging
 import sys
 import os
 import time
+from pathlib import Path
 
 from PySide2.QtGui import QStandardItemModel, QStandardItem, QFontDatabase, QIcon, QSyntaxHighlighter, QTextCharFormat, QColor, QFont, QTextDocument, QPalette
 from PySide2.QtWidgets import *
@@ -38,8 +39,8 @@ from PySide2 import QtCore, QtWidgets
 
 # own imports
 
-import SpchtCheckerGui_i18n
-import SpchtConstants
+import SpchtCheckerGui.SpchtCheckerGui_i18n as SpchtCheckerGui_18n
+import Utils.SpchtConstants as SpchtConstants
 
 
 def resource_path(relative_path: str) -> str:
@@ -50,12 +51,13 @@ def resource_path(relative_path: str) -> str:
     :return: path to the file
     :rtype: str
     """
-    base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+    fall = Path(__name__)
+    base_path = getattr(sys, '_MEIPASS', fall.parent.absolute())
     return os.path.join(base_path, relative_path)
 
 
 # ! import language stuff
-i18n = SpchtCheckerGui_i18n.Spcht_i18n(resource_path("./GuiLanguage.json"), language='en')
+i18n = SpchtCheckerGui_18n.Spcht_i18n(resource_path("./SpchtCheckerGui/GuiLanguage.json"), language='en')
 
 
 

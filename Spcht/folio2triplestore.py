@@ -31,11 +31,11 @@ from datetime import datetime, timedelta
 import traceback
 
 # import internal modules
-import SpchtUtility
-import WorkOrder
+import SpchtCore.SpchtUtility
+import SpchtCore.WorkOrder
 
-from SpchtCore import Spcht, SpchtTriple, SpchtThird
-from local_tools import sizeof_fmt
+from SpchtCore.SpchtCore import Spcht, SpchtTriple, SpchtThird
+from Utils.local_tools import sizeof_fmt
 from foliotools.foliotools import part1_folio_workings, grab, create_single_location, check_location_changes, \
     check_opening_changes, create_location_node, sparql_delete_node_plus1
 

@@ -1,4 +1,4 @@
-# Solr to Triplestore Bridge
+# Spcht - Solr to Triplestore Bridge
 
 This project started out under a vastly different name. In its first life it was a very tightly built small tool aiming to provide a singular job. That objective remained mostly the same but the scope grew a bit larger and so a decision was made: a tool evolved from the first one, took its place and now provides the ability to do more than a simple tool.
 

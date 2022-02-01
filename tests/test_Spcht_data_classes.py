@@ -23,7 +23,7 @@
 
 import unittest
 import copy
-from SpchtCore import SpchtThird, SpchtTriple
+from SpchtCore.SpchtCore import SpchtThird, SpchtTriple
 import rdflib
 
 import logging

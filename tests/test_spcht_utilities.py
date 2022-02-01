@@ -23,9 +23,10 @@
 import json
 import unittest
 
-import SpchtUtility
-from SpchtCore import Spcht, SpchtThird, SpchtTriple
-from SpchtUtility import list_wrapper, insert_list_into_str, is_dictkey, list_has_elements, all_variants, match_positions, fill_var
+import SpchtCore.SpchtUtility as SpchtUtility
+from SpchtCore.SpchtCore import Spcht, SpchtThird, SpchtTriple
+from SpchtCore.SpchtUtility import list_wrapper, insert_list_into_str, is_dictkey, list_has_elements, all_variants, \
+    match_positions, fill_var
 
 
 class TestFunc(unittest.TestCase):

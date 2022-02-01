@@ -36,12 +36,12 @@ from datetime import timedelta, datetime
 
 import rdflib
 
-import SpchtErrors
-from SpchtCore import Spcht
-from SpchtConstants import WORK_ORDER_STATUS
-import SpchtCore
+import SpchtCore.SpchtErrors as SpchtErrors
+from SpchtCore.SpchtCore import Spcht
+from Utils.SpchtConstants import WORK_ORDER_STATUS
+from SpchtCore.SpchtUtility import process2RDF
 
-from local_tools import load_from_json, sparqlQuery, delta_now, test_json, \
+from Utils.local_tools import load_from_json, sparqlQuery, delta_now, test_json, \
     load_remote_content, solr_handle_return
 
 logger = logging.getLogger(__name__)
@@ -845,7 +845,7 @@ def FulfillProcessingOrder(work_order_file: str, subject: str, spcht_object: Spc
                 logger.info(f"Finished file {_} of {len(work_order['file_list'])}, {len(quadros)} triples")
                 rdf_dump = f"{work_order['file_list'][key]['file'][:-4]}_rdf.ttl"
                 with open(rdf_dump, "w") as rdf_file:
-                    rdf_file.write(SpchtCore.SpchtUtility.process2RDF(quadros))  # ? avoiding circular imports
+                    rdf_file.write(process2RDF(quadros))  # ? avoiding circular imports
                 work_order = UpdateWorkOrder(work_order_file,
                                              update=('file_list', key, 'status', 4),
                                              insert=[('file_list', key, 'rdf_file', rdf_dump),

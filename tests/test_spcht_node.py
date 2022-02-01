@@ -20,8 +20,8 @@
 import json
 import unittest
 import copy
-from SpchtCore import SpchtNode
-import SpchtUtility
+from SpchtCore.SpchtCore import SpchtNode
+import SpchtCore.SpchtUtility as SpchtUtility
 
 import logging
 import os

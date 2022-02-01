@@ -39,14 +39,14 @@ from PySide2.QtWidgets import *
 from PySide2 import QtWidgets, QtCore
 
 # own imports
-import SpchtConstants
-import SpchtErrors
-import local_tools
-from SpchtBuilder import SpchtBuilder, SimpleSpchtNode, RESERVED_NAMES
-from SpchtCore import Spcht
+import SpchtCore.SpchtErrors as SpchtErrors
+import Utils.local_tools as local_tools
+import Utils.SpchtConstants as SpchtConstants
+from SpchtCheckerGui.SpchtBuilder import SpchtBuilder, SimpleSpchtNode, RESERVED_NAMES
+from SpchtCore.SpchtCore import Spcht
 
-import SpchtUtility
-from SpchtCheckerGui_interface import SpchtMainWindow, ListDialogue, JsonDialogue, SelectionDialogue, QLogHandler, SolrDialogue, resource_path, i18n, __appauthor__, __appname__
+import SpchtCore.SpchtUtility as SpchtUtility
+from SpchtCheckerGui.SpchtCheckerGui_interface import SpchtMainWindow, ListDialogue, JsonDialogue, SelectionDialogue, QLogHandler, SolrDialogue, resource_path, i18n, __appauthor__, __appname__
 
 __SOLR_MAX_START__ = 25000
 __SOLR_MAX_ROWS__ = 500
@@ -229,7 +229,7 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         self.ERROR_missing_nodes = []
         # ! this creates the entire ui, small line, big cause
         self.create_ui(self)
-        self.taube = Spcht(schema_path=resource_path("./SpchtSchema.json"))
+        self.taube = Spcht(schema_path=f"{os.getcwd()}/SpchtSchema.json")
         self.setWindowTitle(f"{i18n['window_title']} - {__TITLE_VERSION__}")
 
         # * Event Binds
@@ -1760,12 +1760,17 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         return True
 
 
-if __name__ == "__main__":
+def Run():
     thisApp = QtWidgets.QApplication(sys.argv)
-    thisApp.setWindowIcon(QIcon('./woodpecker.png'))
+    thisApp.setWindowIcon(QIcon(resource_path('./SpchtCheckerGui/woodpecker.png')))
     window = SpchtChecker()
     window.show()
     try:
         sys.exit(thisApp.exec_())
     except KeyboardInterrupt:
         sys.exit()
+
+
+if __name__ == "__main__":
+    Run()
+
