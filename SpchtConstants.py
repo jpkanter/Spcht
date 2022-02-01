@@ -139,5 +139,5 @@ RANDOM_NAMES = ['Trafalgar', 'Miranda', 'Kathmandu', 'Venerable', 'Crazy Horse',
 
 
 if __name__ == "__main__":
-    print("this file is not meant to be executed and only contains constant variables (and also oxymorons apparently)")
+    print("this file is not meant to be executed and only contains constant variables (and apparently oxymorons)")
     exit(0)

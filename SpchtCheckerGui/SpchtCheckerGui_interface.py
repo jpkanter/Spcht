@@ -36,7 +36,7 @@ from PySide2.QtGui import QStandardItemModel, QStandardItem, QFontDatabase, QIco
 from PySide2.QtWidgets import *
 from PySide2 import QtCore, QtWidgets
 
-import appdirs
+# own imports
 
 import SpchtCheckerGui_i18n
 import SpchtConstants

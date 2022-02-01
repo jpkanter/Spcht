@@ -25,16 +25,14 @@ import json
 import os
 import re
 import sys
+import logging
 import pymarc
 from pymarc.exceptions import RecordLengthInvalid, RecordLeaderInvalid, BaseAddressNotFound, BaseAddressInvalid, \
     RecordDirectoryInvalid, NoFieldsFound
 from jsonschema import validate, ValidationError, SchemaError, RefResolutionError
+# own imports
 from SpchtConstants import SPCHT_BOOL_OPS
 
-# ? if i import this i get circular imports and i really dont want that so got a bit of boilerplate here in the sincere
-# ? hope that the amount of boolean operators never changes
-
-import logging
 logger = logging.getLogger(__name__)
 
 try:

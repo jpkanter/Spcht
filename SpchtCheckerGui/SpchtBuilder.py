@@ -25,12 +25,14 @@ import logging
 import re
 import os
 from collections import defaultdict
-import random
-import SpchtConstants
-import SpchtErrors
 import uuid
 import copy
+import random
 
+# own imports
+
+import SpchtConstants
+import SpchtErrors
 import SpchtUtility
 import local_tools
 

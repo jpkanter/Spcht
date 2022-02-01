@@ -29,7 +29,7 @@ import sys
 import copy
 import codecs
 import time
-from io import StringIO
+from dateutil.relativedelta import relativedelta
 from datetime import datetime
 from pathlib import Path
 
@@ -38,8 +38,7 @@ from PySide2.QtGui import QStandardItemModel, QStandardItem, QIcon, QScreen
 from PySide2.QtWidgets import *
 from PySide2 import QtWidgets, QtCore
 
-from dateutil.relativedelta import relativedelta
-
+# own imports
 import SpchtConstants
 import SpchtErrors
 import local_tools

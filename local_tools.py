@@ -24,15 +24,14 @@
 import sys
 import time
 import json
-
 import requests
 import logging
-
-import SpchtErrors
-
 from dateutil.relativedelta import relativedelta
 from termcolor import colored
 from requests.auth import HTTPDigestAuth
+
+# internal modules
+import SpchtErrors
 
 logger = logging.getLogger(__name__)
 

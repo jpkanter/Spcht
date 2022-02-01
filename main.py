@@ -32,6 +32,7 @@ import logging
 import WorkOrder
 import local_tools
 from local_tools import load_from_json
+from main_arguments import arguments
 
 try:
     from termcolor import colored  # only needed for debug print
@@ -71,17 +72,6 @@ def load_config(file_path="config.json"):
 
 
 if __name__ == "__main__":
-    # ! LOADING OF ARG PARSE, Keeps code clean
-    try:
-        with open("argparse.json", "r") as argparse_file:
-            arguments = json.load(argparse_file)
-    except json.JSONDecodeError as e:
-        print(f"While loading arguments there was an error interpreting the json: \n {e}")
-        exit(1)
-    except FileNotFoundError:
-        print("The arguments storate file could not be found. This is very strange. Check file integrity")
-        exit(2)
-
     logging.debug("Start of script")
     print(f"Solr2Triplestore Bridge Version {__VERSION__}. Execute with '-h' for full cli command list.")
     parser = argparse.ArgumentParser(

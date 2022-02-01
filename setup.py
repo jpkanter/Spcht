@@ -42,8 +42,8 @@ with open("README.md", "r") as readme:
         zip_safe=False,
         py_modules=['local_tools', 'main', 'SpchtCore', 'SpchtErrors', 'WorkOrder', 'SpchtUtility', 'SpchtConstants',
                     'SpchtCheckerGui/SpchtBuilder', 'SpchtCheckerGui/SpchtCheckerGui', 'SpchtCheckerGui/SpchtCheckerGui_i18n',
-                    'SpchtCheckerGui/SpchtCheckerGui_interface'],
-        data_files=[('config', ['default.spcht.json', 'config.example.json', "argparse.json", "SpchtSchema.json"]),
+                    'SpchtCheckerGui/SpchtCheckerGui_interface', 'main_arguments'],
+        data_files=[('config', ['default.spcht.json', 'config.example.json', "SpchtSchema.json"]),
                     ('maps', ['translation_maps/documents.json', 'translation_maps/languages.json', 'translation_maps/role_graphs.json', 'translation_maps/roles.json']),
                     ('i18n', ['SpchtCheckerGui/GuiLanguages.json'])],
         classifiers=[

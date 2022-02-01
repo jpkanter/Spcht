@@ -30,8 +30,9 @@ import requests
 import urllib3
 from datetime import datetime
 from string import Template
-from local_tools import sparqlQuery
 
+# import local modules
+from local_tools import sparqlQuery
 import foliotools.folio2triplestore_config as secret
 
 logger = logging.getLogger(__name__)
