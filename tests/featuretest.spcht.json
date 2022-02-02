@@ -279,7 +279,7 @@
       "alternatives": ["author_corporate_role", "author2_role", "author_corporate2_role"],
       "required": "optional",
       "mapping_settings": {
-          "$ref": "../translation_maps/roles.json",
+          "$ref": "../examples/translation_maps/roles.json",
           "$inherit": true
           },
       "mapping": {
@@ -294,7 +294,7 @@
       "alternatives": ["author_corporate_role", "author2_role", "author_corporate2_role"],
       "required": "optional",
       "mapping_settings": {
-          "$ref": "../translation_maps/roles.json",
+          "$ref": "../examples/translation_maps/roles.json",
           "$inherit": true
           },
       "mapping": {
@@ -311,7 +311,7 @@
           "aus": "https://_33_this.overwrites.the.loaded.graph.map",
           "aut": "http://_33_purl.org/dc/elements/1.1/creator"
           },
-      "joined_map_ref": "../translation_maps/role_graphs.json",
+      "joined_map_ref": "../examples/translation_maps/role_graphs.json",
       "joined_field": "author2_role",
       "field": "author2",
       "required": "optional"
@@ -324,7 +324,7 @@
           "aus": "https://_34_this.overwrites.the.loaded.graph.map",
           "aut": "http://_34_purl.org/dc/elements/1.1/creator"
           },
-      "joined_map_ref": "../translation_maps/role_graphs.json",
+      "joined_map_ref": "../examples/translation_maps/role_graphs.json",
       "joined_field": "author2_role",
       "field": "author2",
       "prepend": "PREFIX",
@@ -348,7 +348,7 @@
         "J\u00e4ger, Wolfram": "Jörgen Wolfram?",
         "Oldman, Gary": "xXx Geralt Altmann xXx"
       },
-      "joined_map_ref": "../translation_maps/role_graphs.json",
+      "joined_map_ref": "../examples/translation_maps/role_graphs.json",
       "joined_field": "author2_role",
       "field": "author2",
       "required": "optional"
@@ -405,7 +405,7 @@
             "aus": "https://_40_this.overwrites.the.loaded.graph.map",
             "aut": "http://_40_purl.org/dc/elements/1.1/creator"
             },
-      "joined_map_ref": "../translation_maps/role_graphs.json",
+      "joined_map_ref": "../examples/translation_maps/role_graphs.json",
       "fallback": {
         "name": "Dict Graph Map in fallback for non-fullrecord",
         "source": "dict",
@@ -414,7 +414,7 @@
             "aus": "https://_41_this.overwrites.the.loaded.graph.map",
             "aut": "http://_41_purl.org/dc/elements/1.1/creator"
             },
-        "joined_map_ref": "../translation_maps/role_graphs.json",
+        "joined_map_ref": "../examples/translation_maps/role_graphs.json",
         "joined_field": "author2_role",
         "field": "author2"
       }

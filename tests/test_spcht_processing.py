@@ -33,9 +33,9 @@ currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentfram
 parentdir = os.path.dirname(currentdir)
 sys.path.insert(0, parentdir)
 
-from SpchtCore.SpchtCore import Spcht
-from Utils.local_tools import load_from_json
-import SpchtCore.SpchtUtility as SpchtUtility
+from Spcht.SpchtCore.SpchtCore import Spcht
+from Spcht.Utils.local_tools import load_from_json
+import Spcht.SpchtCore.SpchtUtility as SpchtUtility
 
 """
 This only tests if the actual processing is still working and actually takes place, it does not replace an actual
@@ -78,7 +78,7 @@ def quadro_console_out(quadro_list: list):
 if __name__ == "__main__":
     spcht_path = "featuretest.spcht.json"
     #spcht_path = "./../folio.spcht.json"
-    NormalBird = Spcht(spcht_path, schema_path="./../SpchtSchema.json", debug=True, log_debug=False)
+    NormalBird = Spcht(spcht_path, schema_path="./../Spcht/SpchtSchema.json", debug=True, log_debug=False)
     my_data = load_from_json(TEST_DATA)
     if not my_data:
         print("Test failed while loading testdata")

@@ -32,7 +32,7 @@ from datetime import datetime
 from string import Template
 
 # import local modules
-from Utils.local_tools import sparqlQuery
+from Spcht.Utils.local_tools import sparqlQuery
 import foliotools.folio2triplestore_config as secret
 
 logger = logging.getLogger(__name__)

@@ -23,9 +23,9 @@
 import json
 import unittest
 
-import SpchtCore.SpchtUtility as SpchtUtility
-from SpchtCore.SpchtCore import Spcht, SpchtThird, SpchtTriple
-from SpchtCore.SpchtUtility import list_wrapper, insert_list_into_str, is_dictkey, list_has_elements, all_variants, \
+import Spcht.SpchtCore.SpchtUtility as SpchtUtility
+from Spcht.SpchtCore.SpchtCore import Spcht, SpchtThird, SpchtTriple
+from Spcht.SpchtCore.SpchtUtility import list_wrapper, insert_list_into_str, is_dictkey, list_has_elements, all_variants, \
     match_positions, fill_var
 
 

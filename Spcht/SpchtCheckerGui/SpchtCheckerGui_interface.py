@@ -39,8 +39,8 @@ from PySide2 import QtCore, QtWidgets
 
 # own imports
 
-import SpchtCheckerGui.SpchtCheckerGui_i18n as SpchtCheckerGui_18n
-import Utils.SpchtConstants as SpchtConstants
+import Spcht.SpchtCheckerGui.SpchtCheckerGui_i18n as SpchtCheckerGui_18n
+import Spcht.Utils.SpchtConstants as SpchtConstants
 
 
 def resource_path(relative_path: str) -> str:

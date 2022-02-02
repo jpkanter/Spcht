@@ -36,12 +36,12 @@ from datetime import timedelta, datetime
 
 import rdflib
 
-import SpchtCore.SpchtErrors as SpchtErrors
-from SpchtCore.SpchtCore import Spcht
-from Utils.SpchtConstants import WORK_ORDER_STATUS
-from SpchtCore.SpchtUtility import process2RDF
+import Spcht.SpchtCore.SpchtErrors as SpchtErrors
+from Spcht.SpchtCore.SpchtCore import Spcht
+from Spcht.Utils.SpchtConstants import WORK_ORDER_STATUS
+from Spcht.SpchtCore.SpchtUtility import process2RDF
 
-from Utils.local_tools import load_from_json, sparqlQuery, delta_now, test_json, \
+from Spcht.Utils.local_tools import load_from_json, sparqlQuery, delta_now, test_json, \
     load_remote_content, solr_handle_return
 
 logger = logging.getLogger(__name__)

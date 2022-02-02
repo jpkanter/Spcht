@@ -23,7 +23,7 @@
 
 import unittest
 import json
-from solr2triplestore.SpchtCheckerGui import SpchtBuilder
+from Spcht.SpchtCheckerGui.SpchtBuilder import SpchtBuilder
 
 # ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 # ! these test are for now not functional as i use data that change at any time
@@ -36,7 +36,7 @@ class TestSpchtBuilder(unittest.TestCase):
         super(TestSpchtBuilder, self).__init__(*args, **kwargs)
 
     def test_import(self):
-        with open("../foliotools/folio.spcht.json") as json_file:
+        with open("../Spcht/foliotools/folio.spcht.json") as json_file:
             big_bird = json.load(json_file)
         test1 = SpchtBuilder(big_bird)
         test1.repository = test1._importSpcht(big_bird)
