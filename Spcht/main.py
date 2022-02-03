@@ -72,6 +72,7 @@ def load_config(file_path="config.json"):
 
 
 def big_main():
+    global PARA
     logging.debug("Start of script")
     print(f"Solr2Triplestore Bridge Version {__VERSION__}. Execute with '-h' for full cli command list.")
     parser = argparse.ArgumentParser(

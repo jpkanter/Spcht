@@ -69,6 +69,8 @@ with open("README.md", "r") as readme:
             "pymarc>=4.0.0",
             "python-dateutil",
             "jsonschema>=3.2.0",
+            "pytz,"
+            "appdirs"
         ],
         extras_require={"dev": [
                                 "termcolor"

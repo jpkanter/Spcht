@@ -27,9 +27,14 @@ import json
 import requests
 import logging
 from dateutil.relativedelta import relativedelta
-from termcolor import colored
 from requests.auth import HTTPDigestAuth
 
+# more or less only needed for debug stuff
+try:
+    from termcolor import colored
+except ModuleNotFoundError:
+    def colored(string: str) -> str:
+        return string
 # internal modules
 import Spcht.Core.SpchtErrors as SpchtErrors
 
