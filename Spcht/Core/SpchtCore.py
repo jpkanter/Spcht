@@ -29,11 +29,11 @@ import sys
 import uuid
 from pathlib import Path
 
-import Spcht.Utils.SpchtConstants as SpchtConstants
-import Spcht.SpchtCore.SpchtUtility as SpchtUtility
-from Spcht.SpchtCore.SpchtUtility import if_possible_make_this_numerical, insert_list_into_str, schema_validation, regex_validation
+from Spcht.Utils import SpchtConstants
+from . import SpchtUtility
+from .SpchtUtility import if_possible_make_this_numerical, insert_list_into_str, schema_validation, regex_validation
 
-import Spcht.SpchtCore.SpchtErrors as SpchtErrors
+from . import SpchtErrors
 try:
     from termcolor import colored  # only needed for debug print
 except ModuleNotFoundError:

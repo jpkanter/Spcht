@@ -36,10 +36,10 @@ from datetime import timedelta, datetime
 
 import rdflib
 
-import Spcht.SpchtCore.SpchtErrors as SpchtErrors
-from Spcht.SpchtCore.SpchtCore import Spcht
+from . import SpchtErrors as SpchtErrors
+from .SpchtCore import Spcht
 from Spcht.Utils.SpchtConstants import WORK_ORDER_STATUS
-from Spcht.SpchtCore.SpchtUtility import process2RDF
+from .SpchtUtility import process2RDF
 
 from Spcht.Utils.local_tools import load_from_json, sparqlQuery, delta_now, test_json, \
     load_remote_content, solr_handle_return
@@ -214,7 +214,6 @@ def CheckWorkOrder(work_order_file: str):
     :param str work_order_file: file path to a work order file
     :return: Nothing, only displays to console
     """
-    global WORK_ORDER_STATUS
     print(work_order_file)
     work_order = load_from_json(work_order_file)
     if work_order is None:

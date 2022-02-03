@@ -29,11 +29,11 @@ import json
 import sys
 import logging
 
-import SpchtCore.WorkOrder as WorkOrder
+import Core.WorkOrder as WorkOrder
 import Utils.local_tools as local_tools
 from Utils.local_tools import load_from_json
 from Utils.main_arguments import arguments
-from SpchtCore.SpchtCore import Spcht
+from Core.SpchtCore import Spcht
 
 try:
     from termcolor import colored  # only needed for debug print
@@ -71,7 +71,7 @@ def load_config(file_path="config.json"):
     return True
 
 
-if __name__ == "__main__":
+def big_main():
     logging.debug("Start of script")
     print(f"Solr2Triplestore Bridge Version {__VERSION__}. Execute with '-h' for full cli command list.")
     parser = argparse.ArgumentParser(
@@ -416,3 +416,5 @@ if __name__ == "__main__":
 
     # +++ SPCHT Compile
 
+if __name__ == "__main__":
+    big_main()

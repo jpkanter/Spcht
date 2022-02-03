@@ -22,7 +22,7 @@
 # @license GPL-3.0-only <https://www.gnu.org/licenses/gpl-3.0.en.html>
 
 try:
-    from setuptools import setup
+    from setuptools import setup, find_packages
 except ImportError:
     from distutils.core import setup
 
@@ -41,12 +41,13 @@ with open("README.md", "r") as readme:
         python_requires=">=3.7",
         zip_safe=False,
         include_package_data=True,
-        packages=[
-            'Spcht',
-            'Spcht.foliotools',
-            'Spcht.SpchtCheckerGui',
-            'Spcht.SpchtCore',
-            'Spcht.Utils'],
+        packages=find_packages(),
+        #packages=[
+        #    'Spcht',
+        #    'Spcht.foliotools',
+        #    'Spcht.SpchtCheckerGui',
+        #    'Spcht.SpchtCore',
+        #    'Spcht.Utils'],
         package_data={'config': ['Spcht/SpchtSchema.json'],
                       'i18n': ['Spcht/SpchtCheckerGui/GuiLanguages.json']},
         classifiers=[

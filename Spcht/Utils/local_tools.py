@@ -31,7 +31,7 @@ from termcolor import colored
 from requests.auth import HTTPDigestAuth
 
 # internal modules
-import Spcht.SpchtCore.SpchtErrors as SpchtErrors
+import Spcht.Core.SpchtErrors as SpchtErrors
 
 logger = logging.getLogger(__name__)
 

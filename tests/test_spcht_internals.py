@@ -27,8 +27,8 @@ tests internal functions of the spcht descriptor format
 import sys
 import unittest
 import copy
-from Spcht.SpchtCore.SpchtCore import Spcht, SpchtThird, SpchtTriple
-import Spcht.SpchtCore.SpchtUtility as SpchtUtility
+from Spcht.Core.SpchtCore import Spcht, SpchtThird, SpchtTriple
+import Spcht.Core.SpchtUtility as SpchtUtility
 
 import logging
 import os

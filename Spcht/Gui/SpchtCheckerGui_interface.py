@@ -39,7 +39,7 @@ from PySide2 import QtCore, QtWidgets
 
 # own imports
 
-import Spcht.SpchtCheckerGui.SpchtCheckerGui_i18n as SpchtCheckerGui_18n
+import Spcht.Gui.SpchtCheckerGui_i18n as SpchtCheckerGui_18n
 import Spcht.Utils.SpchtConstants as SpchtConstants
 
 
@@ -57,8 +57,7 @@ def resource_path(relative_path: str) -> str:
 
 
 # ! import language stuff
-i18n = SpchtCheckerGui_18n.Spcht_i18n(resource_path("./SpchtCheckerGui/GuiLanguage.json"), language='en')
-
+i18n = SpchtCheckerGui_18n.Spcht_i18n(resource_path("./Gui/GuiLanguage.json"), language='en')
 
 
 class SpchtMainWindow(object):

@@ -23,7 +23,7 @@
 
 import unittest
 import json
-from Spcht.SpchtCheckerGui.SpchtBuilder import SpchtBuilder
+from Spcht.Gui.SpchtBuilder import SpchtBuilder
 
 # ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 # ! these test are for now not functional as i use data that change at any time

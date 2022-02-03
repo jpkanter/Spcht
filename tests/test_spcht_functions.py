@@ -31,8 +31,8 @@ import os
 import sys
 import logging
 
-from Spcht.SpchtCore import Spcht
-import Spcht.SpchtCore.SpchtUtility as SpchtUtility
+from Spcht.Core.SpchtCore import Spcht
+import Spcht.Core.SpchtUtility as SpchtUtility
 
 logging.basicConfig(filename='debug.log', format='[%(asctime)s] %(levelname)s:%(message)s', level=logging.DEBUG)
 

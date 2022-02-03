@@ -39,14 +39,14 @@ from PySide2.QtWidgets import *
 from PySide2 import QtWidgets, QtCore
 
 # own imports
-import SpchtCore.SpchtErrors as SpchtErrors
+import Core.SpchtErrors as SpchtErrors
 import Utils.local_tools as local_tools
 import Utils.SpchtConstants as SpchtConstants
-from SpchtCheckerGui.SpchtBuilder import SpchtBuilder, SimpleSpchtNode, RESERVED_NAMES
-from SpchtCore.SpchtCore import Spcht
+from Gui.SpchtBuilder import SpchtBuilder, SimpleSpchtNode, RESERVED_NAMES
+from Core.SpchtCore import Spcht
 
-import SpchtCore.SpchtUtility as SpchtUtility
-from SpchtCheckerGui.SpchtCheckerGui_interface import SpchtMainWindow, ListDialogue, JsonDialogue, SelectionDialogue, QLogHandler, SolrDialogue, resource_path, i18n, __appauthor__, __appname__
+import Core.SpchtUtility as SpchtUtility
+from Gui.SpchtCheckerGui_interface import SpchtMainWindow, ListDialogue, JsonDialogue, SelectionDialogue, QLogHandler, SolrDialogue, resource_path, i18n, __appauthor__, __appname__
 
 __SOLR_MAX_START__ = 25000
 __SOLR_MAX_ROWS__ = 500
