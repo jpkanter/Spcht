@@ -161,9 +161,11 @@
       "insert_into": "This is <{}>, has topic: {} and Part-Author {}",
       "insert_add_fields": [
         {
-          "field": "topic_facet"
+          "field": "topic_facet",
+          "source": "dict"
         },{
-          "field": "author_facet"
+          "field": "author_facet",
+          "source": "dict"
         }
       ]
     },

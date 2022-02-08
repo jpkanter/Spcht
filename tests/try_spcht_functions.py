@@ -23,12 +23,14 @@
 
 """
 Tests the functionality of the spcht library
+
+Update: 08.02.2022
+
+It rather did not test but it counts how often the processing of a certain testset fails that should not fail
+at all, one cannot say that this is real unittesting, its more or less a demo i fear.
 """
 import copy
-import inspect
 import json
-import os
-import sys
 import logging
 
 from Spcht.Core.SpchtCore import Spcht
@@ -52,7 +54,7 @@ def gather_stats(existing_stats, variable_value) -> dict:
 if __name__ == "__main__":
     localTestData = "thetestset.json"
     print("Testing starts")
-    crow = Spcht("featuretest.spcht.json", schema_path="./../SpchtSchema.json")
+    crow = Spcht("featuretest.spcht.json", schema_path="./../Spcht/SpchtSchema.json", debug=False)
     if not crow:
         print("Couldnt Load Spcht file")
         exit(1)
@@ -90,15 +92,18 @@ if __name__ == "__main__":
     print("Testing Insert String")
     testNode = { 'source': 'dict',
                  'field': 'author',
-                 'insert_add_fields': ['author2', 'language'],
+                 'insert_add_fields': [
+                     {'field': 'author2'},
+                     {'field': 'language'}
+                 ],
                  'insert_into': 'Author: {}, Author2: {} & Langugage: {}'
                  }
     for entry in testdata:
         crow._raw_dict = entry
         crow._m21_dict = SpchtUtility.marc2list(crow._raw_dict.get('fullrecord'))
-        testVar = crow._inserter_string(testNode)
+        testVar = crow._inserter_string(crow.extract_dictmarc_value(testNode), testNode)
         if testVar:
-            print(type(testVar), len(testVar), " - ", testVar)
+            print(type(testVar), len(testVar), " \n  ", "\n   ".join([x.content for x in testVar]))
 
     stat['processing'] = 0
     for entry in testdata:

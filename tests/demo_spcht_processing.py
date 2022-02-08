@@ -57,21 +57,21 @@ def quadro_console_out(quadro_list: list):
     previous_length = 0
     len_map = {}
     for each in quadro_list:
-        if each[0].__repr__() not in len_map:
-            len_map[each[0].__repr__()] = len(each[1].__repr__())
-        if len(each[1].__repr__()) > len_map[each[0].__repr__()]:
-            len_map[each[0].__repr__()] = len(each[1].__repr__())+3
+        if str(each[0]) not in len_map:
+            len_map[str(each[0])] = len(str(each[1]))
+        if len(str(each[1])) > len_map[str(each[0])]:
+            len_map[str(each[0])] = len(str(each[1]))+3
     for each in quadro_list:
         this_line = ""
-        if each[0].__repr__() != previous:
-            previous = f"{each[0].__repr__()}"  # tuples cannot be changed
+        if str(each[0]) != previous:
+            previous = f"{str(each[0])}"  # tuples cannot be changed
             previous_length = len(previous)
             this_line += f"{previous} "
         else:
             this_line += f"{' '*previous_length} "
-        tmp = f"{each[1].__repr__()}"
-        this_line += f"{tmp:{len_map[each[0].__repr__()]}}"
-        this_line += f"{each[2].__repr__()}"
+        tmp = f"{str(each[1])}"
+        this_line += f"{tmp:{len_map[str(each[0])]}}"
+        this_line += f"{str(each[2])}"
         print(this_line)
 
 
