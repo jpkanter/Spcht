@@ -43,7 +43,7 @@ logger = logging.getLogger(__name__)
 
 class SimpleSpchtNode:
 
-    def __init__(self, name: str, parent=":UNUSED:", import_dict=None):
+    def __init__(self, name: str, parent=":UNUSED:", import_dict=None, **properties):
         self.properties = dict()
         self.properties['name'] = name  # TODO: should probably make sure this is actual possible
         self.parent = parent
@@ -51,6 +51,20 @@ class SimpleSpchtNode:
         if import_dict:
             self.import_dictionary(import_dict)
         # using this as a dictionary proxy for now
+
+        for key, prop in properties.items():
+            try:
+                self.properties[key] = prop
+            except KeyError as e:
+                logger.debug("SimpleSpchtNode>INIT:", e)  # we ignore key errors
+
+    def __repr__(self):
+        representation = f"{self.properties['name']} :: parent='{self.parent}' | "
+        representation += ", ".join([f"{key}: '{value}'" for key, value in self.properties.items() if key != "name" or key != "parent"])
+        return representation
+
+    #def __repr__(self):
+    #    return f"Parent={self.parent} - " + str(self.properties)
 
     def get(self, key, default=None):
         if key in self.properties:
@@ -78,9 +92,6 @@ class SimpleSpchtNode:
 
     def keys(self):
         return self.properties.keys()
-
-    def __repr__(self):
-        return f"Parent={self.parent} - " + str(self.properties)
 
     def __getitem__(self, item):
         if item in self.properties:
@@ -171,6 +182,12 @@ class SpchtBuilder:
     @repository.setter
     def repository(self, repository: dict):
         self._repository = repository
+
+    def __repr__(self):
+        representation = f"Len: {len(self._repository)}, {self.cwd=} || "
+        representation += repr(self.root) + " || "
+        representation += " | ".join([repr(x) for x in self._repository.values()])
+        return representation
 
     def __getitem__(self, item):
         if item in self._repository:

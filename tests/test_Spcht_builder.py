@@ -23,7 +23,7 @@
 
 import unittest
 import json
-from Spcht.Gui.SpchtBuilder import SpchtBuilder
+from Spcht.Gui.SpchtBuilder import SpchtBuilder, SimpleSpchtNode
 
 # ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 # ! these test are for now not functional as i use data that change at any time
@@ -35,6 +35,24 @@ class TestSpchtBuilder(unittest.TestCase):
     def __init__(self, *args, **kwargs):
         super(TestSpchtBuilder, self).__init__(*args, **kwargs)
 
+    @staticmethod
+    def _create_dummy():
+        """This puts a lot of trust in the established init functions"""
+        blue = SpchtBuilder()
+        copper = SimpleSpchtNode("copper", "indigo",
+                                 field="two", source="dict", predicate="wk:11")
+        iron = SimpleSpchtNode("iron", ":MAIN:",
+                                 field='one', source="dict", fallback="copper", predicate="wk:12")
+        tin = SimpleSpchtNode("tin", ":MAIN",
+                              field="eleven", source="tree", predicate="wkd:neun")
+        pewder = SimpleSpchtNode("pewder", ":MAIN:",
+                                 field="another", source="marc", predicate="wth:apl")
+        blue.add(copper)
+        blue.add(iron)
+        blue.add(tin)
+        blue.add(pewder)
+        return blue
+
     def test_import(self):
         with open("../Spcht/foliotools/folio.spcht.json") as json_file:
             big_bird = json.load(json_file)
@@ -42,3 +60,28 @@ class TestSpchtBuilder(unittest.TestCase):
         test1.repository = test1._importSpcht(big_bird)
         name = test1.getNodesByParent(":MAIN:")[0]['name']
         print(json.dumps(test1.compileNode(name), indent=2))
+
+    def test_clone(self):
+        dummy = self._create_dummy()
+        print(dummy)
+        print(repr(dummy['iron']))
+        pass
+
+    def test_modify(self):
+        pass
+
+    def test_add(self):
+        pass
+
+    def test_del(self):
+        pass
+
+    def test_compile(self):
+        pass
+
+    def test_create(self):
+        pass
+
+    def test_name_conflicts(self):
+        pass
+
