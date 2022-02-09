@@ -1421,6 +1421,12 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         path_To_File, file_type = QtWidgets.QFileDialog.getSaveFileName(self, i18n['dlg_save_spchtbuilder'], "./",
                                                                         "Spcht Json File (*.spchtbuilder.json);;Json File (*.json);;Every file (*.*)")
         if path_To_File:
+            parts = path_To_File.split(".")
+            if (par_len := len(parts)) < 3:
+                path_To_File += "spchtbuilder.json"
+            else:
+                if parts[-1] != "json" or parts[-2] != "spchtbuilder":
+                    path_To_File += "spchtbuilder.json"
             try:
                 with codecs.open(path_To_File, "w", encoding='utf-8') as save_game:
                     json.dump(self.spcht_builder.exportDict(), save_game, indent=3, ensure_ascii=False)

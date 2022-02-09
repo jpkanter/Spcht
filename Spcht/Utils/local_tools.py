@@ -26,6 +26,7 @@ import time
 import json
 import requests
 import logging
+import hashlib
 from dateutil.relativedelta import relativedelta
 from requests.auth import HTTPDigestAuth
 
@@ -281,6 +282,8 @@ def delta_time_human(**kwargs):
             human_string += '%d %s' % (getattr(delta, attr), getattr(delta, attr) > 1 and attr or attr[:-1])
     return human_string
 
+def str2sha256(text: str):
+    return hashlib.sha256(text.encode('utf-8')).hexdigest()
 
 def test_json(json_str: str) -> dict or bool:
     #  i am almost sure that there is already a build in function that does something very similar, embarrassing

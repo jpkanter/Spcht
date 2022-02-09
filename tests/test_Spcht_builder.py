@@ -39,7 +39,7 @@ class TestSpchtBuilder(unittest.TestCase):
     def _create_dummy():
         """This puts a lot of trust in the established init functions"""
         blue = SpchtBuilder()
-        copper = SimpleSpchtNode("copper", "indigo",
+        copper = SimpleSpchtNode("copper", "iron",
                                  field="two", source="dict", predicate="wk:11")
         iron = SimpleSpchtNode("iron", ":MAIN:",
                                  field='one', source="dict", fallback="copper", predicate="wk:12")
@@ -47,10 +47,11 @@ class TestSpchtBuilder(unittest.TestCase):
                               field="eleven", source="tree", predicate="wkd:neun")
         pewder = SimpleSpchtNode("pewder", ":MAIN:",
                                  field="another", source="marc", predicate="wth:apl")
-        blue.add(copper)
         blue.add(iron)
+        blue.add(copper)
         blue.add(tin)
         blue.add(pewder)
+        print("Mended:", blue.mendFamily())
         return blue
 
     def test_import(self):
@@ -64,7 +65,9 @@ class TestSpchtBuilder(unittest.TestCase):
     def test_clone(self):
         dummy = self._create_dummy()
         print(dummy)
-        print(repr(dummy['iron']))
+        #new_name = dummy.clone("iron")
+        from pprint import pprint
+        pprint(dummy.node_hash("iron"))
         pass
 
     def test_modify(self):

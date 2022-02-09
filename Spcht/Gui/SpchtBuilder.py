@@ -189,6 +189,31 @@ class SpchtBuilder:
         representation += " | ".join([repr(x) for x in self._repository.values()])
         return representation
 
+    def structure_hash(self, raw=False):
+        """
+        basically does the same as __repr__ but omits the mentioning of names that are not all that relevant, used in
+        unit tests to compare nodes on differences..which has the side effect that it only needs to be machine readable
+        which then lead to my decision to only give a hash in the end...which makes it terrible to actually see where
+        the differences are..therefore it has an alt mode where it just shows where the problem is
+        :param bool raw: if True gives the actual string and not an hash
+        :return: a long string describing a node
+        :rtype: str
+        """
+        pass
+
+    def node_hash(self, node: str, raw=False):
+        """
+        Omits all mentions of names & parents from a node structure so they can be compared without getting the
+        fluff in the way, basically just utilizes "compile_node
+        :param str node:
+        :param bool raw:
+        :return:
+        :rtype:
+        """
+        if node not in self._repository:
+            return None
+        return self.compileNode(node)
+
     def __getitem__(self, item):
         if item in self._repository:
             return self._repository[item]
@@ -216,20 +241,32 @@ class SpchtBuilder:
     def keys(self):
         return self._repository.keys()
 
-    def add(self, UniqueSpchtNode: SimpleSpchtNode):
-        UniqueSpchtNode['name'] = self.createNewName(UniqueSpchtNode['name'])
+    def add(self, input_node: SimpleSpchtNode):
+        """
+        Adds a SimpleSpchtNode to the Builder
+        :param SimpleSpchtNode input_node:
+        :return: the name of the added node (might be different than the inputed one)
+        :rtype: str
+        """
+        uniq_sp_node = copy.deepcopy(input_node)  # in case you want to preserve the original node for some reason
+        if not self._check_ancestry(input_node):
+            return None
+        uniq_sp_node['name'] = self.createNewName(uniq_sp_node['name'])
+        """
         for key in SpchtConstants.BUILDER_LIST_REFERENCE:
-            if key in UniqueSpchtNode:
-                UniqueSpchtNode[key] = self.createNewName(UniqueSpchtNode[key], mode="add")
+            if key in uniq_sp_node:
+                uniq_sp_node[key] = self.createNewName(uniq_sp_node[key], mode="add")
         for key in SpchtConstants.BUILDER_SINGLE_REFERENCE:  # for now just throw away nodes, maybe implement duplicate
-            if key in UniqueSpchtNode:                       # for recursion
-                UniqueSpchtNode.pop(key, None)
-        if UniqueSpchtNode['parent'] in self:  # aka its a direct ancestor
-            UniqueSpchtNode['parent'] = ":UNUSED:"
-        # if UniqueSpchtNode['name'] in self._repository:
-        #     raise KeyError("Cannot add a name that is already inside")
-        self._repository[UniqueSpchtNode['name']] = UniqueSpchtNode
-        return UniqueSpchtNode['name']
+            if key in uniq_sp_node:                       # for recursion
+                uniq_sp_node.pop(key, None)
+        # ?  the following lines were present before i added mendFamily()
+        if uniq_sp_node['parent'] not in self:  # aka its a direct ancestor
+            uniq_sp_node.parent = ":UNUSED:"
+        if UniqueSpchtNode['name'] in self._repository:
+            raise KeyError("Cannot add a name that is already inside")
+        """
+        self._repository[uniq_sp_node['name']] = uniq_sp_node
+        return uniq_sp_node['name']
 
     def remove(self, UniqueName: str):
         # removes one specific key as long as it isnt referenced anywhere
@@ -374,22 +411,34 @@ class SpchtBuilder:
         return a
 
     def importDict(self, spchtbuilder_point_json: dict):
+        """
+        This is basically the "load from file" option when having an exported SpchtBuilder file, not to be confused
+        with a readily "compiled" Spcht file that can be just executed by Spcht, the Builder can, in theory be im &
+        exported back and forth to SpchtBuilder and normal Spcht but this format preserves some settings that the other
+        does not. In Theory this should make no difference, and yet the option exists.
+        :param dict spchtbuilder_point_json: the entire raw content of a SpchtBuilder file after interpret by json
+        :return: True if everything went okay, False if something failed
+        :rtype: bool
+        """
         # TODO: make this throw exceptions to better gauge the reason for rejection
         if not SpchtUtility.is_dictkey(spchtbuilder_point_json, "nodes", "references"):
+            logging.error(f"SpchtBuilder>importDict: data does not contain 'node' and/or 'references'.")
             return False
         # sanity check for references
-        if not isinstance(spchtbuilder_point_json['references'], dict) or not isinstance(spchtbuilder_point_json['nodes'], dict):
+        if not isinstance(spchtbuilder_point_json['references'], dict) or\
+                not isinstance(spchtbuilder_point_json['nodes'], dict):
+            logging.error(f"SpchtBuilder>importDict: 'node' and/or 'references are of wrong type")
             return False
         # check for duplicates
         uniques = set()
         for name in spchtbuilder_point_json['nodes']:
             if name in uniques:
+                logging.error(f"SpchtBuilder>importDict: not all node names are unique, manual fix needed")
                 return False
             uniques.add(name)
-            if 'sub_nodes' in spchtbuilder_point_json['nodes'][name]:
-                uniques.add(spchtbuilder_point_json['nodes'][name]['sub_nodes'])
-            if 'sub_data' in spchtbuilder_point_json['nodes'][name]:
-                uniques.add(spchtbuilder_point_json['nodes'][name]['sub_data'])
+            for groups in SpchtConstants.BUILDER_LIST_REFERENCE:  # sub_nodes & sub_data
+                if groups in spchtbuilder_point_json['nodes'][name]:
+                    uniques.add(spchtbuilder_point_json['nodes'][name][groups])
         # getting a fresh node
         throwaway_builder = SpchtBuilder()
         self.root = copy.deepcopy(throwaway_builder.root)
@@ -405,9 +454,11 @@ class SpchtBuilder:
             self._references[ref] = {}
             for key, value in spchtbuilder_point_json['references'][ref].items():
                 if isinstance(value, (dict, list)):
+                    logging.error(f"SpchtBuilder>importDict: at least one references contains the wrong data type")
                     return False
                 self._references[ref][key] = value
         self._enrichPredicates()
+        self.mendFamily()
         return True
 
     def createSpcht(self):
@@ -540,6 +591,25 @@ class SpchtBuilder:
         return ["name", "source", "field", "type", "mandatory", "sub_nodes", "sub_data", "predicate", "fallback", "tech", "comment"]
 
     def _importSpcht(self, spcht: dict, base_path=None):
+        """
+        This imports an actual Spcht file, not a SpchtBuilder but a ready and interpreteable Spcht file that can be
+        used to process data. For this to work some additional data has to be created on the fly.
+
+        There are historical reasons that a Spcht file works differently than a builder. While processing the original
+        Spcht logic just crawls down the Spcht structure and uses data as it comes. For this a nested tree structure
+        is of advantage. For editing purpose a nested structure is less than practical. SpchtBuilder is therefore
+        inherently flat so it can be displayed in an GUI program without going in depths. For this to work the properties
+        of the tree have to be coded in some way. This is achieved by using unique names for each node and subnode, for
+        Spcht itself names are an optional parameter, created as afterthough to get some order going, for SpchtBuilder
+        names are paramount and are the link between nodes. As Spcht was originally designed to be written by hand one
+        cannot assume every single file contains names, the import process creates new names as it sees fit and also
+        puts the referenced data in the files.
+        :param dict spcht: a read file, interpreted by json.decode
+        :param str or None base_path: defines the working directory of the Spcht, needed for references
+        :raises SpchtErrors.ParsingError: in cases of reading error
+        :return: True if everything was alright
+        :rtype: bool
+        """
         self._repository = {}
         self._names.reset()
         if 'nodes' not in spcht:
@@ -560,6 +630,7 @@ class SpchtBuilder:
                     break
             self._repository.update(root_fallbacks)
         self._enrichPredicates()
+        return True
 
     def _recursiveSpchtImport(self, spcht_nodes: list, base_path, parent=":MAIN:") -> dict:
         temp_spcht = {}
@@ -689,6 +760,14 @@ class SpchtBuilder:
                 names.append(node.properties['sub_data'])
         return names
 
+    def getAllSubParents(self):
+        names = set()
+        for node in self.values():
+            for key in SpchtConstants.BUILDER_LIST_REFERENCE:
+                if key in node.properties:
+                    names.add(node.properties[key])
+        return list(names)
+
     def getAllParents(self):
         names = []
         for key, node in self.items():
@@ -724,6 +803,97 @@ class SpchtBuilder:
                 if 'fallback' in self[node.parent] and self[node.parent]['fallback'] == name:
                     if node['predicate'] != self[node.parent]['predicate']:
                         self[name].predicate_inheritance = False
+
+    def _check_ancestry(self, node: SimpleSpchtNode):
+        """
+        A simple Spcht Node just is, there are no checks and balances to make sure that an individual one has a real
+        parent or an realistic sibling relationship. We can only check this in the context of an already established
+        builder (which puts up some restriction in the order we can actually add content to the builder as we need
+        to walk down the tree path starting from :MAIN:
+
+        Note: this contains a superflous amount of `return False` for clarity
+
+        :param SimpleSpchtNode node:
+        :return: True if the proposed relationship is possible, False if not
+        :rtype: bool
+        """
+        if node.parent == ":UNUSED:" or node.parent == ":MAIN:":  # the default case if something is just on the base
+            for node in self.values():
+                if 'fallback' in node:
+                    if node['fallback'] == node['name']:
+                        return False  # discrepancy as node cannot be different if other node claims this one
+            return True
+        elif node.parent in self:  # direct ancestor aka. Fallback
+            if 'fallback' not in self[node.parent]:
+                return False
+            else:  # else for clarity reasons
+                if node['name'] not in self:  # the name is still free and can just be added
+                    if self[node.parent]['fallback'] != node['name']:
+                        return False
+                    else:
+                        return True
+                else:  # the name already exists, this new node will get a different one
+                    return False
+        else:  # no reason to not add
+            return True
+            # sub_list = self.getAllSubParents()
+            # if node.parent in sub_list:  # * this is illogical, the element containing the parent might not be added yet
+            #     return True
+            # return False
+
+    def mendFamily(self):
+        """
+        Utility procedure that tries to repair some links that might not be established by wrongly inputed data
+
+        * A node is fallback of another node but its parent is :MAIN: or :UNUSED:, in that case the relationship
+          can easily be overwritten
+        * A node has a fallback that just doesnt exist in the repository, this connection cannot be used in this
+          case and the dead link will be removed
+
+        The second occassion is the reason why this should only be used after a full import of all data has taken place
+
+        :return: return a list of repaired nodes
+        :rtype: list
+        """
+        sub_list = self.getAllSubParents()
+        repair = []
+        for name, node in self.items():
+            for key in SpchtConstants.BUILDER_SINGLE_REFERENCE:
+                if key in node:
+                    if node[key] not in self:
+                        self[name].pop(key)
+                    else:
+                        if self[node[key]].parent != name:
+                            if self[node[key]].parent == ":MAIN:" or self[node[key]].parent == ":UNUSED:":
+                                self[node[key]].parent = name
+                                repair.append(self[node[key]])
+                            else:  # another node claims inheritance?
+                                if self[node[key]].parent in self:
+                                    for key2 in SpchtConstants.BUILDER_SINGLE_REFERENCE:
+                                        if key2 in self[self[node[key]].parent]:
+                                            if self[self[node[key]].parent][key2] == self[node[key]]:
+                                                raise SpchtErrors.DataError("Family structure of builder is broken")
+                                    # ? if we get here without exception there seems to not be any match and we can repair
+                                    self[node[key]].parent = name
+                                    repair.append(node[key])
+                                else:  # the supposed node does not exist in the repository, so we can overwrite
+                                    self[node[key]].parent = name
+                                    repair.append(node[key])
+            if node.parent != ":UNUSED:" and node.parent != ":MAIN:":
+                if node.parent in sub_list:  # list reference can contain any number of elements, should always be fine
+                    continue
+                elif node.parent in self:
+                    for key in SpchtConstants.BUILDER_SINGLE_REFERENCE:
+                        if self[node.parent][key] == name:
+                            break
+                    else:  # python tricks, if for runs through without stops else triggers
+                        # ? if we get here the parent relationship is empty
+                        self[name].parent = ":UNUSED:"
+                        repair.append(name)
+                else:  # the supposed parent doesnt exist anyway
+                    self[name].parent = ":UNUSED:"
+                    repair.append(name)
+        return repair
 
     def createNewName(self, name: str, mode="add", alt_repository=None) -> str:
         """
