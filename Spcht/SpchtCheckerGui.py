@@ -39,14 +39,14 @@ from PySide2.QtWidgets import *
 from PySide2 import QtWidgets, QtCore
 
 # own imports
-import Core.SpchtErrors as SpchtErrors
-import Utils.local_tools as local_tools
-import Utils.SpchtConstants as SpchtConstants
-from Gui.SpchtBuilder import SpchtBuilder, SimpleSpchtNode, RESERVED_NAMES
-from Core.SpchtCore import Spcht
+import Spcht.Core.SpchtErrors as SpchtErrors
+import Spcht.Utils.local_tools as local_tools
+import Spcht.Utils.SpchtConstants as SpchtConstants
+from Spcht.Gui.SpchtBuilder import SpchtBuilder, SimpleSpchtNode, RESERVED_NAMES
+from Spcht.Core.SpchtCore import Spcht
 
-import Core.SpchtUtility as SpchtUtility
-from Gui.SpchtCheckerGui_interface import SpchtMainWindow, ListDialogue, JsonDialogue, SelectionDialogue, QLogHandler, SolrDialogue, resource_path, i18n, __appauthor__, __appname__
+import Spcht.Core.SpchtUtility as SpchtUtility
+from Spcht.Gui.SpchtCheckerGui_interface import SpchtMainWindow, ListDialogue, JsonDialogue, SelectionDialogue, QLogHandler, SolrDialogue, resource_path, i18n, __appauthor__, __appname__
 
 __SOLR_MAX_START__ = 25000
 __SOLR_MAX_ROWS__ = 500
@@ -229,7 +229,7 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         self.ERROR_missing_nodes = []
         # ! this creates the entire ui, small line, big cause
         self.create_ui(self)
-        self.taube = Spcht(schema_path=f"{os.getcwd()}/SpchtSchema.json")
+        self.taube = Spcht()
         self.setWindowTitle(f"{i18n['window_title']} - {__TITLE_VERSION__}")
 
         # * Event Binds
@@ -451,7 +451,7 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         try:
             with open(path_To_File, "r") as file:
                 spcht_data = json.load(file)
-                status, output = SpchtUtility.schema_validation(spcht_data, schema=resource_path("./SpchtSchema.json"))
+                status, output = SpchtUtility.schema_validation(spcht_data)
         except json.decoder.JSONDecodeError as e:
             self.console.insertPlainText(time_log(f"JSON Error: {str(e)}\n"))
             self.utlWriteStatus("Json error while loading Spcht")

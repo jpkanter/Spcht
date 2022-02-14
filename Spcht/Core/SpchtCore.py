@@ -64,7 +64,7 @@ i am sorry - JPK
 
 
 class Spcht:
-    def __init__(self, filename=None, schema_path="./SpchtSchema.json", debug=False, log_debug=False):
+    def __init__(self, filename=None, schema_path=None, debug=False, log_debug=False):
         self._DESCRI = None  # the finally loaded descriptor file with all references solved
         self._SAVEAS = {}
         # * i do all this to make it more customizable, maybe it will never be needed, but i like having options

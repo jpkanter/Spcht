@@ -40,27 +40,54 @@ class TestSpchtBuilder(unittest.TestCase):
         """This puts a lot of trust in the established init functions"""
         blue = SpchtBuilder()
         copper = SimpleSpchtNode("copper", "iron",
-                                 field="two", source="dict", predicate="wk:11")
+                                 field="two", source="dict", predicate="wk:11", fallback="zinc")
         iron = SimpleSpchtNode("iron", ":MAIN:",
                                  field='one', source="dict", fallback="copper", predicate="wk:12")
-        tin = SimpleSpchtNode("tin", ":MAIN",
+        tin = SimpleSpchtNode("tin", ":MAIN:",
                               field="eleven", source="tree", predicate="wkd:neun")
         pewder = SimpleSpchtNode("pewder", ":MAIN:",
                                  field="another", source="marc", predicate="wth:apl")
+        zinc = SimpleSpchtNode("zinc", "copper", field="many", source="dict", predicate="mt:32")
         blue.add(iron)
         blue.add(copper)
         blue.add(tin)
         blue.add(pewder)
+        blue.add(zinc)
         print("Mended:", blue.mendFamily())
+        import json
+        with open("blue.json", "w") as purple:
+            json.dump(blue.exportDict(), purple, indent=3)
         return blue
 
     def test_import(self):
-        with open("../Spcht/foliotools/folio.spcht.json") as json_file:
-            big_bird = json.load(json_file)
-        test1 = SpchtBuilder(big_bird)
-        test1.repository = test1._importSpcht(big_bird)
-        name = test1.getNodesByParent(":MAIN:")[0]['name']
-        print(json.dumps(test1.compileNode(name), indent=2))
+        """
+        Tests if the import of featuretest has the structure that is to be expected
+
+        :return:
+        :rtype:
+        """
+        with self.subTest("general import"):
+            with open("featuretest.spcht.json") as json_file:
+                big_bird = json.load(json_file)
+            test1 = SpchtBuilder(big_bird, spcht_base_path="./")
+        with self.subTest("1st level import"):
+            self.assertEqual("wk:12", test1['fallback_with_names']['predicate'])
+        with self.subTest("2nd named level import"):
+            self.assertEqual("author_mv", test1['fallback_with_name_2nd_level']['field'])
+        with self.subTest("3rd named level import"):
+            self.assertEqual("somrhing_mv", test1['fallback_with_name_3rd_level']['field'])
+
+        with self.subTest("1st level unnamed import"):
+            fallback = test1['fallback_without_names']['fallback']
+            parent = test1[fallback].parent
+            self.assertEqual('fallback_without_names', parent)
+            self.assertEqual("director_mv", test1[fallback]['field'])
+        with self.subTest("2nd level unnamed import"):
+            fallback1 = test1['fallback_without_names']['fallback']
+            fallback2 = test1[fallback1]['fallback']
+            parent = test1[fallback2].parent
+            self.assertEqual(test1[fallback1]['name'], parent)
+            self.assertEqual("anything_mv", test1[fallback2]['field'])
 
     def test_clone(self):
         dummy = self._create_dummy()

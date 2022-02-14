@@ -31,15 +31,15 @@ from datetime import datetime, timedelta
 import traceback
 
 # import internal modules
-from Core import SpchtUtility
-from Core import WorkOrder
+from Spcht.Core import SpchtUtility
+from Spcht.Core import WorkOrder
 
-from Core.SpchtCore import Spcht, SpchtTriple, SpchtThird
-from Utils.local_tools import sizeof_fmt
-from foliotools.foliotools import part1_folio_workings, grab, create_single_location, check_location_changes, \
+from Spcht.Core.SpchtCore import Spcht, SpchtTriple, SpchtThird
+from Spcht.Utils.local_tools import sizeof_fmt
+from Spcht.foliotools.foliotools import part1_folio_workings, grab, create_single_location, check_location_changes, \
     check_opening_changes, create_location_node, sparql_delete_node_plus1
 
-import foliotools.folio2triplestore_config as secret
+import Spcht.foliotools.folio2triplestore_config as secret
 
 logging.basicConfig(filename=secret.log_file, format='[%(asctime)s] %(levelname)s:%(message)s', level=logging.INFO)
 #logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.INFO)

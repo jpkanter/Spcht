@@ -404,21 +404,51 @@
       "field": "700:a",
       "joined_field": "700:4",
       "joined_map": {
-            "aus": "https://_40_this.overwrites.the.loaded.graph.map",
-            "aut": "http://_40_purl.org/dc/elements/1.1/creator"
-            },
+        "aus": "https://_40_this.overwrites.the.loaded.graph.map",
+        "aut": "http://_40_purl.org/dc/elements/1.1/creator"
+      },
       "joined_map_ref": "../examples/translation_maps/role_graphs.json",
       "fallback": {
         "name": "Dict Graph Map in fallback for non-fullrecord",
         "source": "dict",
         "predicate": "http://_41_i.cannot.really.imagine.a.use.case.for.this.honestly",
         "joined_map": {
-            "aus": "https://_41_this.overwrites.the.loaded.graph.map",
-            "aut": "http://_41_purl.org/dc/elements/1.1/creator"
-            },
+          "aus": "https://_41_this.overwrites.the.loaded.graph.map",
+          "aut": "http://_41_purl.org/dc/elements/1.1/creator"
+        },
         "joined_map_ref": "../examples/translation_maps/role_graphs.json",
         "joined_field": "author2_role",
         "field": "author2"
+      }
+    },
+    {
+      "name": "fallback_with_names",
+      "field": "facets_mv",
+      "predicate": "wk:12",
+      "source": "dict",
+      "fallback": {
+        "name": "fallback_with_name_2nd_level",
+        "field": "author_mv",
+        "source": "dict",
+        "fallback": {
+          "name": "fallback_with_name_3rd_level",
+          "field": "somrhing_mv",
+          "source": "dict"
+        }
+      }
+    },
+    {
+      "name": "fallback_without_names",
+      "field": "facets_mv",
+      "predicate": "wk:12",
+      "source": "dict",
+      "fallback": {
+        "field": "director_mv",
+        "source": "dict",
+        "fallback": {
+          "field": "anything_mv",
+          "source": "dict"
+        }
       }
     }
   ]

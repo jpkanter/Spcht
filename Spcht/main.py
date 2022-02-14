@@ -29,11 +29,11 @@ import json
 import sys
 import logging
 
-import Core.WorkOrder as WorkOrder
-import Utils.local_tools as local_tools
-from Utils.local_tools import load_from_json
-from Utils.main_arguments import arguments
-from Core.SpchtCore import Spcht
+import Spcht.Core.WorkOrder as WorkOrder
+import Spcht.Utils.local_tools as local_tools
+from Spcht.Utils.local_tools import load_from_json
+from Spcht.Utils.main_arguments import arguments
+from Spcht.Core.SpchtCore import Spcht
 
 try:
     from termcolor import colored  # only needed for debug print
@@ -44,20 +44,19 @@ except ModuleNotFoundError:
 __VERSION__ = "0.8"
 
 PARA = {}
-TESTFOLDER = "./testdata/"
 # DEBUG file + line = [%(module)s:%(lineno)d]
 logging.basicConfig(filename='spcht_process.log', format='[%(asctime)s] %(levelname)s:%(message)s', level=logging.INFO)
 # logging.basicConfig(filename='spcht_process.log', format='[%(asctime)s] %(levelname)s:%(message)s', encoding='utf-8', level=logging.DEBUG)  # Python 3.9
 
 
 def load_config(file_path="config.json"):
-    global PARA
     """
     Simple config file loader, will raise exceptions if files arent around, will input parameters
     in global var PARA
     :param file_path str: file path to a flat json containing a dictionary with key-value relations
     :return: True if everything went well, will raise exception otherwise
     """
+    global PARA
     expected_settings = ("solr_url", "query", "total_rows", "chunk_size", "spcht_path", "save_folder",
                          "subject", "named_graph", "isql_path", "user", "password", "isql_port", "virt_folder",
                          "processes", "sparql_endpoint", "spcht_descriptor", "max_age")
@@ -71,8 +70,7 @@ def load_config(file_path="config.json"):
     return True
 
 
-def big_main():
-    global PARA
+if __name__ == "__main__":
     logging.debug("Start of script")
     print(f"Solr2Triplestore Bridge Version {__VERSION__}. Execute with '-h' for full cli command list.")
     parser = argparse.ArgumentParser(
@@ -417,5 +415,3 @@ def big_main():
 
     # +++ SPCHT Compile
 
-if __name__ == "__main__":
-    big_main()

@@ -27,6 +27,7 @@ import re
 import sys
 import logging
 import pymarc
+from pathlib import Path
 from pymarc.exceptions import RecordLengthInvalid, RecordLeaderInvalid, BaseAddressNotFound, BaseAddressInvalid, \
     RecordDirectoryInvalid, NoFieldsFound
 from jsonschema import validate, ValidationError, SchemaError, RefResolutionError
@@ -590,7 +591,7 @@ def regex_validation_recursion(node: dict) -> (bool, str):
     return True, "none"
 
 
-def schema_validation(descriptor: dict, schema="./SpchtSchema.json") -> (bool, str):
+def schema_validation(descriptor: dict, schema=None) -> (bool, str):
     """
     Validates the given dictionary (loaded from a json) against a validation scheme, this function can technically
     accept every kind of dictionary/json-object and schema. It will write some log informations and give back a tuple
@@ -606,6 +607,8 @@ def schema_validation(descriptor: dict, schema="./SpchtSchema.json") -> (bool, s
     if isinstance(schema, dict):
         rdy_schema = schema
     else:
+        if not schema:  # defaulting to default module path
+            schema = Path(__file__).parent.parent / "SpchtSchema.json"
         try:
             with open(schema, "r") as schema_file:
                 rdy_schema = json.load(schema_file)

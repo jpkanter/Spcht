@@ -57,7 +57,8 @@ def resource_path(relative_path: str) -> str:
 
 
 # ! import language stuff
-i18n = SpchtCheckerGui_18n.Spcht_i18n(resource_path("./Gui/GuiLanguage.json"), language='en')
+#i18n = SpchtCheckerGui_18n.Spcht_i18n(resource_path("./Gui/GuiLanguage.json"), language='en')
+i18n = SpchtCheckerGui_18n.Spcht_i18n(Path(__file__).parent / "GuiLanguage.json", language='en')
 
 
 class SpchtMainWindow(object):

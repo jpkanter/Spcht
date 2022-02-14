@@ -164,7 +164,7 @@ class SpchtBuilder:
 
     def __init__(self, import_dict=None, unique_names=None, spcht_base_path=None):
         self._repository = {}
-        self.root = SimpleSpchtNode(":ROOT:", parent=":ROOT:")
+        self.root = SimpleSpchtNode(":ROOT:", parent=":ROOT:", source="", field="")
         self.cwd = spcht_base_path
         self._references = {}
         if unique_names is None:
@@ -538,6 +538,9 @@ class SpchtBuilder:
         if purity:
             pure_dict.pop('parent', None)
             pure_dict.pop('predicate_inheritance', None)
+            for high_key, default_val in {'predicate': '', 'source': 'dict', 'field': '', 'required': 'optional'}.items():
+                if high_key not in pure_dict:
+                    pure_dict[high_key] = default_val
         else:
             pure_dict['parent'] = self[name].parent
         return pure_dict
@@ -632,7 +635,20 @@ class SpchtBuilder:
         self._enrichPredicates()
         return True
 
-    def _recursiveSpchtImport(self, spcht_nodes: list, base_path, parent=":MAIN:") -> dict:
+    def _recursiveSpchtImport(self, spcht_nodes: list, base_path: str, parent=":MAIN:") -> dict:
+        """
+        Imports a dictionary object as a spcht structure, for a moment this will create an partially
+        defined spcht with loose nodes which has to be repaired / mended with "mendFamily"
+
+        This will add almost empty nodes to the self structure so that name-duplicate checking can succeed,
+        but the procedure is meant to overwrite everything afterwards
+
+        :param list spcht_nodes: list of dictionary nodes
+        :param str base_path: file base for references
+        :param str parent: name of parent
+        :return: SpchtBuilder Repository
+        :rtype: dict
+        """
         temp_spcht = {}
         for node in spcht_nodes:
             if 'name' not in node:
@@ -641,9 +657,9 @@ class SpchtBuilder:
                 name = self._names.giveName()
             else:
                 name = node['name']
-            name = self.createNewName(name, "number", alt_repository=temp_spcht)
-            node['name'] = name
+            name = self.createNewName(name, "number")
             new_node = SimpleSpchtNode(name, parent=parent)
+            self._repository[name] = new_node
             for key in SpchtConstants.BUILDER_KEYS.keys():
                 if key in node and key != "name":
                     if key in SpchtConstants.BUILDER_LIST_REFERENCE:  # sub_nodes & sub_data
@@ -653,9 +669,13 @@ class SpchtBuilder:
                         temp_spcht.update(self._recursiveSpchtImport(node[key], base_path, parent=new_group))
                     elif key in SpchtConstants.BUILDER_SINGLE_REFERENCE:  # fallback
                         list_of_one = self._recursiveSpchtImport([node[key]], base_path, parent=name)
-                        for each in list_of_one:
-                            new_node[key] = each
-                            break
+                        # ? lemme explained this abomination that follows, as of Python 3.7 dictionaries are ordered
+                        # ? when having nested fallbacks you get something similar to an avalanche when walking back
+                        # ? from the recursion, as the element that got the previous fallback as child is always the
+                        # ? last to be added its also the last in the dictionary, its not super trivial to call the
+                        # ? last element of a dictionary but this seems to be the easiests way, it should never be
+                        # ? long, therefore i did not even check how the performance is
+                        new_node[key] = list_of_one[list(list_of_one.keys())[-1]]['name']
                         temp_spcht.update(list_of_one)
                     else:
                         new_node[key] = node[key]
@@ -678,7 +698,7 @@ class SpchtBuilder:
                 if re.search(r"^(comment)\w*$", key):
                     comments += node[key] + "\n"
             if comments.strip() != "":
-                new_node['comment'] = comments[:-1]
+                new_node['comment'] = comments[:-1]  # overwrites the temporary added with the enriched one
             temp_spcht[name] = new_node
         return temp_spcht
 
@@ -914,26 +934,26 @@ class SpchtBuilder:
         if name in RESERVED_NAMES:  # using a reserved name gets you a new one right from the repository
             name = self._names.giveName()
             return self.createNewName(name, mode, alt_repository)
-        all_clear = True  # i fear this is the easiest way, but i am not happy with it
+        all_clear = False  # i fear this is the easiest way, but i am not happy with it
         if alt_repository:
             for key in alt_repository:
                 if key == name:
-                    all_clear = False
                     break
                 if hasattr(alt_repository[key], "parent"):  # theoretically this has not to be a dict of SimpleSpchtNodes
                     if alt_repository[key].parent == name:
-                        all_clear = False
                         break
+            else:
+                all_clear = True  # when loops goes through without break
             if name not in alt_repository:
                 return name
         else:  # checks for direct names and duplicated parent names
             for key in self:
                 if key == name:
-                    all_clear = False
                     break
                 if self[key].parent == name:
-                    all_clear = False
                     break
+            else:
+                all_clear = True
         if all_clear:
             return name
         # ! in case a duplicate was found
