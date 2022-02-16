@@ -41,6 +41,7 @@ from PySide2 import QtCore, QtWidgets
 
 import Spcht.Gui.SpchtCheckerGui_i18n as SpchtCheckerGui_18n
 import Spcht.Utils.SpchtConstants as SpchtConstants
+from Spcht.Gui.SpchtBuilder import SimpleSpchtNode
 
 
 def resource_path(relative_path: str) -> str:
@@ -939,6 +940,71 @@ class SolrDialogue(QDialog):
                 parameters[widget] = elements[widget].text().strip()
         return parameters
 
+
+class RootNodeDialogue(QDialog):
+    def __init__(self, root_node: SimpleSpchtNode, childs=None, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle(i18n['root_dia_title'])
+        self.setMinimumWidth(400)
+        self.setMinimumHeight(600)
+        self.resize(800, 600)
+        QBtn = QDialogButtonBox.Save | QDialogButtonBox.Cancel
+
+        inputs = QFormLayout()
+        self.in_field = QLineEdit()
+        self.in_field.setText(root_node['name'])
+        self.in_source = QComboBox()
+        self.in_source.addItems(SpchtConstants.SOURCES)
+        self.in_fallback = QComboBox()
+        self.in_fallback.addItem("")
+        if childs:
+            self.in_fallback.addItems(childs)
+        else:
+            self.in_fallback.setDisabled(True)
+        self.in_prefix = QLineEdit()
+
+        # comboboxes
+        content = [
+            {
+                "widget": self.in_fallback,
+                "value": root_node.get("fallback", None)
+            },
+            {
+                "widget": self.in_source,
+                "value": root_node.get("source", "dict")
+            }
+        ]
+        self.in_fallback.setCurrentIndex(0)
+        for each in content:
+            idx = each['widget'].findText(each['value'], QtCore.Qt.MatchFixedString)
+            if idx > 0:
+                each['widget'].setCurrentIndex(idx)
+            else:
+                each['widget'].setCurrentIndex(0)
+        inputs.addRow(i18n['root_dia_field'], self.in_field)
+        inputs.addRow(i18n['root_dia_source'], self.in_source)
+        inputs.addRow(i18n['root_dia_fallback'], self.in_fallback)
+        inputs.addRow(i18n['root_dia_prefix'], self.in_prefix)
+
+        self.buttonBox = QDialogButtonBox(QBtn)
+
+        self.layout = QVBoxLayout()
+        self.layout.addLayout(inputs)
+        self.layout.addWidget(self.buttonBox)
+
+        self.setLayout(self.layout)
+        # events
+        self.buttonBox.accepted.connect(self.accept)
+        self.buttonBox.rejected.connect(self.reject)
+
+    def get_node_from_dialogue(self):
+        root = SimpleSpchtNode(":ROOT:", ":ROOT")
+        root['field'] = self.in_field.text()
+        root['source'] = self.in_source.currentText()
+        if self.in_fallback.isEnabled():
+            root['fallback'] = self.in_fallback.currentText()
+        root['prefix'] = self.in_field.text()
+        return root
 
 class JsonDialogue(QDialog):
     def __init__(self, data, parent=None):

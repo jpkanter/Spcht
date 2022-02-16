@@ -53,10 +53,6 @@ class TestSpchtBuilder(unittest.TestCase):
         blue.add(tin)
         blue.add(pewder)
         blue.add(zinc)
-        print("Mended:", blue.mendFamily())
-        import json
-        with open("blue.json", "w") as purple:
-            json.dump(blue.exportDict(), purple, indent=3)
         return blue
 
     def test_import(self):
@@ -91,11 +87,16 @@ class TestSpchtBuilder(unittest.TestCase):
 
     def test_clone(self):
         dummy = self._create_dummy()
-        print(dummy)
-        #new_name = dummy.clone("iron")
-        from pprint import pprint
-        pprint(dummy.node_hash("iron"))
-        pass
+        with self.subTest("Simple Node Clone"):
+            new_name = dummy.clone("tin")
+            one = dummy.compileNode("tin", purity=True, anon=True)
+            two = dummy.compileNode(new_name, purity=True, anon=True)
+            self.assertEqual(one, two)
+        with self.subTest("Nested Node Clone"):
+            new_name = dummy.clone("iron")
+            one = dummy.compileNode("iron", purity=True, anon=True)
+            two = dummy.compileNode(new_name, purity=True, anon=True)
+            self.assertEqual(one, two)
 
     def test_modify(self):
         pass
@@ -113,5 +114,10 @@ class TestSpchtBuilder(unittest.TestCase):
         pass
 
     def test_name_conflicts(self):
-        pass
+        dummy = self._create_dummy()
+        hilbert = SimpleSpchtNode("iron", ":MAIN:", field="book", predicate="wk:00", source="dict")
+        new_name = dummy.add(hilbert)
+        print(dummy.compileNode(new_name, False, True, True))
+        self.assertIsNotNone(new_name)
+        self.assertNotEqual("iron", new_name)
 

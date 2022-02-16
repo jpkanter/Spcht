@@ -512,7 +512,7 @@ class SpchtBuilder:
                     node_list.append(one_node)
         return node_list
 
-    def compileNode(self, name: str, always_inherit=False, purity=False):
+    def compileNode(self, name: str, always_inherit=False, purity=False, anon=False):
         name = str(name)
         if name not in self:
             return None
@@ -521,10 +521,10 @@ class SpchtBuilder:
             if key in SpchtConstants.BUILDER_LIST_REFERENCE:  # sub_nodes & sub_data
                 node_group = []
                 for child_node in self.getNodesByParent(item):
-                    node_group.append(self.compileNode(child_node['name'], always_inherit=always_inherit, purity=purity))
+                    node_group.append(self.compileNode(child_node['name'], always_inherit=always_inherit, purity=purity, anon=anon))
                 pure_dict[key] = node_group
             elif key in SpchtConstants.BUILDER_SINGLE_REFERENCE:
-                pure_dict[key] = self.compileNode(item, always_inherit=always_inherit, purity=purity)
+                pure_dict[key] = self.compileNode(item, always_inherit=always_inherit, purity=purity, anon=anon)
             elif key in SpchtConstants.BUILDER_NON_SPCHT:
                 continue
             else:
@@ -543,6 +543,8 @@ class SpchtBuilder:
                     pure_dict[high_key] = default_val
         else:
             pure_dict['parent'] = self[name].parent
+        if anon:  # removes individual properties of a node (for unit testing mostly)
+            pure_dict.pop('name', None)
         return pure_dict
 
     def inheritPredicate(self, sub_node_name: str):
@@ -961,7 +963,7 @@ class SpchtBuilder:
             found = re.search(r"[0-9]+$", name)
             if found:
                 pos0 = found.regs[0][0]
-                num = int(found.group(0))+1
+                num = str(int(found.group(0))+1)
                 name = name[:pos0] + num
             else:
                 name = f"{name}1"

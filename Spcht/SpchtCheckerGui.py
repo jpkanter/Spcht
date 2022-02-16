@@ -46,7 +46,8 @@ from Spcht.Gui.SpchtBuilder import SpchtBuilder, SimpleSpchtNode, RESERVED_NAMES
 from Spcht.Core.SpchtCore import Spcht
 
 import Spcht.Core.SpchtUtility as SpchtUtility
-from Spcht.Gui.SpchtCheckerGui_interface import SpchtMainWindow, ListDialogue, JsonDialogue, SelectionDialogue, QLogHandler, SolrDialogue, resource_path, i18n, __appauthor__, __appname__
+from Spcht.Gui.SpchtCheckerGui_interface import SpchtMainWindow, ListDialogue, JsonDialogue, SelectionDialogue, \
+    QLogHandler, SolrDialogue, RootNodeDialogue, resource_path, i18n, __appauthor__, __appname__
 
 __SOLR_MAX_START__ = 25000
 __SOLR_MAX_ROWS__ = 500
@@ -343,6 +344,7 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         self.explorer_node_export_btn.clicked.connect(self.actExportSpchtNode)
         self.explorer_node_save_btn.clicked.connect(self.actSaveSpchtBuilder)
         self.explorer_node_treeview.doubleClicked.connect(self.mthDisplayNodeDetails)
+        self.explorer_node_edit_root_btn.clicked.connect(self.actEditRootNode)
 
         self.explorer_center_search_button.clicked.connect(lambda: self.actFindDataCache(self.explorer_linetext_search.text()))
         self.explorer_linetext_search.returnPressed.connect(lambda: self.actFindDataCache(self.explorer_linetext_search.text()))
@@ -1602,6 +1604,14 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
             dlg.setStandardButtons(QMessageBox.Ok)
             dlg.exec_()
             return False
+
+    def actEditRootNode(self):
+        if not self.spcht_builder:
+            return
+
+        dlg = RootNodeDialogue(self.spcht_builder.root, self.spcht_builder.getChildlessParents())
+        if dlg.exec_():
+            self.console.insertPlainText(dlg.get_node_from_dialogue())
 
     def orphanNode(self):
         """
