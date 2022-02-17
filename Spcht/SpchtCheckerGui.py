@@ -1611,7 +1611,9 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
 
         dlg = RootNodeDialogue(self.spcht_builder.root, self.spcht_builder.getChildlessParents())
         if dlg.exec_():
-            self.console.insertPlainText(dlg.get_node_from_dialogue())
+            new_root = dlg.get_node_from_dialogue()
+            self.console.insertPlainText(repr(new_root))
+            self.spcht_builder.root = new_root
 
     def orphanNode(self):
         """

@@ -466,6 +466,8 @@ class SpchtBuilder:
         root_node = {"id_source": self.root['source'],
                      "id_field": self.root['field'],
                      "nodes": self.compileSpcht(purity=True)}
+        if 'append' in self.root and self.root['append'].strio() != "":
+            root_node['id_subject_prefix'] = self.root['append']
         if 'fallback' in self.root:
             fallback = self.compileNodeByParent(":ROOT:", purity=True)
             root_node.update({'id_fallback': fallback[0]})

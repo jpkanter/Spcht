@@ -945,14 +945,14 @@ class RootNodeDialogue(QDialog):
     def __init__(self, root_node: SimpleSpchtNode, childs=None, parent=None):
         super().__init__(parent)
         self.setWindowTitle(i18n['root_dia_title'])
-        self.setMinimumWidth(400)
-        self.setMinimumHeight(600)
-        self.resize(800, 600)
+        self.setMinimumWidth(300)
+        self.setMinimumHeight(200)
+        self.resize(300, 200)
         QBtn = QDialogButtonBox.Save | QDialogButtonBox.Cancel
 
         inputs = QFormLayout()
         self.in_field = QLineEdit()
-        self.in_field.setText(root_node['name'])
+        self.in_field.setText(root_node['field'])
         self.in_source = QComboBox()
         self.in_source.addItems(SpchtConstants.SOURCES)
         self.in_fallback = QComboBox()
@@ -961,9 +961,11 @@ class RootNodeDialogue(QDialog):
             self.in_fallback.addItems(childs)
         else:
             self.in_fallback.setDisabled(True)
-        self.in_prefix = QLineEdit()
+        self.in_prefix = QLineEdit("")
+        if 'append' in root_node and root_node['append'].strip != "":
+            self.in_prefix.setText(root_node['append'])
 
-        # comboboxes
+        # comboboxes  - a simple procedure to save less lines than i use for the definition
         content = [
             {
                 "widget": self.in_fallback,
@@ -1001,10 +1003,12 @@ class RootNodeDialogue(QDialog):
         root = SimpleSpchtNode(":ROOT:", ":ROOT")
         root['field'] = self.in_field.text()
         root['source'] = self.in_source.currentText()
-        if self.in_fallback.isEnabled():
+        if self.in_fallback.isEnabled() and self.in_fallback.currentText() != "":
             root['fallback'] = self.in_fallback.currentText()
-        root['prefix'] = self.in_field.text()
+        if self.in_prefix.text().strip() != "":
+            root['append'] = self.in_prefix.text()
         return root
+
 
 class JsonDialogue(QDialog):
     def __init__(self, data, parent=None):
