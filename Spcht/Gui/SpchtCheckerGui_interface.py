@@ -962,8 +962,8 @@ class RootNodeDialogue(QDialog):
         else:
             self.in_fallback.setDisabled(True)
         self.in_prefix = QLineEdit("")
-        if 'append' in root_node and root_node['append'].strip != "":
-            self.in_prefix.setText(root_node['append'])
+        if 'prepend' in root_node and root_node['prepend'].strip != "":
+            self.in_prefix.setText(root_node['prepend'])
 
         # comboboxes  - a simple procedure to save less lines than i use for the definition
         content = [
@@ -1000,13 +1000,17 @@ class RootNodeDialogue(QDialog):
         self.buttonBox.rejected.connect(self.reject)
 
     def get_node_from_dialogue(self):
-        root = SimpleSpchtNode(":ROOT:", ":ROOT")
+        root = SimpleSpchtNode(":ROOT:", ":ROOT:")
         root['field'] = self.in_field.text()
         root['source'] = self.in_source.currentText()
-        if self.in_fallback.isEnabled() and self.in_fallback.currentText() != "":
-            root['fallback'] = self.in_fallback.currentText()
+        if self.in_fallback.isEnabled():
+            if self.in_fallback.currentText() != "":
+                root['fallback'] = self.in_fallback.currentText()
+            else:
+                root.pop('fallback', "")
         if self.in_prefix.text().strip() != "":
-            root['append'] = self.in_prefix.text()
+            root['prepend'] = self.in_prefix.text()
+        print(repr(root))
         return root
 
 
@@ -1179,6 +1183,10 @@ class Formatter(logging.Formatter):
 def tryForFont(size: int):
     """
     tries to load one of the specified fonts in the set size
+
+    the fonts hardcoded here are the creators preference, if you ever see this and do not know them, take a look
+    you might like them
+
     :param size: point size of the font in px
     :type size: int
     :return: hopefully one of the QFonts, else a fixed font one

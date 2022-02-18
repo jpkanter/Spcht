@@ -53,7 +53,7 @@ __SOLR_MAX_START__ = 25000
 __SOLR_MAX_ROWS__ = 500
 __SOLR_DEFAULT_QUERY__ = "*.*"
 
-__TITLE_VERSION__ = "131221.21:21"
+__TITLE_VERSION__ = "180222.14:19"
 
 
 logging.basicConfig(level=logging.DEBUG)
@@ -215,7 +215,7 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
     def __init__(self, parent=None):
         super().__init__(parent)
         # * condensly generates the names for SpchtView Headers
-        self.node_headers = [{'key': x, 'header': i18n[f'col_{x}']} for x in SpchtBuilder.displaySpchtHeaders()]
+        self.node_headers = [{'key': x, 'header': i18n[f'col_{x}']} for x in SpchtBuilder.default_curated_keys]
         self.spcht_builder = None   # the builder upon all SpchtBuilder activity is based on
         self.active_spcht_node = None  # the current, in the node view openend SpchtNode
         self.active_data_tables = {}  # additional data that cannot be easily displayed in the view
@@ -1428,7 +1428,7 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
                 path_To_File += "spchtbuilder.json"
             else:
                 if parts[-1] != "json" or parts[-2] != "spchtbuilder":
-                    path_To_File += "spchtbuilder.json"
+                    path_To_File += ".spchtbuilder.json"
             try:
                 with codecs.open(path_To_File, "w", encoding='utf-8') as save_game:
                     json.dump(self.spcht_builder.exportDict(), save_game, indent=3, ensure_ascii=False)
@@ -1514,6 +1514,14 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         self.META_changed = True
 
     def actDuplicateSpchtNode(self):
+        """
+        Duplicating a node is different from copying one in the sense that only this node but not children gets copied
+        means, the node looses all fallbacks, subnodes or subdata it might possess while cloning is a generational
+        affair. I have actually no clue for what this is good
+
+        :return:
+        :rtype:
+        """
         indizes = self.explorer_node_treeview.selectedIndexes()
         if not indizes:
             return
@@ -1527,6 +1535,12 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
                 return
 
         new_node = copy.deepcopy(self.spcht_builder[nodeName])
+        # ? remove all children - the younglings
+        references = copy.copy(SpchtConstants.BUILDER_LIST_REFERENCE)
+        references.extend(copy.copy(SpchtConstants.BUILDER_SINGLE_REFERENCE))
+        for key in references:
+            if key in new_node:
+                new_node.pop(key)
         new_node['name'] = f"Copy {nodeName}"
         new_name = self.spcht_builder.add(new_node)
         self.mthFillNodeView(self.spcht_builder.displaySpcht())
@@ -1609,11 +1623,25 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         if not self.spcht_builder:
             return
 
-        dlg = RootNodeDialogue(self.spcht_builder.root, self.spcht_builder.getChildlessParents())
+        if self.META_changed:
+            if not self.utlChangedPrompt(i18n['dialogue_changed_upon_switch']):
+                return
+        possible_fallback = self.spcht_builder.getNodeNamesByParent(":MAIN:")
+        if 'fallback' in self.spcht_builder.root:
+            possible_fallback.append(self.spcht_builder.root['fallback'])
+        dlg = RootNodeDialogue(self.spcht_builder.root, possible_fallback)
         if dlg.exec_():
             new_root = dlg.get_node_from_dialogue()
-            self.console.insertPlainText(repr(new_root))
-            self.spcht_builder.root = new_root
+            self.spcht_builder.modifyRoot(new_root)
+
+            # reset everything
+            self.mthFillNodeView(self.spcht_builder.displaySpcht())
+            self.explorer_toolbox.setCurrentIndex(1)
+            self.mthLockTabview()
+            self.active_spcht_node = None
+            self.active_data_tables = {}
+            self.META_changed = False
+            self.META_unsaved = True
 
     def orphanNode(self):
         """
@@ -1622,6 +1650,7 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         if not self.active_spcht_node:
             return
         node_name = self.mthSaveBuilderNode()
+
         if node_name:
             self.spcht_builder.parkNode(node_name)  # yes, i extended SpchtBuilder for that
             self.mthFillNodeView(self.spcht_builder.displaySpcht())  # second time, a bit redundant

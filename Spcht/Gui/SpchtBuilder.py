@@ -75,13 +75,12 @@ class SimpleSpchtNode:
     def pop(self, key, default=None):
         """
         Simple forwarding of dictionaries .pop function
+
         :param str or int key: key of an dictionary
         :param any default: value that will be returned if nothing happened
         :return: the popped value
         :rtype: Any
         """
-        if key not in self.properties:
-            raise KeyError(key)
         return self.properties.pop(key, default)
 
     def items(self):
@@ -161,7 +160,16 @@ class SimpleSpchtNode:
 
 
 class SpchtBuilder:
+    """
+    A SpchtBuilder is another representation for a Spcht File, instead of having the json like structure that is
+    traverses by the SpchtCore Logic this is a flat structure that references each other with nodes, similar to a
+    relational database. Its procedures should handle renaming, modifying and deleting of nodes that are represented
+    as SimpleSpchtNode. Furthermore it should preserve the structure and counteract accidently corruption of the
+    inheritance system. The base bath is needed to use references inside the structure
+    """
 
+    default_curated_keys = ["name", "source", "field", "type", "mandatory", "sub_nodes", "sub_data", "predicate",
+                            "fallback", "comment"]  # curated few of keys for 'DisplaySpcht'
     def __init__(self, import_dict=None, unique_names=None, spcht_base_path=None):
         self._repository = {}
         self.root = SimpleSpchtNode(":ROOT:", parent=":ROOT:", source="", field="")
@@ -174,6 +182,7 @@ class SpchtBuilder:
         if import_dict:
             self._importSpcht(import_dict, spcht_base_path)
         # self._names = UniqueNameGenerator(["Kaladin", "Yasnah", "Shallan", "Adolin", "Dalinar", "Roshone", "Teft", "Skar", "Rock", "Sylphrena", "Pattern", "Vasher", "Zahel", "Azure", "Vivianna", "Siri", "Susebron", "Kelsier", "Marsh", "Sazed", "Harmony", "Odium", "Rayse", "Tanavast"])
+        self.curated_keys = SpchtBuilder.default_curated_keys
 
     @property
     def repository(self):
@@ -233,12 +242,28 @@ class SpchtBuilder:
             return default
 
     def values(self):
+        """
+        Mirror of dict.values
+
+        :return: list of SimpleSpchtNodes
+        :rtype: list of SimpleSpchtNode
+        """
         return self._repository.values()
 
-    def items(self):
+    def items(self) -> list:
+        """
+        Mirror of dict.items()
+        :return: list of key, value pairs of repository
+        :rtype: list of tuple
+        """
         return self._repository.items()
 
-    def keys(self):
+    def keys(self) -> list:
+        """
+        Mirror of dict.keys
+        :return: list of repository keys
+        :rtype: list
+        """
         return self._repository.keys()
 
     def add(self, input_node: SimpleSpchtNode):
@@ -291,6 +316,7 @@ class SpchtBuilder:
         Clones a given node in the SpchtBuilder, if there are any children or even sub-data/sub-nodes those will be
         copied aswell and linked relativly to this node. If this node is fallback of something :UNUSED: will be the new
         parent, otherwise
+
         :param str node_name: Name of a node inside the SpchtBuilder
         :param str parent_overwrite:  This can be used recursivly, if parent overwrite is active, parent wont be replaced
         :return: the name of the new node
@@ -323,6 +349,7 @@ class SpchtBuilder:
         """
         Modifies a node in the repository with a new Node. The actual new name if changed might be different from
         what was given due the uniqueness rule
+
         :param str OriginalName: name of the node that is about to be changed
         :param SimpleSpchtNode UniqueSpchtNode: a complete node
         :return: The Name of the new node
@@ -339,6 +366,7 @@ class SpchtBuilder:
 
         # ! you can actually set a node to be its own parent, it wont be exported that ways as no recursion will find it
         # ! if you manually set a node a parent that already has a fallback that relationship will be usurped
+        # ! in spite of everything else, this only works as long as there is a single single-relationship
         old_fallback = self[OriginalName].get('fallback', None)
         new_fallback = UniqueSpchtNode.get('fallback', None)
         if old_fallback or new_fallback:
@@ -346,9 +374,13 @@ class SpchtBuilder:
                 self[old_fallback].parent = ":UNUSED:"
             if new_fallback in self:
                 self[new_fallback].parent = UniqueSpchtNode['name']
-                for name, node in self.items():
-                    if 'fallback' in node and node['fallback'] == new_fallback:
-                        node.pop('fallback', "")  # in case old == new this is of no consequence and gets overwritten in the end
+                if self[new_fallback].parent == ":ROOT:":
+                    self.root.pop("fallback", "")
+                else:
+                    for name, node in self.items():
+                        if 'fallback' in node and node['fallback'] == new_fallback:
+                            node.pop('fallback', "")
+                            break  # in case old == new this is of no consequence and gets overwritten in the end
         # * consistency check - i had a random bug that my interface set the parent to nothing / :MAIN: and i got aware
         # * the fallbacking node does not know about this, therefore we have to account for that
         if (self[OriginalName].parent != UniqueSpchtNode.parent and            # ? so this is over specific, actually it
@@ -356,6 +388,7 @@ class SpchtBuilder:
                 'fallback' in self[self[OriginalName].parent] and              # ? parent is in self for fallback
                 self[self[OriginalName].parent]['fallback'] == OriginalName):  # bracket style ifs in python are quite rare..seems weird, would work without
             self[self[OriginalName].parent].pop('fallback', None)
+            # ? i sense some kind of bug with :ROOT: here if anyone is foolish enough to test the bounds
 
         # * updating of references - quite similar to fallback but not based on name
         for prop in SpchtConstants.BUILDER_LIST_REFERENCE:
@@ -382,18 +415,75 @@ class SpchtBuilder:
                     self[UniqueSpchtNode['name']]['predicate'] = self[self[UniqueSpchtNode['name']].parent]['predicate']
         return UniqueSpchtNode['name']
 
+    def modifyRoot(self, root_node: SimpleSpchtNode):
+        """
+        Modifies the root node and changes everything around it accordingly
+
+        *The Root is seperated from the big respository of nodes but uses other nodes all the same, technically is every
+        fallback of a root node a normal node that can contain all the toys to make it mind wracking complex, i kept
+        the original root description as simple as possible as it has some strict rules, but technically could one set
+        the first root to something that would never work and then use the fullpower of fallback. Why is it that way
+        anway? Legacy, lack of motivation and time to change things up. Anyway, this method is needed to actually edit
+        the node so everything stays in order. I am sorry*
+        :param SimpleSpchtNode root_node: a node with parent :ROOT: and name :ROOT:
+        :type root_node:
+        :return: True if it worked
+        :rtype: bool
+        """
+        if root_node['name'] != ":ROOT:" or root_node.parent != ":ROOT:":
+            return False
+        if 'field' not in root_node or 'source' not in root_node:
+            return False
+        root_keys = list(root_node.keys())
+        for key in root_keys:
+            if key not in ["source", "field", "fallback", "prepend"]:  # it got no predicate
+                root_node.pop(key, "")
+        old_fallback = self.root.get('fallback', None)
+        new_fallback = root_node.get('fallback', None)
+        if old_fallback or new_fallback:
+            if old_fallback in self and old_fallback != new_fallback:
+                self[old_fallback].parent = ":UNUSED:"
+            if old_fallback and not new_fallback:
+                self[old_fallback].parent = ":UNUSED:"
+            if new_fallback in self:
+                self[new_fallback].parent = ":ROOT:"
+                for name, node in self.items():
+                    if 'fallback' in node and node['fallback'] == new_fallback:
+                        self[name].pop('fallback', "")
+        self.root = root_node
+        return True
+
     def getNodesByParent(self, parent):
         """
+        Returns all nodes that share the same parent
 
-        :param parent:
-        :type parent:
-        :return: a copy of the SimpleSpchtNode Object with the designated partent if its exist
+        *sub_data and sub_node use 'imaginary' parents to work in the context of the SpchtBuilder as the compiled
+        Spcht uses List objects here, in Builder everything needs an unique name and that is where those nodes flock
+        under. Imagine it as a kind of blank node in RDF because that is what it is..more or less. As i write this
+        there is only fallback for the single type of relationships, if there is every another one this would also
+        work for real nodes, but as of now it will just achieve the exact same as asking for the fallback of something*
+
+        :param str parent: name of the parent
+        :return: a copy of the SimpleSpchtNode Object with the designated parent if its exist
         :rtype: SimpleSpchtNode
         """
         children = []
         for node in self.values():
             if node.parent == parent:
                 children.append(copy.copy(node))
+        return children
+
+    def getNodeNamesByParent(self, parent) -> list:
+        """
+
+        :param str parent: name of the parent
+        :return: a list of all names of the given parent
+        :rtype: list of str
+        """
+        children = []
+        for name, node in self.items():
+            if node.parent == parent:
+                children.append(name)
         return children
 
     def exportDict(self):
@@ -416,6 +506,7 @@ class SpchtBuilder:
         with a readily "compiled" Spcht file that can be just executed by Spcht, the Builder can, in theory be im &
         exported back and forth to SpchtBuilder and normal Spcht but this format preserves some settings that the other
         does not. In Theory this should make no difference, and yet the option exists.
+
         :param dict spchtbuilder_point_json: the entire raw content of a SpchtBuilder file after interpret by json
         :return: True if everything went okay, False if something failed
         :rtype: bool
@@ -462,18 +553,40 @@ class SpchtBuilder:
         return True
 
     def createSpcht(self):
+        """
+        Takes the 'self' and creates a Spcht-Dictionary that can be saved as .spcht.json without any further doings.
+
+        *This is basically the export to file option, in the background it does some things with the predicate
+        inheritance that are not all that simple and are needed to smooth the edges between edidable structure and
+        processesable.*
+
+        :return: returns a fully qualified Spcht-Structure
+        :rtype:  dict
+        """
         # exports an actual Spcht dictionary
         root_node = {"id_source": self.root['source'],
                      "id_field": self.root['field'],
                      "nodes": self.compileSpcht(purity=True)}
-        if 'append' in self.root and self.root['append'].strio() != "":
-            root_node['id_subject_prefix'] = self.root['append']
+        if 'prepend' in self.root and self.root['prepend'].strio() != "":
+            root_node['id_subject_prefix'] = self.root['prepend']
         if 'fallback' in self.root:
             fallback = self.compileNodeByParent(":ROOT:", purity=True)
             root_node.update({'id_fallback': fallback[0]})
         return root_node
 
     def compileSpcht(self, purity=False):
+        """
+        Complies the "nodes" part of a spcht document
+
+        *A Spcht is, if seen as Python Developer, a dictionary with a few keys, there are hardcoded settings for the
+        id of the Subject and then there is the 'nodes' part, a list of dictionaries that make up the actual processing
+        This folds all the relationship together so that a a proper spcht-node list is the result. Behind the scenes
+        it just compiles nodes by parent where the parent is :MAIN:, the imaginary top-level node*
+
+        :param bool purity: if True it will remove all remnants of SpchtBuilder settings, as needed for Spcht.json export
+        :return: a list of dictionaries
+        :rtype: list of dict
+        """
         # exports a compiled Spcht dictionary with all references solved
         # this still misses the root node
         return self.compileNodeByParent(":MAIN:", purity=purity)
@@ -484,13 +597,13 @@ class SpchtBuilder:
 
         * conservative (default) - will discard all nodes that do not possess the minimum Spcht requirements
         * reckless - will add any node, regardless if the resulting spcht might not be useable
+
         :param str parent:
-        :type parent:
         :param str mode: either 'conservative' or 'reckless' for node adding behaviour
         :param always_inherit: if True this will ignore faulty inheritance settings
         :param bool purity: for export only, throws all non-format keys away
         :return: a list of nodes
-        :rtype: list
+        :rtype: list of dict
         """
         parent = str(parent)
         node_list = []
@@ -515,6 +628,24 @@ class SpchtBuilder:
         return node_list
 
     def compileNode(self, name: str, always_inherit=False, purity=False, anon=False):
+        """
+        collapses the relational structure of builder and creates the tree-like structure of spcht for a single-one
+        node.
+
+        *the biggest logical leap in this thing is the predicate_inheritance, a problem i have not thought off for a
+        long time, the gist is that when writing the spcht manually you would not be bothered writing a predicate for
+        each fallback as logic demands that it is always the same...but, there might be good reasons why you would
+        want a different one even if i cannot phantom why, so i wanted to keep the possibility open. One could see it as
+        an failsafe in case you are doing stuff that could be solved differently. Anyhow, for now this should work
+        rather nicely but in hindsight i regret having gone this complicated way*
+
+        :param str name: name of the node that is to be compiled
+        :param bool always_inherit: if True it will ignore individual settings
+        :param bool purity: if True it will remove all non-Spcht keys
+        :param bool anon: if True all names will be removed (used to compare)
+        :return: a dictionary that represents a single node..with children
+        :rtype: dict
+        """
         name = str(name)
         if name not in self:
             return None
@@ -551,9 +682,11 @@ class SpchtBuilder:
 
     def inheritPredicate(self, sub_node_name: str):
         """
-        Fallbacks are not required to have the predicate redefined as those get inherited from the parent,
+        Manually inherits the predicate of a parent..if that node actually got a parent from which it can inherit
 
-        This will fail horribly when used on something that actually has no parent in its chain
+        *Fallbacks are not required to have the predicate redefined as those get inherited from the parent.
+        This will fail horribly when used on something that actually has no parent in its chain*
+
         :param sub_node_name: unique name of that sub_node
         :type sub_node_name: str
         :return: a predicate
@@ -574,11 +707,18 @@ class SpchtBuilder:
             return ""
 
     def displaySpcht(self):
-        # gives a reprensentation for SpchtCheckerGui
-        curated_keys = ["name", "source", "field", "type", "mandatory", "sub_nodes", "sub_data", "predicate", "fallback", "comment"]
+        """
+        Displays certain fields of the SpchtBuilder as a grid style data
+
+        *this has almost no business beeing part of SpchtBuilder, its used for the GUI application and by no means part
+        of the logic, and yet, here it is*
+
+        :return:
+        :rtype:
+        """
         grouped_dict = defaultdict(list)
         for node, each in self.items():
-            curated_data = {key: each.get(key, "") for key in curated_keys}
+            curated_data = {key: each.get(key, "") for key in self.curated_keys}
             # tech usage:
             techs = []
             for tech in SpchtConstants.BUILDER_SPCHT_TECH:
@@ -588,21 +728,21 @@ class SpchtBuilder:
             grouped_dict[each.parent].append(curated_data)
         return grouped_dict
 
-    @staticmethod
-    def displaySpchtHeaders() -> list:
+    def displaySpchtHeaders(self) -> list:
         """
         Just echos the possible header names from above so SpchtBuilder can serve as a "source of truth"
+
         :return: a list of strings
         :rtype: list
         """
-        return ["name", "source", "field", "type", "mandatory", "sub_nodes", "sub_data", "predicate", "fallback", "tech", "comment"]
+        return self.curated_keys
 
     def _importSpcht(self, spcht: dict, base_path=None):
         """
         This imports an actual Spcht file, not a SpchtBuilder but a ready and interpreteable Spcht file that can be
         used to process data. For this to work some additional data has to be created on the fly.
 
-        There are historical reasons that a Spcht file works differently than a builder. While processing the original
+        *There are historical reasons that a Spcht file works differently than a builder. While processing the original
         Spcht logic just crawls down the Spcht structure and uses data as it comes. For this a nested tree structure
         is of advantage. For editing purpose a nested structure is less than practical. SpchtBuilder is therefore
         inherently flat so it can be displayed in an GUI program without going in depths. For this to work the properties
@@ -610,7 +750,8 @@ class SpchtBuilder:
         Spcht itself names are an optional parameter, created as afterthough to get some order going, for SpchtBuilder
         names are paramount and are the link between nodes. As Spcht was originally designed to be written by hand one
         cannot assume every single file contains names, the import process creates new names as it sees fit and also
-        puts the referenced data in the files.
+        puts the referenced data in the files.*
+
         :param dict spcht: a read file, interpreted by json.decode
         :param str or None base_path: defines the working directory of the Spcht, needed for references
         :raises SpchtErrors.ParsingError: in cases of reading error
@@ -625,6 +766,8 @@ class SpchtBuilder:
         # ! import :ROOT:
         self.root['field'] = spcht['id_field']
         self.root['source'] = spcht['id_source']
+        if 'id_subject_prefix' in spcht:
+            self.root['prepend'] = spcht['id_subject_prefix']
         # this special case of root fallbacks makes for a good headache
         if 'id_fallback' in spcht:
             root_fallbacks = self._recursiveSpchtImport([spcht['id_fallback']], base_path, parent=":ROOT:")
@@ -644,8 +787,8 @@ class SpchtBuilder:
         Imports a dictionary object as a spcht structure, for a moment this will create an partially
         defined spcht with loose nodes which has to be repaired / mended with "mendFamily"
 
-        This will add almost empty nodes to the self structure so that name-duplicate checking can succeed,
-        but the procedure is meant to overwrite everything afterwards
+        *This will add almost empty nodes to the self structure so that name-duplicate checking can succeed,
+        but the procedure is meant to overwrite everything afterwards*
 
         :param list spcht_nodes: list of dictionary nodes
         :param str base_path: file base for references
@@ -707,7 +850,8 @@ class SpchtBuilder:
         return temp_spcht
 
     def compileNodeReference(self, node):
-        """Uses the solved referenced inside the spcht builder to resolve the relative file paths provided by the
+        """
+        Uses the solved referenced inside the spcht builder to resolve the relative file paths provided by the
         given node. This works with arbitary nodes and is not limited to the Nodes inside the builder
         """
         node2 = copy.deepcopy(node)
@@ -760,17 +904,32 @@ class SpchtBuilder:
         return True
 
     def getSolidParents(self):
+        """
+        Returns all possible Parents that are actually a node
+
+        *solid as in not-ephremeal as the parents of sub-node and sub-data are*
+
+        :return:
+        :rtype:
+        """
         return [key for key in self]  # is this not the same as self.keys()?
 
     def getChildlessParents(self):
         """
         Finds all parent objects that are actual nodes and do not already possess a fallback
+
         :return: list of all nodes without fallback
         :rtype: list
         """
         return [x for x in self if 'fallback' not in self[x]]
 
     def getSubnodeParents(self):
+        """
+        Get all parents that used for sub_node
+
+        :return: a list of the parent names
+        :rtype: list of str
+        """
         names = []
         for node in self.values():
             if 'sub_nodes' in node.properties:
@@ -778,6 +937,12 @@ class SpchtBuilder:
         return names
 
     def getSubdataParents(self):
+        """
+        Get all parents that used for sub_data
+
+        :return: a list of the parent names
+        :rtype: list of str
+        """
         names = []
         for node in self.values():
             if 'sub_data' in node.properties:
@@ -785,6 +950,12 @@ class SpchtBuilder:
         return names
 
     def getAllSubParents(self):
+        """
+        Get all parents that used for sub_node, sub_node and possible future list-reference nodes
+
+        :return: a list of the parent names
+        :rtype: list of str
+        """
         names = set()
         for node in self.values():
             for key in SpchtConstants.BUILDER_LIST_REFERENCE:
@@ -793,6 +964,12 @@ class SpchtBuilder:
         return list(names)
 
     def getAllParents(self):
+        """
+        Gets all names of all nodes plus the name of the ephremeal 'list-reference' parents
+
+        :return: a list of the parent names
+        :rtype: list of str
+        """
         names = []
         for key, node in self.items():
             if 'sub_data' in node.properties:
