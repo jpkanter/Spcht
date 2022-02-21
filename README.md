@@ -4,50 +4,52 @@ This project started out under a vastly different name. In its first life it was
 
 ![Simple diagram explaining the workflow](./README/simplediagram1.png)
 
-The project had already processed data from various sources in a search index, in this case an Apache Solr. On of the export formats of Solr is JSON,  which includes header informations and an object describing various attributes of media. This data should be transferred in a [triplestore](https://en.wikipedia.org/wiki/Triplestore), originally [OpenLink Virtuoso](https://virtuoso.openlinksw.com/) stored as RDF triples. For those triples another step has to be taken: each data-pair needs to be matched into the right kind of object. The first instance of this work was hard coded and found the mapping directly in the code. To preserve the ability to change things at a later point of time a new format was developed: the **spcht descriptor format** (*sdf*).
+There had been already processed data from various sources in a search index, in this case an Apache Solr. On of the export formats of Solr is JSON,  which includes header information and an object describing various attributes of media. This data should be transferred in a [triplestore](https://en.wikipedia.org/wiki/Triplestore), originally [OpenLink Virtuoso](https://virtuoso.openlinksw.com/) stored as RDF triples. For those triples another step has to be taken: each data-pair needs to be matched into the right kind of object. The first instance of this work was hard coded and found the mapping directly in the code. To preserve the ability to change things at a later point of time a new format was developed: the **spcht descriptor format** (*sdf*).
 
-While other frameworks like [MetaFacture](https://github.com/metafacture) exists, these proved to be unwieldy. The format of the *sdf* is written in JSON and structured more simply. It cannot provide the same feature richness MetaFacture offers but runs easier. There is also a [GUI Tool](https://github.com/jpkanter/spcht_checker_gui) to provide guidance for the format itself.
+While other frameworks like [MetaFacture](https://github.com/metafacture) exists, these proved to be unwieldy. The format of the *spcht.json* is written in JSON and structured more simply. It cannot provide the same feature richness MetaFacture offers but runs easier. There is also a GUI tool based on QT5 inside the package to provide guidance for the format itself.
 
 ## Content
 
-The codebase is strictly divided in the actual framework for spcht and an implementation for this specific project.
+This work is setup as a python package and can be installed after checkout of the git repository via `pip install .`
 
-## main.py
+There are four modules and three executable scripts:
 
-This is an actual implementation of the so called *SpchtProcessing*. It's a command line tool which specific description and can be accessed by calling `main.py --help`
+| Module     | Description                                                  |
+| ---------- | ------------------------------------------------------------ |
+| Core       | containts the 'spcht' logic , the 'work order' functionality and other integral parts of the spcht logic |
+| foliotools | holds the functionality needed to interface with the FOLIO Okapi for data retrieval |
+| Gui        | Part of the graphical Interface, folder also has some assets linked to the guy and the 'SpchtBuilder' module, a different way to express spcht.json structures in a more editable way |
+| Utils      | Constant Values of Spcht and a set of smaller procedures and helper functions to smooth various processes |
 
-## SpchtDiscriptorFormat.py
+| Script                 | Purpose                                                      |
+| ---------------------- | ------------------------------------------------------------ |
+| `main.py`              | cli application, utilised work order and config files to do the main purpose of Spcht: processing data from a source to RDF data according to a scheme |
+| `SpcherCheckerGui.py`  | entry point for the graphical user interface, combines functionality to create an entire spcht.json from scratch and the ability to check if a specific file is correct, also allows to demo processing |
+| `folio2triplestore.py` | simple cli application for the single purpose of retrieving opening hour data of a certain structure from FOLIO to put in in a triplestore |
 
-Contains the class for *SpchtProcessing* and all class-specific functions - an in-depth  [tutorial](./README/SpchtDescriptorDetails.md) is available. The exact format for the SpchtDescriptorFormat is defined in a [JsonSchema](./SpchtSchema.json).
+***Note**: use `pip install -e .`when wishing to edit in the current venv*
 
-### SpchtUtility.py
+There are also some other files present in the repository that are of note:
 
-A list of not class-specific and otherwise handy scripts around the *SpchtProcessing* complex.
+| File                               | Purpose                                                      |
+| ---------------------------------- | ------------------------------------------------------------ |
+| `Pyinstaller_Windows_OneFile.spec` | preformed file to create a single file executable via [Pyinstaller](https://pyinstaller.readthedocs.io/en/stable/usage.html) |
+| `examples/config.example.json`     | a sample config file for  the main cli application           |
+| `examples/default.spcht.json`      | a sample spcht.json file to showcase some of the functionalities |
+| `tests/thetestset.json`            | a small set lifted from the UBL solr, used as test data, shows data structure |
+| `tests/featuretest.spcht.json`     | another spcht.json file containing abstract use cases for all spcht functions |
+| `Spcht/SpchtSchema.json`           | a [json schema](https://json-schema.org/), describing the ins&outs of the spcht.json format |
+| `Spcht/Gui/GuiLanguages.json`      | contains i18n/language strings for the interface, the sub-module `SpchtCheckerGui_i18n` provides some bare bones functionality to convert the json to a csv and back to ease editing |
 
-### SpchtErrors.py
+Some in-depth explanations are available:
 
-A simple implementation of custom, Spcht-specific exception classes.
-
-## WorkOrder.py
-
-A set of functions around the "WorkOrder" procedures, a compartmentalized logic that allows for a continuation of any given processing, also implements data acquisition from Apache Solr and the insertion into a triplestore. In short, this does all the non-processing work.
-
-### local_tools.py
-
-Some auxiliary functions and procedures that "popped" into existence over the course of the project.
-
-## Requirements
-
-* `rdflib` >= 4.2.2
-* `requests` >= 2.23.0
-* `urrlib` >= 1.25.9
-* `jsonschma` >= 3.2.0
-* `pymarc` >= 4.0.0
-* `python-datautil` >= 2.8.1
+* [fine details of Spcht](./README/SpchtDescriptorDetails.md)
+* [Foliotools](./README/Foliotools.md)
+* [SpchtBuilder / fundaments of the GUI](./README/SpchtBuilder.md)
 
 ## Development Notes
 
-Apart from very German capitalization of random words I would also like to lose a word about the programs and plug-ins I used for this. While the master can work with everything I would not consider myself as such.
+Apart from very German capitalisation of random words I would also like to lose a word about the programs and plug-ins I used for this. While the master can work with everything I would not consider myself as such.
 
 I used [Intellij PyCharm](https://www.jetbrains.com/pycharm/)  with the following plug-ins:
 

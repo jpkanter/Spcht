@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# Copyright 2021 by Leipzig University Library, http://ub.uni-leipzig.de
+# Copyright 2022 by Leipzig University Library, http://ub.uni-leipzig.de
 #                   JP Kanter, <kanter@ub.uni-leipzig.de>
 #
-# This file is part of the Solr2Triplestore Tool.
+# This file is part of the Spcht.
 #
 # This program is free software: you can redistribute
 # it and/or modify it under the terms of the GNU General Public
@@ -17,7 +17,7 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with Solr2Triplestore Tool.  If not, see <http://www.gnu.org/licenses/>.
+# along with Spcht.  If not, see <http://www.gnu.org/licenses/>.
 #
 # @license GPL-3.0-only <https://www.gnu.org/licenses/gpl-3.0.en.html>
 import logging

@@ -1,6 +1,6 @@
  
 
-# Spcht
+# Foliotools - a spcht sub-module
 
 This is a slightly specialised tool that extracts data from the Folio library services platform, transforms them and inserts them into an arbitrary triplestore. It uses the already established Spcht-infrastructures and methods but is unfortunately a lot more geared to a single purpose and harder to adapt / modify.
 
