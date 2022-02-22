@@ -8,6 +8,16 @@ There had been already processed data from various sources in a search index, in
 
 While other frameworks like [MetaFacture](https://github.com/metafacture) exists, these proved to be unwieldy. The format of the *spcht.json* is written in JSON and structured more simply. It cannot provide the same feature richness MetaFacture offers but runs easier. There is also a GUI tool based on QT5 inside the package to provide guidance for the format itself.
 
+## Usage
+
+Install via `pip install .`
+
+Access inbuild scripts via:
+
+* `python3 -m Spcht.main` - main cli tool, see below for details
+* `python3 -m Spcht.SpchtCheckerGui` - GUI Tool
+* `python3 -m Spcht.folio2triplestore.py` - foliotools, will use config file from current working directory
+
 ## Content
 
 This work is setup as a python package and can be installed after checkout of the git repository via `pip install .`

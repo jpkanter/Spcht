@@ -106,7 +106,7 @@ def load_remote_content(url, params, response_type=0, mode="GET"):
         else:
             return resp.text
     except requests.exceptions.RequestException as e:
-        print("Request not successful,", e, file=sys.stderr)
+        logger.error(f"Request not successful: {e}")
 
 
 def block_sparkle_insert(graph, insert_list):
@@ -282,8 +282,10 @@ def delta_time_human(**kwargs):
             human_string += '%d %s' % (getattr(delta, attr), getattr(delta, attr) > 1 and attr or attr[:-1])
     return human_string
 
+
 def str2sha256(text: str):
     return hashlib.sha256(text.encode('utf-8')).hexdigest()
+
 
 def test_json(json_str: str) -> dict or bool:
     #  i am almost sure that there is already a build in function that does something very similar, embarrassing

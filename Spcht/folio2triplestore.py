@@ -30,6 +30,10 @@ import json
 from datetime import datetime, timedelta
 import traceback
 
+logging.basicConfig(filename="foliotools.log", format='[%(asctime)s] %(levelname)s:%(message)s', level=logging.INFO)
+#logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.INFO)
+logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
+
 # import internal modules
 from Spcht.Core import SpchtUtility
 from Spcht.Core import WorkOrder
@@ -39,11 +43,7 @@ from Spcht.Utils.local_tools import sizeof_fmt
 from Spcht.foliotools.foliotools import part1_folio_workings, grab, create_single_location, check_location_changes, \
     check_opening_changes, create_location_node, sparql_delete_node_plus1
 
-import Spcht.foliotools.folio2triplestore_config as secret
-
-logging.basicConfig(filename=secret.log_file, format='[%(asctime)s] %(levelname)s:%(message)s', level=logging.INFO)
-#logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.INFO)
-logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
+import foliotools.folio2triplestore_config as secret
 
 append = "?limit=1000"
 __version__ = 0.7
@@ -266,13 +266,14 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Folio2Triplestore Tool - Converts Folio Data into triples",
         usage="folio2triplestore.py [--info][--opening][--location][--crawl]",
-        epilog="All Settings are to be done in './foliotools/folio2triplestore_config.py'",
+        epilog="All Settings are to be done in 'foliotools.config.json' in the current working directory and are relative to that file",
         prefix_chars="-")
     parser.add_argument("-i", "--info", action="store_true", help="Shows info about the current file if it exists")
     parser.add_argument("-c", "--crawl", action="store_true", help="Crawls for new locations regardless of time since last crawl")
     parser.add_argument("-l", "--location", action="store_true", help="Checks all known location for updates, ignores cooldown")
     parser.add_argument("-o", "--opening", action="store_true", help="Checks all opening hours for changes, ignores cooldown")
     args = parser.parse_args()
+    print(f"Current Working directory: {os.getcwd()}")
 
     # This seems like the most inelegant way to trigger the processes by multiple, exclusive conditions
     do_crawl = False

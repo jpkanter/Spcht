@@ -117,6 +117,8 @@ def additional_remote_data(servicepoint_id: str) -> dict:
         except json.JSONDecodeError:
             logging.warning("Returned Json could not be handled, mostly because it wasnt json, aborting")
             return None
+    elif r.status_code == 401:
+        return False
     elif r.status_code == 404:
         logging.debug(f"No opening hours found for '{servicepoint_id}', none")
         return {}
@@ -147,6 +149,8 @@ def additional_remote_data(servicepoint_id: str) -> dict:
                 for hours in days['openingDay']['openingHour']:
                     hours['day'] = days['weekdays']['day']
             return step2_data
+        elif r.status_code == 401:
+            return False
         elif r.status_code == 404:
             logging.warning(f"No currently valid opening hour for {servicepoint_id} found, DESPITE it being there mere ms ago")
             return {}
@@ -214,6 +218,8 @@ def part1_folio_workings(endpoint, key="an endpoint", append=""):
                 logging.error(f"Connection could be establish")
             except json.JSONDecodeError as e:
                 logging.warning(f"JSON decode Error: {e}")
+        elif r.status_code == 401:
+            return False
         elif r.status_code == 404:
             return {}
         else:
