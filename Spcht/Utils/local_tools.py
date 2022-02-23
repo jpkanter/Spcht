@@ -307,11 +307,9 @@ def load_from_json(file_path):
             return json.load(file)
     except FileNotFoundError:
         logger.error(f"Couldnt open file '{file_path}' cause it couldnt be found")
-        print("File not found", file=sys.stderr)
         return None
     except ValueError as e:
         logger.error(f"Couldnt open supposed json file due an error while parsing: '{e}'")
-        print("JSON Parsing error", file=sys.stderr)
         return None
     except Exception as error:
         logger.error(f"A general exception occured while tyring to open the supposed json file '{file_path}' - {error.args}")

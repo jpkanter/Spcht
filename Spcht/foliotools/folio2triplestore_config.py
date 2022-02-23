@@ -26,6 +26,7 @@ import sys
 import os
 from pathlib import Path
 from Spcht.Utils.local_tools import load_from_json
+from Spcht.Core.SpchtErrors import OperationalError
 
 logger = logging.getLogger(__name__)
 
@@ -33,8 +34,8 @@ logger = logging.getLogger(__name__)
 
 conf_path = Path(os.getcwd())
 if (raw_config := load_from_json(conf_path / "foliotools.config.json")) is None:
-    logger.critical("Cannot load config file, aborting process")
-    exit(1)
+    logger.critical("Cannot load config file, aborting process. If you see this without using foliotools, all is well")
+    raise OperationalError("Cannot foliotools config")  # i must say, using a .py file as config was a boneheaded idea
 # key : default_value
 FOLIO_DEF_CONF = {
     'url': None,

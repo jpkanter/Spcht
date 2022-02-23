@@ -169,7 +169,7 @@ class SpchtBuilder:
     """
 
     default_curated_keys = ["name", "source", "field", "type", "mandatory", "sub_nodes", "sub_data", "predicate",
-                            "fallback", "comment"]  # curated few of keys for 'DisplaySpcht'
+                            "fallback", "comment", "tech"]  # curated few of keys for 'DisplaySpcht'
     def __init__(self, import_dict=None, unique_names=None, spcht_base_path=None):
         self._repository = {}
         self.root = SimpleSpchtNode(":ROOT:", parent=":ROOT:", source="", field="")

@@ -4,7 +4,41 @@
 
 This is a slightly specialised tool that extracts data from the Folio library services platform, transforms them and inserts them into an arbitrary triplestore. It uses the already established Spcht-infrastructures and methods but is unfortunately a lot more geared to a single purpose and harder to adapt / modify.
 
-### First Run
+## Quick Start Guide
+
+1. Download package data (`git clone `)
+2. Create virtual-env (`python3 -m venv .venv`)
+3. Enter virtual-env `source ./.venv/bin/activate`
+4. Install package `python3 -m pip install .`
+5. Change to working directory of choice, copy folio specific files from `/examples`
+6. copy & rename example config file to `foliotools.config.json` and enter necessary data (access token, path to virtuoso, usernames...)
+7. run script `python3 -m Spcht.folio2triplestore`
+8. read log files and figure out what went wrong
+
+### Shallow explanations
+
+When installed as package the script can be run in any folder by using `python -m Spcht.folio2triplestore` it accepts a basic command line usage, if none is given it will do its regular update run.
+
+To work properly a number of configurations need to be done, all necessary settings can be found in the `/examples/foliotools.config.example.json` . The script will expect a file named `foliotools.config.json`  in the current working directory and all other referenced files are relative from that directory. Foliotools doesn't not support remote files.
+
+Among the varios settings that are to be expected there are four references to `spcht`-files. 
+
+* complete
+* delta opening
+* negative complete
+
+* negative opening
+
+Those files describe the RDF structure that will be generated. Examples for those files can be found in the `/examples/` folder. Their structure is more complex than other SPCHT files as the account for the branched structure of retrieved data. The "negative" files are there to generate the necessary names to delete branches of old data, the "delta" file generates only changed information while keeping the rest intact. The system is somewhat brittle. Do not attempt to change anything beyond the predicates without high caution.
+
+After the first run new files will be found in the working directory:
+
+* `folio_update.log` **-** *the log file, containing errors, warnings and other informations*
+* `folio2triple.save.json` **-** *the "save" file, a local database used as delta* (filename can be changed)
+
+The "savegame" file is needed to maintain integrity of the data and should be present for the next run.
+
+## First Run
 
 The whole process from a blank slate triplestore in the first run would look like this:
 
@@ -15,7 +49,7 @@ The whole process from a blank slate triplestore in the first run would look lik
 5. generating a hash for each location and calendar opening hour definition
 6. utilising the already established WorkOrder methods to insert the data, residing as a turtle file at this point, into the triplestore by either **sparql** oder, if its an OpenLink Virtuoso, possibly via **isql**
 
-### Folio structure
+## Folio structure
 
 The relevant part of the folio data lie in a small compartment that is the `location_units` module and additionally the `location` part of it. There is a distinction between *libraries*, *campus*es, *institutions* and *servicepoints* that matter.
 
@@ -44,9 +78,9 @@ It was stated that every servicepoint has opening hours linked to it, but as vis
 
 Back to the locations, there are two links to servicepoints, there is for one a list of all servicepoints that reside at that location and there is also the primary location. This tool will always assume that the primary servicepoint holds the relevant opening hours for a location.
 
-*All those endpoints are configurable in the config file if every anything changes here*
+*All those endpoints are configurable in the deeper configuration python file if every anything changes here. There was some turmoil in that, don't recoil in horror, everything seemed logical at the time of creation*.
 
-### The Working file
+## The Working file
 
 To save the current state of the updates and data a file based "database" is utilised. It might as well be a lean sqlite file but the necessary access seems to favor a simple and solid solution without the need to add overhead. By default the file is called `folio2triple.save.json` and is, as the name suggests, a json-file. Its overall structure looks like this:
 
@@ -64,10 +98,10 @@ To save the current state of the updates and data a file based "database" is uti
 }
 ```
 
-The first key, 'meta' holds time based data on when the three processed where called last and some statistics. Hashes holds the hash of serialised information of locations and opening. Under the key 'triples' the so called "delta-subjects" are stored. These are used to surgical remove old and abandoned entries without deploying additional garbage collection tools.
+The first key, 'meta' holds time based data on when the three processed where called last and some statistics. "Hashes" holds the hashes of serialised information of locations and opening. Under the key 'triples' the so called "delta-subjects" are stored. These are used to surgical remove old and abandoned entries without deploying additional garbage collection tools.
 
 
-### Update process
+## Update process
 
 The aforementioned complexity comes from the need to keep a tightly synced link between data in folio and the triplestore. To keep data as up to date as possible there are three update intervals (that can be adjusted):
 
@@ -77,7 +111,7 @@ The aforementioned complexity comes from the need to keep a tightly synced link 
 
 While opening hours might change quite often its highly unlikely that structural changes happen more often that once or twice a year, but when it happens those changes are supposed to be propagated in a timely manner
 
-#### Opening hour changes
+### Opening hour changes
 
 Opening hours in folio are designed as calendar entries, as it seems the original functionality is derived from a timetable as its possible to overlap opening hours in the editor (but not save). For every service point there is an assigned opening hour calendar that can be shared among multiple locations or rather service points (that are bound to service points anyway)
 
@@ -85,23 +119,19 @@ To keep the footprint of requests to the OKAPI interface low only that data is r
 
 When there is a change the aforementioned "delta subjects" will be utilised, these are part of the triple that define the opening hour triple for any one given location (organised in departments), the tool will then delete all links to specific opening hours and replace those with new entries (and might create specific opening&closing times that do yet not exist). Afterwards the hash list is updated and the tool goes back into hibernation till called the next time.
 
-#### Location Changes
+### Location Changes
 
 Similar to the opening changes there is a hash for a location, it does not include the opening hours but as part of the process those will be replaced as well, regardless of actual changes. When updating any given location the entire "department" inside the triplestore will be deleted, this included data that lies under another node like addresses or geographic positions. As the tool cannot know those and seperate them from data like the opening hours that might be used by more than one instance additional data was saved in the working file. If, for any reason, a location vanishes entirely the corresponding triple store entries will be deleted and not replaced as it would be for an update.
 
-#### New Entry Check
+### New Entry Check
 
 By default, every 7 days all location data will be downloaded and its names searched for a specific, configured name to find new so called "entrances" that define the opening hours for any one given building. Different from the initial blank slate operation this will only fetch all locations but only those institutions, libraries and servicepoints that are actually necessary to create a new "department"
 
-*Ironically, the example use case for this has always the same institution and campus for every single library so that the 'data hoarder' approach actually uses less data band with. Overall this shouldn't matter either way as it all is pure text data and no media like videos is part of it*
-
-### The configuration file - folio2triplestore_config.py
-
-This file contains all settings and file path to other files that are needed for the overall procedure. In a standard installation the file wont be present and instead a file called `folio2triplestore_config.example.py` can be found within the `./foliotools` folder.
+*Ironically, the example use case for this has always the same institution and campus for every single library so that the 'data hoarder' approach actually uses less data bandwith. Overall this shouldn't matter either way as it all is pure text data and no media like videos is part of it*
 
 ## General design philosophy
 
-Broadly speaking, there were two approaches to maintain synchronicity between the triplestore and the Folio that is the master of all data in this use case. Either way there needs to be some procedure that checks whether the data in the triplestore still reflect the content of the Folio. This tools does manage its update times itself, defined by three parameters in the configuration file, there would have been an alternative to make it a pure command line dependent application. In both cases the script has to be called by *cron* or some other kind of task scheduler. I believe to compress some complexity by managing the time frames for updates inside the same configuration file that holds other information concerning the process i choose the *better* way. Although there is room for discussion [^1]
+Broadly speaking, there were two approaches to maintain synchronicity between the triplestore and the Folio that is the master of all data in this use case. Either way there needs to be some procedure that checks whether the data in the triplestore still reflect the content of the Folio. This tools does manage its update times itself, defined by three parameters in the configuration file, there would have been an alternative to make it a pure command line dependent application. In both cases the script has to be called by *cron* or some other kind of task scheduler. I believe that i managed to compress some complexity by managing the time frames for updates inside the same configuration file that holds other information concerning the process i choose the *better* way. Although there is room for discussion [^1]
 
 [^1]: as always
 

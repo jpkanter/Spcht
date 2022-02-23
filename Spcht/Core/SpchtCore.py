@@ -88,6 +88,11 @@ class Spcht:
 
     @property
     def name(self):
+        """
+        As i read this now, i cannot remember the reason why i even created this property.
+        :return: the name of this instance of a SpchtCore Class?
+        :rtype: str
+        """
         if self._name:
             return self._name
         else:

@@ -573,15 +573,15 @@ For the most part one should not worry too much about how exactly Marc21 is hand
 
 ### type
 
-In the second ever example in this document was shown how to create a triple that has an *URI* as object. This behaviour has to be manually set with the key `type`, it can only have two values: `uri` and `literal`. If `type` is not set a node will be assumed to end in a literal object. If set to `triple` the resulting object should be very surely be a valid *URI*, otherwise subsequent processes that transform the mapped data will fail.
+In the second ever example in this document was shown how to create a triple that has an *URI* as object. This behaviour has to be manually set with the key `type`, it can only have two values: `uri` and `literal`. If `type` is not set a node will be assumed to end in a literal object. If set to `uri` the resulting object should be very surely be a valid *URI*, otherwise subsequent processes that transform the mapped data will fail.
 
 ### name
 
-This is an entirely optional key that does nothing in the processing or for  the processing. It can be seen in log-files and the *SpchtCheckerGui* Program that analysis SpchtDescriptor Files. It is helpful to keep some order in an otherwise chaotic descriptor.
+This is an entirely optional key that does nothing in the processing or for  the processing. It can be seen in log-files and the *SpchtCheckerGui* Program that analysis SpchtDescriptor Files. It is helpful to keep some order in an otherwise chaotic descriptor. The spcht builder tool enforces a mandatory uniqueness among names. Names can be any UTF-8 character, for the sake of your sanity, stick to ASCII.
 
 ### tag
 
-Per default all generated values that are not an URI are literals without any further designation. `tag` allows for deeper designations like language or string definitions for floats.
+Per default all generated values that are not an URI are literals without any further designation. `tag` allows for deeper designations like language or string definitions for floats. There have been known problems with some triplestores like *Virtuoso*.
 
 ### comment*
 
@@ -589,5 +589,5 @@ The schema of the Spcht Descriptor Format does not allow any other keys as those
 
 A user is not limited to just a field called `comment` as any one key that starts with `comment` is valid. This behaviour might come in handy when a given descriptor is edited by multiple people and the need for documentation of steps  or annotations arises.
 
-*The absolute definitive definition of the Spcht Format can also be seen in the [JSONSchema](../SpchtSchema.json) File.*
+*The absolute definitive definition of the Spcht Format can also be seen in the [JSONSchema](../Spcht/SpchtSchema.json) File.*
 

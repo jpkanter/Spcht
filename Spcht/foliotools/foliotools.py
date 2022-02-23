@@ -75,7 +75,7 @@ def create_hash(data: dict, variant):
             sha_1.update(hasheable.encode())
             return sha_1.hexdigest()
         except KeyError:
-            logging.info(f"Hashing of Location {data.get('name', 'unknown')} failed.")
+            logger.info(f"Hashing of Location {data.get('name', 'unknown')} failed.")
             return ""
     elif variant == "opening":
         try:
@@ -88,7 +88,7 @@ def create_hash(data: dict, variant):
             sha_1.update(hasheable.encode())
             return sha_1.hexdigest()
         except KeyError:
-            logging.info(f"Hashing of OpeningHour failed.")
+            logger.info(f"Hashing of OpeningHour failed.")
             return ""
     else:
         sha_1 = hashlib.sha1()
@@ -115,15 +115,16 @@ def additional_remote_data(servicepoint_id: str) -> dict:
         try:
             step1_data = r.json()
         except json.JSONDecodeError:
-            logging.warning("Returned Json could not be handled, mostly because it wasnt json, aborting")
+            logger.warning("Returned Json could not be handled, mostly because it wasnt json, aborting")
             return None
     elif r.status_code == 401:
+        logger.error("Access denied, check jwt token")
         return False
     elif r.status_code == 404:
-        logging.debug(f"No opening hours found for '{servicepoint_id}', none")
+        logger.debug(f"No opening hours found for '{servicepoint_id}', none")
         return {}
     else:
-        logging.warning(f"'{request_url}' could not retrieve data, status {r.status_code}")
+        logger.warning(f"'{request_url}' could not retrieve data, status {r.status_code}")
         return None
     # check if given opening hours block is valid today
     step2_uuid = None
@@ -135,7 +136,7 @@ def additional_remote_data(servicepoint_id: str) -> dict:
             step2_uuid = period['id']
             break
     if not step2_uuid:
-        logging.debug(f"No suiteable and valid opening hour found for '{servicepoint_id}'")
+        logger.debug(f"No suiteable and valid opening hour found for '{servicepoint_id}'")
         return {}
     # ! second request
     request_url = secret.url + one_period.substitute(servicepoint_id=servicepoint_id, period_id=step2_uuid)
@@ -150,15 +151,16 @@ def additional_remote_data(servicepoint_id: str) -> dict:
                     hours['day'] = days['weekdays']['day']
             return step2_data
         elif r.status_code == 401:
+            logger.error("Access denied, check jwt token")
             return False
         elif r.status_code == 404:
-            logging.warning(f"No currently valid opening hour for {servicepoint_id} found, DESPITE it being there mere ms ago")
+            logger.warning(f"No currently valid opening hour for {servicepoint_id} found, DESPITE it being there mere ms ago")
             return {}
         else:
-            logging.warning(f"'{servicepoint_id}' + '{step2_uuid}' could not retrieve data, status {r.status_code}")
+            logger.warning(f"'{servicepoint_id}' + '{step2_uuid}' could not retrieve data, status {r.status_code}")
             return None
     except json.JSONDecodeError:
-        logging.warning("Second returned Json could not be handled, mostly because it wasnt json, aborting")
+        logger.warning("Second returned Json could not be handled, mostly because it wasnt json, aborting")
         return None
 
 
@@ -212,28 +214,29 @@ def part1_folio_workings(endpoint, key="an endpoint", append=""):
         if r.status_code == 200:
             try:
                 data = json.loads(r.text)
-                logging.debug(f"{key} retrieved ")
+                logger.debug(f"{key} retrieved ")
                 return data
             except urllib3.exceptions.NewConnectionError:
-                logging.error(f"Connection could be establish")
+                logger.error(f"Connection could be establish")
             except json.JSONDecodeError as e:
-                logging.warning(f"JSON decode Error: {e}")
+                logger.warning(f"JSON decode Error: {e}")
         elif r.status_code == 401:
+            logger.error("Access denied, check jwt token")
             return False
         elif r.status_code == 404:
             return {}
         else:
-            logging.error(f"Status Code {r.status_code} - {r.text[:128]}")
+            logger.error(f"Status Code {r.status_code} - {r.text[:128]}")
             return {}
     except SystemExit as e:
-        logging.info(f"SystemExit as planned, code: {e.code}")
+        logger.info(f"SystemExit as planned, code: {e.code}")
         exit(e.code)
     except KeyboardInterrupt:
         print("Process interrupted, aborting")
-        logging.warning("Process was manually aborted")
+        logger.warning("Process was manually aborted")
         raise KeyboardInterrupt()
     except Exception as e:
-        logging.critical(f"FOLIO_WORKINGS::Surprise error [{e.__class__.__name__}] {e}")
+        logger.critical(f"FOLIO_WORKINGS::Surprise error [{e.__class__.__name__}] {e}")
         exit(1)
     return {}
 

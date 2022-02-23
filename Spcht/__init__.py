@@ -9,3 +9,6 @@ try:
     from .foliotools import foliotools
 except ModuleNotFoundError as e:
     pass  # pytz needed for foliotools
+except SpchtErrors.OperationalError as e:
+    pass  # has its own error prompt and not important for the package process
+
