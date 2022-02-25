@@ -51,7 +51,8 @@ __version__ = 0.7
 
 def crawl_location(location_hashes, opening_hashes, location_objects, opening_objects):
     global append
-    locations = part1_folio_workings(secret.endpoints['locations'], "location", append)
+    if not (locations := part1_folio_workings(secret.endpoints['locations'], "location", append)):
+        return None
     found_locations = {}
     for each in locations['locations']:
         if re.search(secret.name, each['code']):
@@ -335,7 +336,7 @@ if __name__ == "__main__":
                                             main_file['triples']['opening'])
             if crawl_return:
                 logging.info("New Locations inserted:" + str(crawl_return))
-            elif crawl_return is None:
+            elif not crawl_return:
                 insert_failure = True
         if do_location:
             logging.info(f"Location update triggered - now: '{ahuit.isoformat()}', last call: '{main_file['meta']['last_location']}'")

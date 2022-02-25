@@ -25,6 +25,7 @@ import logging
 import re
 import os
 from collections import defaultdict
+from pathlib import Path, PurePath
 import uuid
 import copy
 import random
@@ -37,6 +38,7 @@ import Spcht.Core.SpchtUtility as SpchtUtility
 import Spcht.Utils.local_tools as local_tools
 
 RESERVED_NAMES = [":ROOT:", ":UNUSED:", ":MAIN:"]
+SPCHTBUILDER_VERSION = 0.8
 
 logger = logging.getLogger(__name__)
 
@@ -170,6 +172,7 @@ class SpchtBuilder:
 
     default_curated_keys = ["name", "source", "field", "type", "mandatory", "sub_nodes", "sub_data", "predicate",
                             "fallback", "comment", "tech"]  # curated few of keys for 'DisplaySpcht'
+    meta_attributes = {'created': "datenow", 'edited': "datanow", 'revision': "zerovalue", 'version': "curversion"}
     def __init__(self, import_dict=None, unique_names=None, spcht_base_path=None):
         self._repository = {}
         self.root = SimpleSpchtNode(":ROOT:", parent=":ROOT:", source="", field="")
@@ -183,6 +186,7 @@ class SpchtBuilder:
             self._importSpcht(import_dict, spcht_base_path)
         # self._names = UniqueNameGenerator(["Kaladin", "Yasnah", "Shallan", "Adolin", "Dalinar", "Roshone", "Teft", "Skar", "Rock", "Sylphrena", "Pattern", "Vasher", "Zahel", "Azure", "Vivianna", "Siri", "Susebron", "Kelsier", "Marsh", "Sazed", "Harmony", "Odium", "Rayse", "Tanavast"])
         self.curated_keys = SpchtBuilder.default_curated_keys
+        self._meta_data = dict()
 
     @property
     def repository(self):
@@ -488,7 +492,18 @@ class SpchtBuilder:
 
     def exportDict(self):
         a = dict()
-        a['meta'] = {'created': str(datetime.date.today().isoformat())}
+        if not self._meta_data:
+            a['meta'] = {'created': str(datetime.datetime.today().isoformat())}
+        else:
+            for key in SpchtBuilder.meta_attributes:
+                if key in self._meta_data:
+                    if key == "edited":
+                        self._meta_data[key] = str(datetime.datetime.today().isoformat())
+                    elif key == "revision":
+                        self._meta_data[key] += 1
+                else:
+                    self._meta_data[key] = self._setMetaAttribute(key)
+            a['meta'] = self._meta_data
         b = dict()
         b[':ROOT:'] = self.root.properties
         b[':ROOT:']['parent'] = self.root.parent
@@ -537,7 +552,7 @@ class SpchtBuilder:
         self._references = {}
         for name in spchtbuilder_point_json['nodes']:
             if name == ":ROOT:":
-                self.root = spchtbuilder_point_json['nodes'][':ROOT:']
+                self.root.properties = spchtbuilder_point_json['nodes'][':ROOT:']
             else:
                 self._repository[name] = SimpleSpchtNode(name, import_dict=spchtbuilder_point_json['nodes'][name])
 
@@ -548,6 +563,9 @@ class SpchtBuilder:
                     logging.error(f"SpchtBuilder>importDict: at least one references contains the wrong data type")
                     return False
                 self._references[ref][key] = value
+        # meta data
+        if 'meta' in spchtbuilder_point_json:
+            self._meta_data = spchtbuilder_point_json['meta']
         self._enrichPredicates()
         self.mendFamily()
         return True
@@ -834,7 +852,8 @@ class SpchtBuilder:
                             rel_path = node[key]
                         try:  # no base path no good
                             if rel_path:
-                                keyvalue = local_tools.load_from_json(os.path.normpath(os.path.join(base_path, rel_path)))
+                                p = Path(base_path) / rel_path
+                                keyvalue = local_tools.load_from_json(str(p.resolve()))
                                 if keyvalue:
                                     self._references[rel_path] = keyvalue
                         except FileNotFoundError:
@@ -874,6 +893,17 @@ class SpchtBuilder:
             if key in node:
                 node2[key] = self.compileNodeReference(node[key])
         return node2
+
+    def importReference(self, spcht_path: str) -> bool:
+        """
+        Imports the content of a referenced file inside the SpchtBuilder
+
+        :param str spcht_path:
+        :return: True if everything worked out
+        :rtype bool:
+        """
+        p = Path(spcht_path)
+
 
     def resolveReference(self, rel_path: str):
         """
@@ -1041,6 +1071,24 @@ class SpchtBuilder:
             # if node.parent in sub_list:  # * this is illogical, the element containing the parent might not be added yet
             #     return True
             # return False
+
+    def _setMetaAttribute(self, attribute):
+        """
+        Defaults the given meta attribute with the content of any complex function that is keyed here
+
+        :param str attribute: name of the attribute
+        :return:
+        :rtype: str or int
+        """
+        if attribute in SpchtBuilder.meta_attributes:
+            X = SpchtBuilder.meta_attributes[attribute]
+            if X == "datenow":
+                return str(datetime.datetime.now().isoformat())
+            elif X == "zerovalue":
+                return 0
+            elif X == "curversion":
+                return str(SPCHTBUILDER_VERSION)
+        return ""
 
     def mendFamily(self):
         """

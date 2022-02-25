@@ -120,6 +120,9 @@ def additional_remote_data(servicepoint_id: str) -> dict:
     elif r.status_code == 401:
         logger.error("Access denied, check jwt token")
         return False
+    elif r.status_code == 403:
+        logger.error("Access forbidden, check webserver config / whitelist")
+        return False
     elif r.status_code == 404:
         logger.debug(f"No opening hours found for '{servicepoint_id}', none")
         return {}
@@ -152,6 +155,9 @@ def additional_remote_data(servicepoint_id: str) -> dict:
             return step2_data
         elif r.status_code == 401:
             logger.error("Access denied, check jwt token")
+            return False
+        elif r.status_code == 403:
+            logger.error("Access forbidden, check webserver config / whitelist")
             return False
         elif r.status_code == 404:
             logger.warning(f"No currently valid opening hour for {servicepoint_id} found, DESPITE it being there mere ms ago")
@@ -222,6 +228,9 @@ def part1_folio_workings(endpoint, key="an endpoint", append=""):
                 logger.warning(f"JSON decode Error: {e}")
         elif r.status_code == 401:
             logger.error("Access denied, check jwt token")
+            return False
+        elif r.status_code == 403:
+            logger.error("Access forbidden, check webserver config / whitelist")
             return False
         elif r.status_code == 404:
             return {}

@@ -3,13 +3,13 @@
 block_cipher = None
 
 
-a = Analysis(['./solr2triplestore-bridge/SpchtCheckerGui.py'],
-			 pathex=['./solr2triplestore-bridge/'],
+a = Analysis(['./Spcht/SpchtCheckerGui.py'],
+			 pathex=['./Spcht/'],
              binaries=[],
              datas=[
-			       ('./solr2triplestore-bridge/SpchtCheckerGui/GuiLanguage.json', '.'),
-			       ('./solr2triplestore-bridge/SpchtSchema.json', '.'),
-			       ('./solr2triplestore-bridge/SpchtCheckerGui/woodpecker.png', '.')
+			       ('./Spcht/Gui/GuiLanguage.json', './Spcht/Gui/'),
+			       ('./Spcht/SpchtSchema.json', './Spcht/'),
+			       ('./Spcht/Gui/woodpecker.png', '.')
 			       ],
              hiddenimports=[],
              hookspath=[],
@@ -35,7 +35,7 @@ exe = EXE(pyz,
           upx_exclude=[],
           runtime_tmpdir=None,
           console=False,
-		  icon='./SpchtCheckerGui/woodpecker.ico')
+		  icon='./Spcht/Gui/woodpecker.ico')
 coll = COLLECT(exe,
                a.binaries,
                a.zipfiles,
