@@ -32,6 +32,7 @@ import sys
 import time
 import traceback
 import xml
+import codecs
 from datetime import timedelta, datetime
 
 import rdflib
@@ -843,7 +844,7 @@ def FulfillProcessingOrder(work_order_file: str, subject: str, spcht_object: Spc
 
                 logger.info(f"Finished file {_} of {len(work_order['file_list'])}, {len(quadros)} triples")
                 rdf_dump = f"{work_order['file_list'][key]['file'][:-4]}_rdf.ttl"
-                with open(rdf_dump, "w") as rdf_file:
+                with codecs.open(rdf_dump, "w", encoding="utf-8") as rdf_file:
                     rdf_file.write(process2RDF(quadros))  # ? avoiding circular imports
                 work_order = UpdateWorkOrder(work_order_file,
                                              update=('file_list', key, 'status', 4),

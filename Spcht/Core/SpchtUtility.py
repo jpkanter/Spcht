@@ -22,6 +22,7 @@
 # @license GPL-3.0-only <https://www.gnu.org/licenses/gpl-3.0.en.html>
 #
 # @license GPL-3.0-only <https://www.gnu.org/licenses/gpl-3.0.en.html>
+import codecs
 import itertools
 import json
 import os
@@ -612,10 +613,10 @@ def schema_validation(descriptor: dict, schema=None) -> (bool, str):
         if not schema:  # defaulting to default module path
             schema = Path(__file__).parent.parent / "SpchtSchema.json"
         try:
-            with open(schema, "r") as schema_file:
+            with codecs.open(schema, "r", encoding="utf-8") as schema_file:
                 rdy_schema = json.load(schema_file)
         except FileNotFoundError as e:
-            if schema == "./SpchtSchema.json":
+            if schema == str(Path(__file__).parent.parent / "SpchtSchema.json"):
                 logger.critical("Standard Spcht Schema file could not be found, this is worrysome as its part of the package")
             else:
                 logger.warning(f"JSON schema {schema} could not be found")

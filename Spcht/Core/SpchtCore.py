@@ -20,7 +20,7 @@
 # along with Spcht.  If not, see <http://www.gnu.org/licenses/>.
 #
 # @license GPL-3.0-only <https://www.gnu.org/licenses/gpl-3.0.en.html>
-
+import codecs
 import copy
 import json
 import os
@@ -322,7 +322,7 @@ class Spcht:
         if not self:
             return False
         try:
-            with open(filename, "w") as outfile:
+            with codecs.open(filename, "w", encoding="utf-8") as outfile:
                 json.dump(self._DESCRI, outfile, indent=indent)
         except Exception as e:
             print("File Error", e, file=self.std_err)
@@ -331,14 +331,17 @@ class Spcht:
         """
             Encapsulates the loading of a json file into a simple command to save  lines
             It also catches most exceptions that might happen
+
             :param: filename: full path to the file or relative from current position
             :type filename: string
             :return: Returns the loaded object (list or dictionary) or 'None' if something happend
             :rtype: dict or None
         """
+
+        # ? tell no one of local_tools.load_from_json()
         msg0 = "Could not load json file - "
         try:
-            with open(filename, mode='r') as file:
+            with codecs.open(filename, mode='r', encoding="utf-8") as file:
                 return json.load(file)
         except FileNotFoundError:
             print("nofile -", filename, file=self.std_err)

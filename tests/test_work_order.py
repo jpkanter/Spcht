@@ -24,13 +24,15 @@
 import json
 import os
 
-import SpchtCore.WorkOrder as WorkOrder
-import Utils.local_tools as local_tools
+import Spcht.SpchtCore.WorkOrder as WorkOrder
+import Spcht.Utils.local_tools as local_tools
 
 
 """
 I am not very sure if i really want to do this as unit test, especially cause half of those tests are only possible
 if you actually have a running virtuoso server with the right credentials
+
+You know about mock ups do you?
 """
 
 try:

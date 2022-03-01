@@ -79,6 +79,10 @@ class Unexpected(Exception):
         return "an exception that should have not been happened but was prepared in case seomthing weird happened"
 
 
+class Conflict(Exception):
+    def __repr__(self):
+        return "the desired operation would create a conflict with two sets of equal data that cannot exist in parallel"
+
 class MandatoryError(Exception):
     def __repr__(self):
         return "a field that was classified as mandatory was not present, therefore failing the entire chain"

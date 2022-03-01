@@ -178,6 +178,7 @@ class SpchtBuilder:
         self.root = SimpleSpchtNode(":ROOT:", parent=":ROOT:", source="", field="")
         self.cwd = spcht_base_path
         self._references = {}
+        self._ref_hash = {}  # hashes of references sorted to weed out duplicates
         if unique_names is None:
             self._names = UniqueNameGenerator(SpchtConstants.RANDOM_NAMES)
         else:
@@ -557,12 +558,13 @@ class SpchtBuilder:
                 self._repository[name] = SimpleSpchtNode(name, import_dict=spchtbuilder_point_json['nodes'][name])
 
         for ref in spchtbuilder_point_json['references']:
-            self._references[ref] = {}
+            one_dict = {}
             for key, value in spchtbuilder_point_json['references'][ref].items():
                 if isinstance(value, (dict, list)):
-                    logging.error(f"SpchtBuilder>importDict: at least one references contains the wrong data type")
-                    return False
-                self._references[ref][key] = value
+                    logging.warning(f"SpchtBuilder>importDict: at least one references contains the wrong data type")
+                    continue
+                one_dict[key] = value
+            self.addReference(ref, one_dict)
         # meta data
         if 'meta' in spchtbuilder_point_json:
             self._meta_data = spchtbuilder_point_json['meta']
@@ -894,16 +896,62 @@ class SpchtBuilder:
                 node2[key] = self.compileNodeReference(node[key])
         return node2
 
-    def importReference(self, spcht_path: str) -> bool:
+    def addReference(self, key: str, data: dict) -> str:
+        """
+        Adds the provided data to the reference repository, if the data is duplicate of existing one it will
+        return the key of the other data that already got it
+
+        :param str key: key or name of the reference, usually its relative file path
+        :param dict data: a flat dictionary
+        :return: key/name of the referenced data
+        :rtype: str
+        :raises SpchtErrors.Conflict: upon finding an already existing name
+        """
+        sorted_variant = dict(sorted(data.items(), key=lambda el: el[1]))
+        sorted_hash = local_tools.str2sha256(str(sorted_variant))
+        if key in self._references:
+            if sorted_hash != self._references[key]:
+                raise SpchtErrors.Conflict("New imported reference is different from an existing one with same name")
+        else:
+            for other_key, value in self._ref_hash.items():
+                if value == sorted_hash:
+                    return other_key
+            else:
+                self._references[key] = copy.copy(data)
+                self._ref_hash[key] = sorted_hash
+        return key
+
+    def importReference(self, json_file: str) -> bool or str:
         """
         Imports the content of a referenced file inside the SpchtBuilder
 
         :param str spcht_path:
-        :return: True if everything worked out
-        :rtype bool:
+        :return: name of the added reference or a falsy value
+        :rtype str or bool:
         """
-        p = Path(spcht_path)
+        if not self.cwd:
+            return False
+        temp_cwd = os.getcwd()
+        os.chdir(self.cwd)
+        p = Path(json_file).resolve()
+        p2 = PurePath(p)
+        try:
+            ref = str(p2.relative_to(self.cwd))
+        except ValueError as e:  # no relative path
+            logger.warning(f"Importing referenced file '{json_file}' uses absolute path as no relative one could be found")
+            ref = str(p)
+        os.chdir(temp_cwd)
+        if not (content := local_tools.load_from_json(str(p))):
+            return False
+        one_ref = {}
+        for key, value in content.items():
+            if isinstance(value, (dict, list)):
+                logging.warning(f"SpchtBuilder>importDict: at least one references contains the wrong data type")
+                continue
+            one_ref[key] = value
+        ref = self.addReference(ref, one_ref)
 
+        return ref
 
     def resolveReference(self, rel_path: str):
         """

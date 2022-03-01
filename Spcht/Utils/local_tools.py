@@ -27,6 +27,7 @@ import json
 import requests
 import logging
 import hashlib
+import codecs
 from dateutil.relativedelta import relativedelta
 from requests.auth import HTTPDigestAuth
 
@@ -303,7 +304,7 @@ def test_json(json_str: str) -> dict or bool:
 def load_from_json(file_path):
     # TODO: give me actually helpful insights about the json here, especially where its wrong, validation and all
     try:
-        with open(file_path, mode='r') as file:
+        with codecs.open(file_path, mode='r', encoding="utf-8") as file:
             return json.load(file)
     except FileNotFoundError:
         logger.error(f"Couldnt open file '{file_path}' cause it couldnt be found")

@@ -36,6 +36,7 @@ class Spcht_i18n:
     is rather tiny so i wrote this instead of adding another dependency
 
     Simple Example
+
     ```json
     {
         "title": {

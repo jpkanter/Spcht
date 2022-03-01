@@ -20,7 +20,7 @@
 # along with Spcht.  If not, see <http://www.gnu.org/licenses/>.
 #
 # @license GPL-3.0-only <https://www.gnu.org/licenses/gpl-3.0.en.html>
-
+import os
 import unittest
 import json
 from Spcht.Gui.SpchtBuilder import SpchtBuilder, SimpleSpchtNode
@@ -38,7 +38,8 @@ class TestSpchtBuilder(unittest.TestCase):
     @staticmethod
     def _create_dummy():
         """This puts a lot of trust in the established init functions"""
-        blue = SpchtBuilder()
+        blue = SpchtBuilder(spcht_base_path=os.getcwd())
+
         copper = SimpleSpchtNode("copper", "iron",
                                  field="two", source="dict", predicate="wk:11", fallback="zinc")
         iron = SimpleSpchtNode("iron", ":MAIN:",
@@ -120,4 +121,10 @@ class TestSpchtBuilder(unittest.TestCase):
         print(dummy.compileNode(new_name, False, True, True))
         self.assertIsNotNone(new_name)
         self.assertNotEqual("iron", new_name)
+
+    def test_reference_import_path_mangling(self):
+        dummy = self._create_dummy()
+        print(dummy.importReference("../examples/translation_maps/roles.json"))
+        import pprint
+        pprint.pprint(dummy._references)
 

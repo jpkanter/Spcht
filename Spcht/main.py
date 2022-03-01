@@ -34,6 +34,7 @@ import Spcht.Utils.local_tools as local_tools
 from Spcht.Utils.local_tools import load_from_json
 from Spcht.Utils.main_arguments import arguments
 from Spcht.Core.SpchtCore import Spcht
+from Spcht.Utils import SpchtConstants
 
 try:
     from termcolor import colored  # only needed for debug print
@@ -249,7 +250,7 @@ if __name__ == "__main__":
                         print("Operation seems to be stuck on the same status, something is broken. Advising investigation")
                         WorkOrder.CheckWorkOrder(args.ContinueWorkOrder)
                         exit(2)
-                    print(local_tools.WORK_ORDER_STATUS[res])
+                    print(SpchtConstants.WORK_ORDER_STATUS[res])
                 elif isinstance(res, list):
                     print("Fulfillment of current Work order status needs further parameters:")
                     for avery in res:
@@ -348,7 +349,7 @@ if __name__ == "__main__":
                     print("Operation seems to be stuck on the same status, something is broken. Advising investigation")
                     WorkOrder.CheckWorkOrder(work_order)
                     exit(2)
-                print(local_tools.WORK_ORDER_STATUS[res])
+                print(SpchtConstants.WORK_ORDER_STATUS[res])
         except KeyboardInterrupt:
             print("Process was aborted by user, use --ContinueWorkOrder WORK_ORDER_NAME to continue")
             exit(0)
