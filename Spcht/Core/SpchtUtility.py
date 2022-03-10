@@ -200,6 +200,8 @@ def is_float(string):
         return True
     except ValueError:
         return False
+    except TypeError:
+        return False
 
 
 def is_int(string):
@@ -213,6 +215,8 @@ def is_int(string):
         int(string)
         return True
     except ValueError:
+        return False
+    except TypeError:
         return False
 
 

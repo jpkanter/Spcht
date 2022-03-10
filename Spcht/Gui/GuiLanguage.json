@@ -678,5 +678,73 @@
    "node_predicate_inheritance": {
       "de": "Nutzen des Eltern-Prädikats wenn als Fallback genutzt",
       "en": "Use Parent-predicate when used as fallback"
+   },
+   "explorer_duplicate_node": {
+      "de": "Knoten duplizieren",
+      "en": "Duplicate Node"
+   },
+   "explorer_edit_ref": {
+      "de": "Referenzen",
+      "en": "References"
+   },
+   "dia_ref_title": {
+      "de": "Referenzen bearbeiten",
+      "en": "Edit References"
+   },
+   "dia_ref_newref": {
+      "de": "Neu",
+      "en": "New"
+   },
+   "dia_ref_moveref": {
+      "de": "Bewegen",
+      "en": "Move"
+   },
+   "dia_ref_move_dia": {
+      "de": "Position der Referenz-Datei bewegen",
+      "en": "Move position of reference file"
+   },
+   "dia_ref_create_dia": {
+      "de": "Neue Referenz erstellen",
+      "en": "Create a new reference"
+   },
+   "dia_content_delete": {
+      "de": "Löschen",
+      "en": "Delete"
+   },
+   "dia_content_add": {
+      "de": "Einfügen",
+      "en": "New"
+   },
+   "dia_content_reset": {
+      "de": "Zurücksetzen",
+      "en": "Reset"
+   },
+   "dia_ref_lab_reference": {
+      "de": "Referenzbearbeitung",
+      "en": "Change references"
+   },
+   "dia_ref_lab_entry": {
+      "de": "Eintragbearbeitung",
+      "en": "Change entry"
+   },
+   "root_dia_field": {
+      "de": "Feldname",
+      "en": "Fieldname"
+   },
+   "root_dia_source": {
+      "de": "Quelle",
+      "en": "Source"
+   },
+   "root_dia_fallback": {
+      "de": "Wurzel Fallback",
+      "en": "Root Fallback"
+   },
+   "root_dia_prefix": {
+      "de": "Wurzel Prefix",
+      "en": "Root Prefix"
+   },
+   "root_dia_title": {
+      "de": "Wurzel Knoten editieren",
+      "en": "Edit root node"
    }
 }

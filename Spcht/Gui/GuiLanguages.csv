@@ -169,3 +169,20 @@ explorer_edit_root;Wurzel Knoten editieren;Edit root node
 node_predicate_inheritance_tooltip;Wenn dieser Knoten als ‚Fallback‘ eines Anderen eingestellt wird wird er sein eigenes Prädikat ignorieren und stattdessen das Prädikat des übergeordneten Knotens übernehmen. Dieses Verhalten ist standardmäßig aktiviert da angenommen wird das ‚Fallbacks‘ eine alternative Datenquelle darstellen die aber prinzipiell das Gleiche beschreiben;If this node is used as ‚fallback‘ it will inherit the predicate of its upper node instead of using its own predicate tag. This inheritance is used as a simplification as the assumed use case would be another data source for the same kind of data.
 node_predicate_inheritance_short;Vererbung als Fallback;Inheritance as Fallback
 node_predicate_inheritance;Nutzen des Eltern-Prädikats wenn als Fallback genutzt;Use Parent-predicate when used as fallback
+explorer_duplicate_node;Knoten duplizieren;Duplicate Node
+explorer_edit_ref;Referenzen;References
+dia_ref_title;Referenzen bearbeiten;Edit References
+dia_ref_newref;Neu;New
+dia_ref_moveref;Bewegen;Move
+dia_ref_move_dia;Position der Referenz-Datei bewegen;Move position of reference file
+dia_ref_create_dia;Neue Referenz erstellen;Create a new reference
+dia_content_delete;Löschen;Delete
+dia_content_add;Einfügen;New
+dia_content_reset;Zurücksetzen;Reset
+dia_ref_lab_reference;Referenzbearbeitung;Change references
+dia_ref_lab_entry;Eintragbearbeitung;Change entry
+root_dia_field;Feldname;Fieldname
+root_dia_source;Quelle;Source
+root_dia_fallback;Wurzel Fallback;Root Fallback
+root_dia_prefix;Wurzel Prefix;Root Prefix
+root_dia_title;Wurzel Knoten editieren;Edit root node

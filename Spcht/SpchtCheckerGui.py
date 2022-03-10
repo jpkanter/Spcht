@@ -47,7 +47,7 @@ from Spcht.Core.SpchtCore import Spcht
 
 import Spcht.Core.SpchtUtility as SpchtUtility
 from Spcht.Gui.SpchtCheckerGui_interface import SpchtMainWindow, ListDialogue, JsonDialogue, SelectionDialogue, \
-    QLogHandler, SolrDialogue, RootNodeDialogue, resource_path, i18n, __appauthor__, __appname__
+    QLogHandler, SolrDialogue, RootNodeDialogue, ReferenceDialogue, resource_path, i18n, __appauthor__, __appname__
 
 __SOLR_MAX_START__ = 25000
 __SOLR_MAX_ROWS__ = 500
@@ -345,6 +345,7 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
         self.explorer_node_save_btn.clicked.connect(self.actSaveSpchtBuilder)
         self.explorer_node_treeview.doubleClicked.connect(self.mthDisplayNodeDetails)
         self.explorer_node_edit_root_btn.clicked.connect(self.actEditRootNode)
+        self.explorer_node_edit_ref_btn.clicked.connect(self.actEditRef)
 
         self.explorer_center_search_button.clicked.connect(lambda: self.actFindDataCache(self.explorer_linetext_search.text()))
         self.explorer_linetext_search.returnPressed.connect(lambda: self.actFindDataCache(self.explorer_linetext_search.text()))
@@ -1642,6 +1643,14 @@ class SpchtChecker(QMainWindow, SpchtMainWindow):
             self.active_data_tables = {}
             self.META_changed = False
             self.META_unsaved = True
+
+    def actEditRef(self):
+        if not self.spcht_builder:
+            return
+        ref = None  # last reference that got edited
+        dlg = ReferenceDialogue(self.spcht_builder._references, cwd=self.spcht_builder.cwd, last_ref=ref, parent=self)
+        if dlg.exec_():
+            self.console.insertPlainText(json.dumps(dlg.getData(), indent=3))
 
     def orphanNode(self):
         """

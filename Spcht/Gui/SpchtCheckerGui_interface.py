@@ -31,7 +31,7 @@ import logging
 import sys
 import os
 import time
-from pathlib import Path
+from pathlib import Path, PurePath
 
 from PySide2.QtGui import QStandardItemModel, QStandardItem, QFontDatabase, QIcon, QSyntaxHighlighter, QTextCharFormat, QColor, QFont, QTextDocument, QPalette
 from PySide2.QtWidgets import *
@@ -42,6 +42,7 @@ from PySide2 import QtCore, QtWidgets
 import Spcht.Gui.SpchtCheckerGui_i18n as SpchtCheckerGui_18n
 import Spcht.Utils.SpchtConstants as SpchtConstants
 from Spcht.Gui.SpchtBuilder import SimpleSpchtNode
+from Spcht.Core.SpchtUtility import if_possible_make_this_numerical
 
 
 def resource_path(relative_path: str) -> str:
@@ -326,6 +327,7 @@ class SpchtMainWindow(object):
         self.explorer_node_clone_btn = QPushButton(i18n['explorer_clone_node'], FixedWidth=150)  # ! there is srsly no icon for copy, cut or paste
         self.explorer_node_duplicate_btn = QPushButton(i18n['explorer_duplicate_node'], FixedWidth=150)  # ! there is srsly no icon for copy, cut or paste
         self.explorer_node_edit_root_btn = QPushButton(i18n['explorer_edit_root'], FixedWidth=150)
+        self.explorer_node_edit_ref_btn = QPushButton(i18n['explorer_edit_ref'], FixedWidth=150)
         self.explorer_node_import_btn = QPushButton(i18n['generic_import'], FixedWidth=150)
         self.explorer_node_export_btn = QPushButton(i18n['generic_export'], FixedWidth=150)
         self.explorer_node_load_btn = QPushButton(i18n['generic_load'], FixedWidth=150, icon=QApplication.style().standardIcon(QStyle.SP_DialogOpenButton))
@@ -344,6 +346,7 @@ class SpchtMainWindow(object):
         hor_layour_23.addWidget(self.explorer_node_clone_btn)
         hor_layour_23.addStretch(1)
         hor_layour_23.addWidget(self.explorer_node_edit_root_btn)
+        hor_layour_23.addWidget(self.explorer_node_edit_ref_btn)
         hor_layour_23.addStretch(1)
         hor_layour_23.addWidget(self.explorer_node_create_btn)
 
@@ -750,6 +753,261 @@ class ListDialogue(QDialog):
             return self.getDictionary()
 
 
+class ReferenceDialogue(QDialog):
+    """
+    Dialogue for editing reference data, can only edit once reference at a time
+
+    .getData() gives a new complete reference repository and a change log as a list tuples with (old_name, new_name)
+
+    :param dict all_references: a key:value dictionary containing all references, so its key: {key2: value}
+    """
+    def __init__(self, all_references: dict, cwd=None, last_ref=None, parent=None):
+        super().__init__(parent)
+        # ? import of data & checking
+        self._var_data = ReferenceDialogue._import_data(all_references)
+        if not self._var_data:
+            self.close()
+        self._var_cwd = cwd
+        self._var_lastref = last_ref
+        self._var_changes = []  # list of tuples of names that got changed
+        self.__notrigger = False
+        self.__changes = False
+
+        self.setWindowTitle(i18n['dia_ref_title'])
+        self.setMinimumSize(480, 600)
+        self.ref_combo = QComboBox()
+        self.ref_combo.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Preferred)
+        self.table = QTableView()
+        self.tablemodel = QStandardItemModel()
+        self.table.setModel(self.tablemodel)
+        self.btn_new = QPushButton(i18n['dia_ref_newref'])
+        self.btn_rename = QPushButton(i18n['dia_ref_moveref'])
+        btn_bar1 = QHBoxLayout()
+        btn_bar1.addWidget(self.btn_new, maximumWidth=150)
+        btn_bar1.addWidget(self.btn_rename, maximumWidth=150)
+        btn_bar1.addWidget(self.ref_combo)
+        self.btn_delete = QPushButton(i18n['dia_content_delete'], maximumWidth=100)
+        self.btn_add = QPushButton(i18n['dia_content_add'], maximumWidth=100)
+        self.btn_reset = QPushButton(i18n['dia_content_reset'], maximumWidth=100)
+        btn_bar2 = QHBoxLayout()
+        btn_bar2.addWidget(QLabel(i18n['dia_ref_lab_entry']))
+        btn_bar2.addStretch(1)
+        btn_bar2.addWidget(self.btn_delete)
+        btn_bar2.addWidget(self.btn_add)
+        btn_bar2.addWidget(self.btn_reset)
+
+        QBtn = QDialogButtonBox.Save | QDialogButtonBox.Cancel
+        self.button_box = QDialogButtonBox(QBtn)
+        lay = QVBoxLayout()
+        lay.addLayout(btn_bar1)
+        lay.addLayout(btn_bar2)
+        lay.addWidget(self.table)
+        lay.addWidget(self.button_box)
+        self.setLayout(lay)
+
+        # ? table setup
+        self._fctInitFill()
+
+        # ! event setups
+        self.tablemodel.itemChanged.connect(self._actDataChange)
+        self.ref_combo.currentIndexChanged.connect(self._actChangeTable)
+        self.btn_delete.clicked.connect(self._actDeleteCurrentRow)
+        self.btn_add.clicked.connect(self._actInsertCurrentRow)
+        self.btn_rename.clicked.connect(self._actMoveReference)
+        self.btn_new.clicked.connect(self._actNewReference)
+
+        self.button_box.accepted.connect(self.accept)
+        self.button_box.rejected.connect(self.reject)
+
+    def getData(self):
+        return self._var_data, self._var_changes
+
+    def accept(self):
+        self._fctChangeCurrentData()
+        super().accept()
+
+    @staticmethod
+    def _import_data(data):
+        of_import = {}
+        if not isinstance(data, dict):
+            return False
+        for reference in data:
+            if not isinstance(data[reference], dict):
+                return False
+            of_import[reference] = {}
+            for key, value in data[reference].items():
+                if isinstance(value, (dict, list)):
+                    return False
+                of_import[reference][key] = value
+        return of_import
+
+    def _fctInitFill(self):
+        self.tablemodel.setColumnCount(2)
+        self.tablemodel.setHorizontalHeaderLabels([i18n['generic_key'], i18n['generic_value']])
+        self.ref_combo.setDisabled(True)
+        self.btn_rename.setDisabled(True)
+        if len(self._var_data) > 0:
+            self.ref_combo.setDisabled(False)
+            self.btn_rename.setDisabled(False)
+            self.ref_combo.clear()
+            if self._var_lastref and self._var_lastref in self._var_data:
+                ref = self._var_lastref
+            else:
+                ref = next(iter(self._var_data.keys()))
+            self.ref_combo.addItems(list(self._var_data.keys()))
+            self._fctFillTable(ref)
+        self.__changes = False
+
+    def _fctSetComboRef(self, ref):
+        if ref:
+            index = self.ref_combo.findText(ref, QtCore.Qt.MatchFixedString)
+            self.ref_combo.setCurrentIndex(index)
+
+    def _fctFillTable(self, reference):
+        self.__notrigger = True
+        if reference not in self._var_data:
+            return
+        self._var_lastref = reference
+        self._fctSetComboRef(self._var_lastref)
+        self.tablemodel.clear()
+        self.tablemodel.setRowCount(len(self._var_data[reference].keys())+1)
+        if len(self._var_data[reference]) <= 0:
+            self.tablemodel.appendRow([QStandardItem(""), QStandardItem("")])
+        for i, key in enumerate(self._var_data[reference]):
+            self.tablemodel.setItem(i, 0, QStandardItem(str(key)))
+            self.tablemodel.setItem(i, 1, QStandardItem(str(self._var_data[reference][key])))
+        self.table.resizeColumnToContents(0)
+        self.table.horizontalHeader().setStretchLastSection(True)
+        self.__changes = False
+        self.__notrigger = False
+
+    def _fctChangeCurrentData(self):
+        if not self._var_lastref:
+            return
+        data = {}
+        for row in range(self.tablemodel.rowCount()):
+            key = self.tablemodel.data(self.tablemodel.index(row, 0))
+            if str(key).strip() == "" or key is None:
+                continue
+            value = self.tablemodel.data(self.tablemodel.index(row, 1))
+            if str(value).strip() == "" or value is None:
+                continue
+            data[key] = if_possible_make_this_numerical(value)
+        self._var_data[self._var_lastref] = data
+        self.__changes = False
+
+    def _actMoveReference(self):
+        ref = self._dia_movesave(i18n['dia_ref_move_dia'], self._var_lastref)
+        if not ref:
+            return
+        if not self._fctChangeCheck():
+            return
+        if ref != self._var_lastref:
+            self._var_data[ref] = self._var_data.pop(self._var_lastref)
+            self._var_changes.append((self._var_lastref, ref))
+            self._var_lastref = ref
+            self._fctInitFill()
+
+    def _actNewReference(self):
+        ref = self._dia_movesave(i18n['dia_ref_create_dia'])
+        if not ref:
+            return
+        if not self._fctChangeCheck():
+            return
+        self._var_changes.append((r"\\//NEW\\//", ref))
+        self._var_lastref = ref
+        self._var_data[ref] = {}
+        self._fctInitFill()
+
+    def _dia_movesave(self, title, init_file=""):
+        if self._var_cwd:  # reference exists in relation to a the original SpchtFile
+            cwd = self._var_cwd
+        else:
+            cwd = os.getcwd()
+        if init_file:
+            cwd = Path(cwd)
+            cwd = str(cwd / init_file)
+        file_path, file_type = QtWidgets.QFileDialog.getSaveFileName(self, title, cwd,
+                                                                        "Json File (*.json);;Every file (*.*)")
+        if not file_path:
+            return
+        if file_type == "Json File (*.json)":
+            pure = PurePath(file_path)
+            if pure.suffix != ".json":
+                file_path += ".json"
+        p = Path(file_path).resolve()
+        p2 = PurePath(p)
+        try:
+            ref = str(p2.relative_to(self._var_cwd))
+        except ValueError as e:  # no relative path
+            ref = str(p)
+        return f"./{ref}"
+
+    def _actDeleteCurrentRow(self):
+        rows = set()
+        for index in self.table.selectedIndexes():
+            rows.add(index.row())
+        for row in sorted(rows, reverse=True):
+            self.tablemodel.removeRow(row)
+
+    def _actInsertCurrentRow(self):
+        rows = set()
+        for index in self.table.selectedIndexes():
+            rows.add(index.row())
+        lastRow = 0  # i have the feeling that this is not the most optimal way
+        for row in sorted(rows):
+            lastRow = row
+        self.tablemodel.insertRow(lastRow)
+
+    def _actDataChange(self):
+        if self.__notrigger:
+            return
+        # adds empty lines if none are present after editing, also checks if any changes have been done
+        self.__changes = True
+        is_empty = False
+        for row in range(self.tablemodel.rowCount()):
+            row_filled = False
+            for column in range(self.tablemodel.columnCount()):
+                cell_data = self.tablemodel.item(row, column)
+                if cell_data and str(cell_data.text()).strip() != "":
+                    row_filled = True
+                    break
+            if not row_filled:  # at least one empty line
+                is_empty = True
+                break
+        if not is_empty:
+            self.tablemodel.setRowCount(self.tablemodel.rowCount()+1)
+
+    def _fctChangeCheck(self):
+        if self.__changes:
+            dlg = QMessageBox(parent=self)
+            dlg.setIcon(QMessageBox.Warning)
+            dlg.setWindowTitle(i18n['dialogue_changed_title'])
+            dlg.setText(i18n['dia_ref_confirm_changes'])
+            dlg.setStandardButtons(QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel)
+            dlg.setDefaultButton(QMessageBox.Save)
+            dlg.setEscapeButton(QMessageBox.Cancel)
+            returnal = dlg.exec_()
+            if returnal == QMessageBox.Cancel:
+                return False
+            if returnal == QMessageBox.Save:
+                self._fctChangeCurrentData()
+                return True
+        return True
+
+    def _actChangeTable(self):
+        if self.__notrigger:
+            return
+        if not self._fctChangeCheck():
+            self.__notrigger = True
+            self._fctSetComboRef(self._var_lastref)
+            self.__notrigger = False
+            return
+        value = str(self.ref_combo.currentText()).strip()
+        #index = self.ref_combo.findText(value, QtCore.Qt.MatchFixedString)
+        self._fctFillTable(value)
+
+
 class SelectionDialogue(QDialog):
     """
     Accepts two lists, presumes ever element on each list is an overall unique string (but case sensitive, so that
@@ -945,9 +1203,9 @@ class RootNodeDialogue(QDialog):
     def __init__(self, root_node: SimpleSpchtNode, childs=None, parent=None):
         super().__init__(parent)
         self.setWindowTitle(i18n['root_dia_title'])
-        self.setMinimumWidth(300)
+        self.setMinimumWidth(400)
         self.setMinimumHeight(200)
-        self.resize(300, 200)
+        self.resize(400, 200)
         QBtn = QDialogButtonBox.Save | QDialogButtonBox.Cancel
 
         inputs = QFormLayout()
